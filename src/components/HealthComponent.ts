@@ -59,10 +59,9 @@ export class HealthComponent {
       }
     });
 
-    // Invulnerabilidade temporária
+    // Invulnerabilidade temporária garantida
     if (this.invulnerableDuration > 0) {
-      this.isInvulnerable = true;
-      this.invulnerableTimer = this.invulnerableDuration;
+      this.setInvulnerable(this.invulnerableDuration);
     }
 
     if (this.onDamageCallback) {
@@ -78,6 +77,11 @@ export class HealthComponent {
     return true;
   }
 
+  public setInvulnerable(durationMs: number) {
+    this.isInvulnerable = true;
+    this.invulnerableTimer = Math.max(this.invulnerableTimer, durationMs);
+  }
+
   public heal(amount: number) {
     if (this.currentHp <= 0) return;
     this.currentHp = Math.min(this.maxHp, this.currentHp + amount);
@@ -88,6 +92,7 @@ export class HealthComponent {
       this.invulnerableTimer -= delta;
       if (this.invulnerableTimer <= 0) {
         this.isInvulnerable = false;
+        this.invulnerableTimer = 0;
         this.owner.setAlpha(1);
       }
     }

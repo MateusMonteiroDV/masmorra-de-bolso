@@ -5,10 +5,12 @@ import { MagicProjectile } from '../entities/projectiles/MagicProjectile';
 import { ArrowProjectile } from '../entities/projectiles/ArrowProjectile';
 import { CoinDrop } from '../entities/items/CoinDrop';
 import { CONSTANTS } from '../core/Constants';
+import { GameState } from '../core/GameState';
 import { AudioService } from './AudioService';
 
 export class CombatSystem {
   private scene: Phaser.Scene;
+  private lastBlockVisualTime: number = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -30,7 +32,7 @@ export class CombatSystem {
     this.scene.physics.add.collider(projectileGroup, wallGroup, (proj) => proj.destroy());
     this.scene.physics.add.collider(arrowGroup, wallGroup, (arrow) => arrow.destroy());
 
-    // 2. Flecha do Roberto acertando Inimigos (Knockback + Dano 2)
+    // 2. Flecha do Roberto acertando Inimigos (Knockback + Dano)
     this.scene.physics.add.overlap(arrowGroup, enemyGroup, (arrowObj, enemyObj) => {
       const arrow = arrowObj as ArrowProjectile;
       const enemy = enemyObj as Enemy;
@@ -42,59 +44,67 @@ export class CombatSystem {
       const p = pObj as Player;
       const e = eObj as Enemy;
 
-      if (!p.health.isInvulnerable && !p.health.isDead() && !e.health.isDead()) {
+      if (!p.health.isInvulnerable && !p.health.isDead() && !e.health.isDead() && e.contactCooldownTimer <= 0) {
         // Bloqueio perfeito com Escudo
         if (p.isDefending) {
-          p.health.isInvulnerable = true;
-          this.scene.time.delayedCall(280, () => {
-            if (p.active) p.health.isInvulnerable = false;
-          });
+          // Cooldown de contato no monstro para impedir spam de colisão
+          e.contactCooldownTimer = 850;
 
-          AudioService.playAttackSwing();
+          // Proteção curta e segura no jogador via HealthComponent
+          p.health.setInvulnerable(200);
 
-          // Efeito de faísca azul de bloqueio
-          const spark = this.scene.add.graphics();
-          spark.fillStyle(0x38bdf8, 1);
-          spark.lineStyle(1.5, 0xffffff, 1);
-          const bx = (p.x + e.x) / 2;
-          const by = (p.y + e.y) / 2;
-          spark.strokeCircle(bx, by, 10);
-          spark.fillCircle(bx, by, 8);
-          spark.setDepth(CONSTANTS.DEPTH.EFFECTS);
-          this.scene.tweens.add({
-            targets: spark,
-            scaleX: 1.5,
-            scaleY: 1.5,
-            alpha: 0,
-            duration: 180,
-            onComplete: () => spark.destroy()
-          });
-
-          // Texto flutuante: BLOQUEADO!
-          const blockText = this.scene.add.text(p.x, p.y - 20, 'BLOQUEADO!', {
-            fontFamily: 'monospace',
-            fontSize: '7px',
-            color: '#38bdf8',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 2
-          }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
-          this.scene.tweens.add({
-            targets: blockText,
-            y: p.y - 34,
-            alpha: 0,
-            duration: 450,
-            onComplete: () => blockText.destroy()
-          });
-
-          // Empurra o monstro para trás (Repulsão do escudo)
+          // Empurra o monstro com repulsão firme para longe do Roberto (aprimorada pelo Bastião de Ferro)
+          const repulsionForce = 220 * (GameState.getComputedPlayerStats().shieldRepulsionMultiplier ?? 1);
           if (e.movement) {
-            e.movement.applyKnockback(p.x, p.y, 160, 130);
+            e.movement.applyKnockback(p.x, p.y, repulsionForce, 180);
+          }
+
+          // Efeito visual e sonoro controlado por throttle
+          const now = this.scene.time.now;
+          if (now - this.lastBlockVisualTime > 180) {
+            this.lastBlockVisualTime = now;
+            AudioService.playShieldBlock();
+
+            // Faísca de impacto localizada exatamente na posição do escudo
+            const shieldX = p.x + (p.facing === 'd' ? 14 : -14);
+            const shieldY = p.y + 4;
+            const spark = this.scene.add.graphics({ x: shieldX, y: shieldY });
+            spark.fillStyle(0x38bdf8, 0.9);
+            spark.lineStyle(2, 0xffffff, 1);
+            spark.strokeCircle(0, 0, 9);
+            spark.fillCircle(0, 0, 7);
+            spark.setDepth(CONSTANTS.DEPTH.EFFECTS);
+            this.scene.tweens.add({
+              targets: spark,
+              scaleX: 1.6,
+              scaleY: 1.6,
+              alpha: 0,
+              duration: 150,
+              onComplete: () => spark.destroy()
+            });
+
+            // Texto flutuante: BLOQUEADO!
+            const blockText = this.scene.add.text(p.x, p.y - 20, '🛡️ BLOQUEADO!', {
+              fontFamily: 'monospace',
+              fontSize: '7.5px',
+              color: '#38bdf8',
+              fontStyle: 'bold',
+              stroke: '#000000',
+              strokeThickness: 2
+            }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+            this.scene.tweens.add({
+              targets: blockText,
+              y: p.y - 34,
+              alpha: 0,
+              duration: 400,
+              onComplete: () => blockText.destroy()
+            });
           }
           return;
         }
 
         // Dano normal sofrido quando não está defendendo
+        e.contactCooldownTimer = 850;
         const incomingDmg = e.contactDamage;
         if (incomingDmg > 0) {
           const took = p.health.takeDamage(incomingDmg);
@@ -113,17 +123,13 @@ export class CombatSystem {
 
       if (!p.health.isInvulnerable && !p.health.isDead()) {
         if (p.isDefending) {
-          // Escudo deflete projétil mágico
-          p.health.isInvulnerable = true;
-          this.scene.time.delayedCall(220, () => {
-            if (p.active) p.health.isInvulnerable = false;
-          });
+          // Escudo deflete projétil mágico com som e proteção
+          p.health.setInvulnerable(200);
+          AudioService.playShieldBlock();
 
-          AudioService.playAttackSwing();
-
-          const blockText = this.scene.add.text(p.x, p.y - 20, 'BLOQUEADO!', {
+          const blockText = this.scene.add.text(p.x, p.y - 20, '🛡️ BLOQUEADO!', {
             fontFamily: 'monospace',
-            fontSize: '7px',
+            fontSize: '7.5px',
             color: '#38bdf8',
             fontStyle: 'bold',
             stroke: '#000000',
@@ -133,7 +139,7 @@ export class CombatSystem {
             targets: blockText,
             y: p.y - 34,
             alpha: 0,
-            duration: 450,
+            duration: 400,
             onComplete: () => blockText.destroy()
           });
 

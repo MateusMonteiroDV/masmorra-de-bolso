@@ -63,7 +63,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
     this.contentContainer.removeAll(true);
 
     const modalWidth = 320;
-    const modalHeight = 210;
+    const modalHeight = 242;
     const mx = (CONSTANTS.GAME_WIDTH - modalWidth) / 2;
     const my = (CONSTANTS.GAME_HEIGHT - modalHeight) / 2;
 
@@ -76,29 +76,29 @@ export class ShopModal extends Phaser.GameObjects.Container {
     this.contentContainer.add(bg);
 
     // Título
-    const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 16, 'MELHORIAS PERMANENTES', {
+    const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 13, 'MELHORIAS PERMANENTES', {
       fontFamily: 'monospace',
-      fontSize: '11px',
+      fontSize: '10.5px',
       color: '#f59e0b',
       fontStyle: 'bold'
     }).setOrigin(0.5);
     this.contentContainer.add(title);
 
     // Ouro do Jogador
-    this.goldText = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 30, `Ouro Guardado: ${GameState.bankedGold} G`, {
+    this.goldText = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 26, `Ouro Guardado: ${GameState.bankedGold} G`, {
       fontFamily: 'monospace',
-      fontSize: '9px',
+      fontSize: '8.5px',
       color: '#fbbf24'
     }).setOrigin(0.5);
     this.contentContainer.add(this.goldText);
 
     // Lista de Upgrades
-    let startY = my + 46;
-    const itemHeight = 34;
+    let startY = my + 37;
+    const itemHeight = 29;
 
     UPGRADE_DEFINITIONS.forEach((def, index) => {
       const iy = startY + index * itemHeight;
-      const currentLevel = GameState.upgrades[def.key];
+      const currentLevel = GameState.upgrades[def.key] ?? 0;
       const cost = UpgradeSystem.getUpgradeCost(def.key);
       const isMax = currentLevel >= def.maxLevel;
       const canAfford = !isMax && cost !== null && GameState.bankedGold >= cost;
@@ -106,30 +106,30 @@ export class ShopModal extends Phaser.GameObjects.Container {
       // Linha de item
       const itemBg = this.scene.add.graphics();
       itemBg.fillStyle(0x232736, 0.7);
-      itemBg.fillRoundedRect(mx + 10, iy, modalWidth - 20, itemHeight - 4, 4);
+      itemBg.fillRoundedRect(mx + 8, iy, modalWidth - 16, 26, 3);
       this.contentContainer.add(itemBg);
 
       // Nome do Upgrade e Nível
       const levelDots = '● '.repeat(currentLevel) + '○ '.repeat(def.maxLevel - currentLevel);
-      const nameText = this.scene.add.text(mx + 16, iy + 4, `${def.name} [${levelDots.trim()}]`, {
+      const nameText = this.scene.add.text(mx + 13, iy + 3, `${def.name} [${levelDots.trim()}]`, {
         fontFamily: 'monospace',
-        fontSize: '8.5px',
+        fontSize: '8px',
         color: '#f8fafc',
         fontStyle: 'bold'
       });
       this.contentContainer.add(nameText);
 
       // Descrição
-      const descText = this.scene.add.text(mx + 16, iy + 17, def.description, {
+      const descText = this.scene.add.text(mx + 13, iy + 14, def.description, {
         fontFamily: 'monospace',
-        fontSize: '7.5px',
+        fontSize: '7px',
         color: '#94a3b8'
       });
       this.contentContainer.add(descText);
 
       // Botão de Compra
-      const btnX = mx + modalWidth - 62;
-      const btnY = iy + 5;
+      const btnX = mx + modalWidth - 56;
+      const btnY = iy + 3;
       const btnW = 46;
       const btnH = 20;
 
@@ -142,7 +142,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
       const btnLabel = isMax ? 'MAX' : `${cost} G`;
       const btnText = this.scene.add.text(btnX + btnW / 2, btnY + btnH / 2, btnLabel, {
         fontFamily: 'monospace',
-        fontSize: '8px',
+        fontSize: '7.5px',
         color: '#ffffff',
         fontStyle: 'bold'
       }).setOrigin(0.5);
@@ -161,10 +161,10 @@ export class ShopModal extends Phaser.GameObjects.Container {
     });
 
     // Botão Fechar
-    const closeBtnY = my + modalHeight - 22;
+    const closeBtnY = my + modalHeight - 14;
     const closeBtn = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, closeBtnY, '[ X FECHAR ]', {
       fontFamily: 'monospace',
-      fontSize: '9px',
+      fontSize: '8.5px',
       color: '#94a3b8'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 

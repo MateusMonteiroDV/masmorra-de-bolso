@@ -10,6 +10,7 @@ import { EventBus } from '../../core/EventBus';
 export abstract class Enemy extends Entity {
   public goldReward: number = 2;
   public contactDamage: number = 1;
+  public contactCooldownTimer: number = 0;
   protected dropGroup?: Phaser.GameObjects.Group;
 
   constructor(
@@ -63,6 +64,13 @@ export abstract class Enemy extends Entity {
         this.destroy();
       }
     });
+  }
+
+  public override update(time: number, delta: number) {
+    super.update(time, delta);
+    if (this.contactCooldownTimer > 0) {
+      this.contactCooldownTimer -= delta;
+    }
   }
 
   public abstract aiBehavior(player: Phaser.GameObjects.Sprite, delta: number): void;

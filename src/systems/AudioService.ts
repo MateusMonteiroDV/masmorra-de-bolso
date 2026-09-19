@@ -46,6 +46,45 @@ class AudioManager {
     osc.stop(this.ctx.currentTime + 0.12);
   }
 
+  // Efeito de Bloqueio com Escudo (Impacto metálico nítido / Clang)
+  public playShieldBlock() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Oscilador 1: Ressonância metálica aguda (Triangle)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(920, now);
+    osc1.frequency.exponentialRampToValueAtTime(460, now + 0.14);
+
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+
+    // Oscilador 2: 'Tick' de impacto rígido inicial (Square)
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(1400, now);
+    osc2.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+
+    gain2.gain.setValueAtTime(0.18, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc2.connect(gain2);
+    gain2.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc1.stop(now + 0.14);
+    osc2.start(now);
+    osc2.stop(now + 0.05);
+  }
+
   // Efeito de Esquiva / Dash (Whoosh rápido)
   public playDash() {
     if (this.isMuted) return;
