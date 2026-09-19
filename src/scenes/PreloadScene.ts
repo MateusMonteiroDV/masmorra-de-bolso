@@ -181,19 +181,69 @@ export class PreloadScene extends Phaser.Scene {
       repeat: 0
     });
 
-    // Slime - Movimentação
+    // 8. Slime - Movimentação / Caminhada (Frames 00 a 06: pulo e salto suave)
     anims.create({
       key: 'slime_walk_d',
-      frames: Array.from({ length: 15 }, (_, i) => ({ key: `slime_d_${i.toString().padStart(2, '0')}` })),
-      frameRate: 10,
+      frames: Array.from({ length: 7 }, (_, i) => ({ key: `slime_d_${i.toString().padStart(2, '0')}` })),
+      frameRate: 8,
       repeat: -1
     });
 
     anims.create({
       key: 'slime_walk_e',
-      frames: Array.from({ length: 15 }, (_, i) => ({ key: `slime_e_${i.toString().padStart(2, '0')}` })),
-      frameRate: 10,
+      frames: Array.from({ length: 7 }, (_, i) => ({ key: `slime_e_${i.toString().padStart(2, '0')}` })),
+      frameRate: 8,
       repeat: -1
+    });
+
+    // 9. Slime - Ataque (Frames 07 a 09: garras brancas e investida)
+    anims.create({
+      key: 'slime_attack_d',
+      frames: [
+        { key: 'slime_d_07' },
+        { key: 'slime_d_08' },
+        { key: 'slime_d_09' }
+      ],
+      frameRate: 8,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'slime_attack_e',
+      frames: [
+        { key: 'slime_e_07' },
+        { key: 'slime_e_08' },
+        { key: 'slime_e_09' }
+      ],
+      frameRate: 8,
+      repeat: 0
+    });
+
+    // 10. Slime - Morte (Frames 10 a 14: dano vermelho -> olhos em X -> poça esmagada)
+    anims.create({
+      key: 'slime_death_d',
+      frames: [
+        { key: 'slime_d_10' },
+        { key: 'slime_d_11' },
+        { key: 'slime_d_12' },
+        { key: 'slime_d_13' },
+        { key: 'slime_d_14' }
+      ],
+      frameRate: 8,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'slime_death_e',
+      frames: [
+        { key: 'slime_e_10' },
+        { key: 'slime_e_11' },
+        { key: 'slime_e_12' },
+        { key: 'slime_e_13' },
+        { key: 'slime_e_14' }
+      ],
+      frameRate: 8,
+      repeat: 0
     });
   }
 }
