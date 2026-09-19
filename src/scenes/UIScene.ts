@@ -4,11 +4,13 @@ import { ASSET_KEYS } from '../assets/AssetManifest';
 import { EventBus } from '../core/EventBus';
 import { GameState } from '../core/GameState';
 import { RelicSelectModal } from '../ui/RelicSelectModal';
+import { NetworkManager } from '../network/NetworkManager';
 
 export class UIScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
   private hpText?: Phaser.GameObjects.Text;
   private goldText!: Phaser.GameObjects.Text;
+  private p2pBadgeText?: Phaser.GameObjects.Text;
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
   private notificationText!: Phaser.GameObjects.Text;
@@ -36,6 +38,17 @@ export class UIScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 2
     });
+
+    // Indicador P2P no topo central da tela
+    if (NetworkManager.isConnected()) {
+      this.p2pBadgeText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#22c55e',
+        stroke: '#052e16',
+        strokeThickness: 2
+      }).setOrigin(0.5);
+    }
 
     // 3. Guia de Teclas no Rodapé da Tela
     this.add.text(
@@ -139,6 +152,25 @@ export class UIScene extends Phaser.Scene {
         this.scene.resume('DungeonScene');
         this.refreshRelicsBar();
       });
+    });
+
+    NetworkManager.onPeerJoin(() => {
+      if (!this.p2pBadgeText || !this.p2pBadgeText.active) {
+        this.p2pBadgeText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
+          fontFamily: 'monospace',
+          fontSize: '8px',
+          color: '#22c55e',
+          stroke: '#052e16',
+          strokeThickness: 2
+        }).setOrigin(0.5);
+      }
+    });
+
+    NetworkManager.onPeerLeave(() => {
+      if (this.p2pBadgeText && this.p2pBadgeText.active) {
+        this.p2pBadgeText.destroy();
+        this.p2pBadgeText = undefined;
+      }
     });
 
     this.events.on('shutdown', () => {

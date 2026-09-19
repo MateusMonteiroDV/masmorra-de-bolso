@@ -1,6 +1,6 @@
-import * as Phaser from 'phaser';
 import { CONSTANTS } from '../../core/Constants';
 import { Enemy } from '../enemies/Enemy';
+import { NetworkManager } from '../../network/NetworkManager';
 
 export class ArrowProjectile extends Phaser.Physics.Arcade.Sprite {
   public damage: number;
@@ -50,7 +50,21 @@ export class ArrowProjectile extends Phaser.Physics.Arcade.Sprite {
       enemy.movement.applyKnockback(this.x, this.y, this.knockbackForce, 140);
     }
 
-    // 3. Efeito visual de nuvem de impacto (nuvem-monstro)
+    // 3. Sincroniza o dano no monstro com os outros jogadores na sala P2P
+    const enemyId = enemy.getData?.('networkId');
+    if (enemyId && NetworkManager.isConnected()) {
+      NetworkManager.sendAction({
+        type: 'enemy_hit',
+        payload: {
+          enemyId,
+          damage: this.damage,
+          sourceX: this.x,
+          sourceY: this.y
+        }
+      });
+    }
+
+    // 4. Efeito visual de nuvem de impacto (nuvem-monstro)
     const cloud = this.scene.add.sprite(this.x, this.y, 'nuvem_impacto');
     cloud.setDepth(CONSTANTS.DEPTH.EFFECTS);
     cloud.setScale(0.8);
@@ -59,7 +73,7 @@ export class ArrowProjectile extends Phaser.Physics.Arcade.Sprite {
       cloud.destroy();
     });
 
-    // 4. Destrói o projétil da flecha
+    // 5. Destrói o projétil da flecha
     this.destroy();
   }
 

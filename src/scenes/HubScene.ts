@@ -3,17 +3,31 @@ import { CONSTANTS } from '../core/Constants';
 import { ASSET_KEYS } from '../assets/AssetManifest';
 import { GameState } from '../core/GameState';
 import { ShopModal } from '../ui/ShopModal';
+import { MultiplayerModal } from '../ui/MultiplayerModal';
 import { Player } from '../entities/player/Player';
+import { RemotePlayer } from '../entities/player/RemotePlayer';
+import { NetworkManager } from '../network/NetworkManager';
+import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
 
 export class HubScene extends Phaser.Scene {
   private player!: Player;
   private shopNpc!: Phaser.GameObjects.Sprite;
   private portal!: Phaser.Physics.Arcade.Sprite;
+  private p2pTotem!: Phaser.Physics.Arcade.Sprite;
+
   private shopModal!: ShopModal;
+  private multiplayerModal!: MultiplayerModal;
   private isModalOpen: boolean = false;
+
   private npcPromptText?: Phaser.GameObjects.Text;
   private portalPromptText?: Phaser.GameObjects.Text;
+  private p2pPromptText?: Phaser.GameObjects.Text;
   private goldDisplayText!: Phaser.GameObjects.Text;
+  private p2pStatusText!: Phaser.GameObjects.Text;
+
+  private remotePlayers: Map<string, RemotePlayer> = new Map();
+  private networkSyncTimer: number = 0;
+  private arrowGroup!: Phaser.GameObjects.Group;
 
   constructor() {
     super({ key: 'HubScene' });
@@ -22,6 +36,9 @@ export class HubScene extends Phaser.Scene {
   public create() {
     const width = CONSTANTS.GAME_WIDTH;
     const height = CONSTANTS.GAME_HEIGHT;
+
+    this.remotePlayers.clear();
+    this.arrowGroup = this.add.group({ runChildUpdate: true });
 
     // 1. Cenário do Hub (Chão de pedra aconchegante)
     const tileSize = CONSTANTS.TILE_SIZE;
@@ -93,11 +110,32 @@ export class HubScene extends Phaser.Scene {
     }).setOrigin(0.5);
     portalLabel.setDepth(CONSTANTS.DEPTH.UI);
 
-    // 5. Jogador na Base
+    // 5. Totem / Cristal P2P Multiplayer (Acima da fogueira)
+    this.p2pTotem = this.physics.add.sprite(width / 2, height / 2 - 50, ASSET_KEYS.ENVIRONMENT.PORTAL);
+    this.p2pTotem.setDepth(CONSTANTS.DEPTH.DECORATION);
+    this.p2pTotem.setTint(0x38bdf8);
+    this.p2pTotem.setScale(0.85);
+    this.tweens.add({
+      targets: this.p2pTotem,
+      rotation: -6.28,
+      duration: 4000,
+      repeat: -1
+    });
+
+    const p2pLabel = this.add.text(this.p2pTotem.x, this.p2pTotem.y - 18, 'Totem Multiplayer P2P', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#38bdf8',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5);
+    p2pLabel.setDepth(CONSTANTS.DEPTH.UI);
+
+    // 6. Jogador na Base
     this.player = new Player(this, width / 2, height / 2 + 35);
     this.physics.add.collider(this.player, walls);
 
-    // 6. Textos de HUD do Hub
+    // 7. Textos de HUD do Hub
     this.goldDisplayText = this.add.text(12, 10, `Ouro: ${GameState.bankedGold} G`, {
       fontFamily: 'monospace',
       fontSize: '9px',
@@ -106,26 +144,120 @@ export class HubScene extends Phaser.Scene {
       strokeThickness: 2
     }).setDepth(CONSTANTS.DEPTH.UI);
 
-    this.add.text(width - 12, 10, `Tentativas: ${GameState.totalRuns}`, {
+    // Botão / Status P2P no canto superior direito
+    this.p2pStatusText = this.add.text(width - 12, 10, '[ 🌐 SALA MULTIPLAYER ]', {
       fontFamily: 'monospace',
       fontSize: '8px',
-      color: '#94a3b8',
+      color: '#38bdf8',
       stroke: '#000000',
       strokeThickness: 2
-    }).setOrigin(1, 0).setDepth(CONSTANTS.DEPTH.UI);
+    }).setOrigin(1, 0).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
 
-    // 7. Janela Modal de Loja
+    this.p2pStatusText.on('pointerdown', () => {
+      this.openMultiplayerModal();
+    });
+
+    // 8. Janelas Modais
     this.shopModal = new ShopModal(this);
+    this.multiplayerModal = new MultiplayerModal(this);
 
     // Câmera do Hub
     this.cameras.main.setBackgroundColor('#0d0e15');
+
+    // 9. Configuração de Rede P2P
+    this.setupNetwork();
+
+    // Auto-join se a URL possuir ?room=XXXX
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam && !NetworkManager.currentRoomId) {
+      NetworkManager.join(roomParam, false);
+    }
+  }
+
+  private setupNetwork() {
+    // Cria jogador remoto para peers já conectados
+    NetworkManager.connectedPeers.forEach(peerId => {
+      this.createRemotePlayer(peerId);
+    });
+
+    NetworkManager.onPeerJoin((peerId: string) => {
+      this.createRemotePlayer(peerId);
+      this.updateP2PStatusText();
+    });
+
+    NetworkManager.onPeerLeave((peerId: string) => {
+      const remote = this.remotePlayers.get(peerId);
+      if (remote) {
+        remote.destroy();
+        this.remotePlayers.delete(peerId);
+      }
+      this.updateP2PStatusText();
+    });
+
+    NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+      let remote = this.remotePlayers.get(peerId);
+      if (!remote) {
+        remote = this.createRemotePlayer(peerId);
+      }
+      remote.applyNetworkState(state);
+    });
+
+    NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
+      const remote = this.remotePlayers.get(peerId);
+      if (action.type === 'shoot_arrow' && remote) {
+        remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
+      } else if (action.type === 'melee_attack' && remote) {
+        remote.remoteMeleeAttack();
+      } else if (action.type === 'scene_sync') {
+        if (action.payload?.scene === 'DungeonScene') {
+          this.startDungeonRun(false);
+        }
+      }
+    });
+
+    this.updateP2PStatusText();
+  }
+
+  private createRemotePlayer(peerId: string): RemotePlayer {
+    if (this.remotePlayers.has(peerId)) {
+      return this.remotePlayers.get(peerId)!;
+    }
+    const remote = new RemotePlayer(this, this.player.x + 30, this.player.y, peerId);
+    this.remotePlayers.set(peerId, remote);
+    return remote;
+  }
+
+  private updateP2PStatusText() {
+    if (!this.p2pStatusText || !this.p2pStatusText.active) return;
+    if (NetworkManager.isConnected()) {
+      this.p2pStatusText.setText(`[ 🟢 P2P: ${NetworkManager.currentRoomId} (2P) ]`);
+      this.p2pStatusText.setColor('#22c55e');
+    } else if (NetworkManager.currentRoomId) {
+      this.p2pStatusText.setText(`[ 🟡 P2P: ${NetworkManager.currentRoomId} (Aguardando) ]`);
+      this.p2pStatusText.setColor('#f59e0b');
+    } else {
+      this.p2pStatusText.setText('[ 🌐 SALA MULTIPLAYER ]');
+      this.p2pStatusText.setColor('#38bdf8');
+    }
   }
 
   public override update(time: number, delta: number) {
     if (this.isModalOpen) return;
 
     this.player.update(time, delta);
+    this.player.handleActions(this.physics.add.group(), this.arrowGroup);
     this.goldDisplayText.setText(`Ouro: ${GameState.bankedGold} G`);
+    this.updateP2PStatusText();
+
+    // Sincronização de rede P2P a cada 40ms (25 FPS de taxa de atualização de rede)
+    this.networkSyncTimer += delta;
+    if (this.networkSyncTimer >= 40) {
+      this.networkSyncTimer = 0;
+      if (NetworkManager.isConnected()) {
+        NetworkManager.sendState(this.player.getNetworkState());
+      }
+    }
 
     // 1. Proximidade com o NPC Ferreiro / Loja
     const distNpc = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.shopNpc.x, this.shopNpc.y);
@@ -148,11 +280,32 @@ export class HubScene extends Phaser.Scene {
       this.npcPromptText = undefined;
     }
 
-    // 2. Proximidade com o Portal da Masmorra
+    // 2. Proximidade com o Totem P2P Multiplayer
+    const distP2P = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.p2pTotem.x, this.p2pTotem.y);
+    if (distP2P < 28) {
+      if (!this.p2pPromptText) {
+        this.p2pPromptText = this.add.text(this.p2pTotem.x, this.p2pTotem.y + 16, '[E] Multiplayer P2P', {
+          fontFamily: 'monospace',
+          fontSize: '8px',
+          color: '#38bdf8',
+          stroke: '#000000',
+          strokeThickness: 2
+        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+      }
+
+      if (this.player.controller.isInteractPressed()) {
+        this.openMultiplayerModal();
+      }
+    } else if (this.p2pPromptText) {
+      this.p2pPromptText.destroy();
+      this.p2pPromptText = undefined;
+    }
+
+    // 3. Proximidade com o Portal da Masmorra
     const distPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.portal.x, this.portal.y);
     if (distPortal < 28) {
       if (!this.portalPromptText) {
-        this.portalPromptText = this.add.text(this.portal.x, this.portal.y + 18, '[E] Descer', {
+        this.portalPromptText = this.add.text(this.portal.x, this.portal.y + 18, '[E] Descer Masmorra', {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#a855f7',
@@ -162,7 +315,7 @@ export class HubScene extends Phaser.Scene {
       }
 
       if (this.player.controller.isInteractPressed()) {
-        this.startDungeonRun();
+        this.startDungeonRun(true);
       }
     } else if (this.portalPromptText) {
       this.portalPromptText.destroy();
@@ -179,7 +332,30 @@ export class HubScene extends Phaser.Scene {
     });
   }
 
-  private startDungeonRun() {
+  private openMultiplayerModal() {
+    this.isModalOpen = true;
+    this.player.setVelocity(0, 0);
+    this.multiplayerModal.show(
+      () => {
+        this.isModalOpen = false;
+        this.updateP2PStatusText();
+      },
+      () => {
+        this.isModalOpen = false;
+        this.startDungeonRun(true);
+      }
+    );
+  }
+
+  private startDungeonRun(isHostInitiator: boolean = true) {
+    if (isHostInitiator && NetworkManager.isConnected()) {
+      // Sincroniza a transição de cena com o outro jogador via WebRTC
+      NetworkManager.sendAction({
+        type: 'scene_sync',
+        payload: { scene: 'DungeonScene' }
+      });
+    }
+
     GameState.startNewRun();
     this.scene.start('DungeonScene');
     this.scene.launch('UIScene');

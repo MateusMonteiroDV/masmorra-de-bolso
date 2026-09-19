@@ -9,6 +9,8 @@ import { GameState, PlayerStats } from '../../core/GameState';
 import { EventBus } from '../../core/EventBus';
 import { ArrowProjectile } from '../projectiles/ArrowProjectile';
 import { AudioService } from '../../systems/AudioService';
+import { NetworkManager } from '../../network/NetworkManager';
+import { PlayerNetworkState } from '../../network/NetworkTypes';
 
 export class Player extends Entity {
   public controller: PlayerController;
@@ -22,6 +24,11 @@ export class Player extends Entity {
 
   private actionLockTimer: number = 0;
   private bowCooldownTimer: number = 0;
+
+  // Seta indicadora visual para o jogador saber quem ele é no mapa
+  private indicatorArrow!: Phaser.GameObjects.Graphics;
+  private indicatorText?: Phaser.GameObjects.Text;
+  private arrowBobOffset: { val: number } = { val: 0 };
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'roberto_d_00');
@@ -48,7 +55,42 @@ export class Player extends Entity {
       () => this.syncHealthUI()
     );
 
+    // Criação da seta indicadora pixel-art verde neon acima da cabeça do personagem
+    this.indicatorArrow = scene.add.graphics();
+    this.indicatorArrow.setDepth(CONSTANTS.DEPTH.UI + 5);
+    this.drawIndicatorArrow();
+
+    this.indicatorText = scene.add.text(x, y - 44, 'VOCÊ', {
+      fontFamily: 'monospace',
+      fontSize: '7px',
+      color: '#4ade80',
+      stroke: '#052e16',
+      strokeThickness: 2
+    }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI + 5);
+
+    scene.tweens.add({
+      targets: this.arrowBobOffset,
+      val: -5,
+      duration: 450,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
     this.syncHealthUI();
+  }
+
+  private drawIndicatorArrow() {
+    this.indicatorArrow.clear();
+    // Contorno escuro sólido
+    this.indicatorArrow.fillStyle(0x052e16, 1);
+    this.indicatorArrow.fillTriangle(-6, -10, 6, -10, 0, 1);
+    // Corpo verde neon vibrante
+    this.indicatorArrow.fillStyle(0x22c55e, 1);
+    this.indicatorArrow.fillTriangle(-5, -9, 5, -9, 0, 0);
+    // Detalhe brilhante interno
+    this.indicatorArrow.fillStyle(0xdcfce7, 1);
+    this.indicatorArrow.fillTriangle(-2, -8, 2, -8, 0, -3);
   }
 
   public syncHealthUI() {
@@ -64,13 +106,31 @@ export class Player extends Entity {
     this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
     AudioService.playPlayerHurt();
 
+    if (this.indicatorArrow) this.indicatorArrow.setVisible(false);
+    if (this.indicatorText) this.indicatorText.setVisible(false);
+
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_DIED);
   }
 
   public override update(time: number, delta: number) {
-    if (this.health.isDead()) return;
+    if (this.health.isDead()) {
+      if (this.indicatorArrow) this.indicatorArrow.setVisible(false);
+      if (this.indicatorText) this.indicatorText.setVisible(false);
+      return;
+    }
 
     super.update(time, delta);
+
+    // Atualiza a posição da seta indicadora (VOCÊ) logo acima da cabeça do Roberto
+    if (this.indicatorArrow && this.indicatorArrow.active) {
+      this.indicatorArrow.setVisible(true);
+      this.indicatorArrow.setPosition(this.x, this.y - 34 + this.arrowBobOffset.val);
+      if (this.indicatorText && this.indicatorText.active) {
+        this.indicatorText.setVisible(true);
+        this.indicatorText.setPosition(this.x, this.y - 44 + this.arrowBobOffset.val);
+      }
+    }
+
     this.attackComponent.update(delta);
 
     if (this.bowCooldownTimer > 0) {
@@ -183,6 +243,12 @@ export class Player extends Entity {
       this.stats.arrowDamage
     );
     arrowGroup.add(arrow);
+
+    // Transmite o disparo para outros jogadores conectados via P2P
+    NetworkManager.sendAction({
+      type: 'shoot_arrow',
+      payload: { targetX, targetY }
+    });
   }
 
   private meleeAttack(enemyGroup: Phaser.GameObjects.Group) {
@@ -207,7 +273,53 @@ export class Player extends Entity {
         if (enemyEntity.movement) {
           enemyEntity.movement.applyKnockback(this.x, this.y, 130, 120);
         }
+
+        const enemyId = (hitEnemy as any).getData?.('networkId');
+        if (enemyId && NetworkManager.isConnected()) {
+          NetworkManager.sendAction({
+            type: 'enemy_hit',
+            payload: {
+              enemyId,
+              damage,
+              sourceX: this.x,
+              sourceY: this.y
+            }
+          });
+        }
       }
     );
+
+    // Transmite o golpe melee para outros jogadores conectados via P2P
+    NetworkManager.sendAction({
+      type: 'melee_attack',
+      payload: { facing: this.facing }
+    });
+  }
+
+  public getNetworkState(): PlayerNetworkState {
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    return {
+      x: this.x,
+      y: this.y,
+      vx: body ? body.velocity.x : 0,
+      vy: body ? body.velocity.y : 0,
+      facing: this.facing,
+      anim: this.anims.currentAnim?.key || '',
+      isAttacking: this.isAttackingAnim,
+      isShooting: this.isShootingAnim,
+      isDefending: this.isDefending,
+      currentHp: this.health.currentHp,
+      maxHp: this.health.maxHp
+    };
+  }
+
+  public override destroy(fromScene?: boolean) {
+    if (this.indicatorArrow) {
+      this.indicatorArrow.destroy();
+    }
+    if (this.indicatorText) {
+      this.indicatorText.destroy();
+    }
+    super.destroy(fromScene);
   }
 }
