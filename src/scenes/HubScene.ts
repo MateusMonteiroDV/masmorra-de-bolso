@@ -335,10 +335,16 @@ export class HubScene extends Phaser.Scene {
   private openMultiplayerModal() {
     this.isModalOpen = true;
     this.player.setVelocity(0, 0);
-    this.multiplayerModal.show(() => {
-      this.isModalOpen = false;
-      this.updateP2PStatusText();
-    });
+    this.multiplayerModal.show(
+      () => {
+        this.isModalOpen = false;
+        this.updateP2PStatusText();
+      },
+      () => {
+        this.isModalOpen = false;
+        this.startDungeonRun(true);
+      }
+    );
   }
 
   private startDungeonRun(isHostInitiator: boolean = true) {

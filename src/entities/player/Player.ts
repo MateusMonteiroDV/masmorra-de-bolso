@@ -273,6 +273,19 @@ export class Player extends Entity {
         if (enemyEntity.movement) {
           enemyEntity.movement.applyKnockback(this.x, this.y, 130, 120);
         }
+
+        const enemyId = (hitEnemy as any).getData?.('networkId');
+        if (enemyId && NetworkManager.isConnected()) {
+          NetworkManager.sendAction({
+            type: 'enemy_hit',
+            payload: {
+              enemyId,
+              damage,
+              sourceX: this.x,
+              sourceY: this.y
+            }
+          });
+        }
       }
     );
 

@@ -13,7 +13,14 @@ export interface PlayerNetworkState {
 }
 
 export interface PlayerNetworkAction {
-  type: 'shoot_arrow' | 'melee_attack' | 'scene_sync' | 'enemy_damage' | 'chest_open';
+  type:
+    | 'shoot_arrow'
+    | 'melee_attack'
+    | 'scene_sync'
+    | 'enemy_hit'
+    | 'enemy_damage'
+    | 'chest_open'
+    | 'dungeon_victory';
   payload?: any;
 }
 
