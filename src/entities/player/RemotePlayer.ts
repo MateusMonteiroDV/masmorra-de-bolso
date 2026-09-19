@@ -23,6 +23,15 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     return this.currentHp <= 0;
   }
 
+  public markDead(): void {
+    this.currentHp = 0;
+    this.setFlipX(false);
+    try {
+      this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
+    } catch (e) {}
+    this.renderHpBar();
+  }
+
   constructor(scene: Phaser.Scene, x: number, y: number, peerId: string) {
     super(scene, x, y, 'roberto_d_00');
 

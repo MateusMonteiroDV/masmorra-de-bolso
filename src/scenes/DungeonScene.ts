@@ -153,11 +153,12 @@ export class DungeonScene extends Phaser.Scene {
 
     if (broadcast && NetworkManager.isConnected()) {
       NetworkManager.sendAction({
-        type: 'all_players_dead'
+        type: 'scene_sync',
+        payload: { scene: 'GameOverScene' }
       });
     }
 
-    this.time.delayedCall(1200, () => {
+    this.time.delayedCall(1000, () => {
       this.scene.stop('UIScene');
       this.scene.start('GameOverScene', { victory: false });
     });
@@ -228,6 +229,10 @@ export class DungeonScene extends Phaser.Scene {
       } else if (action.type === 'all_players_dead') {
         this.triggerAllPlayersDead(false);
       } else if (action.type === 'player_death') {
+        const deadPeer = this.remotePlayers.get(peerId);
+        if (deadPeer) {
+          deadPeer.markDead();
+        }
         if (this.player.health.isDead()) {
           const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
           if (!anyAllyAlive) {
@@ -236,8 +241,7 @@ export class DungeonScene extends Phaser.Scene {
         }
       } else if (action.type === 'scene_sync') {
         if (action.payload?.scene === 'GameOverScene') {
-          this.scene.stop('UIScene');
-          this.scene.start('GameOverScene', { victory: !!action.payload.victory });
+          this.triggerAllPlayersDead(false);
         } else if (action.payload?.scene === 'LobbyScene') {
           this.scene.stop('UIScene');
           this.scene.start('LobbyScene');
