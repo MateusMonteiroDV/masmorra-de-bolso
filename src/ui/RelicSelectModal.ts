@@ -6,6 +6,7 @@ import { AudioService } from '../systems/AudioService';
 
 export class RelicSelectModal extends Phaser.GameObjects.Container {
   private overlay: Phaser.GameObjects.Graphics;
+  private contentContainer: Phaser.GameObjects.Container;
   private onChosenCallback?: (relic: ActiveRelic) => void;
 
   constructor(scene: Phaser.Scene) {
@@ -20,14 +21,16 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
     this.overlay.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
     this.add(this.overlay);
 
+    this.contentContainer = scene.add.container(0, 0);
+    this.add(this.contentContainer);
+
     this.setVisible(false);
   }
 
   public show(onChosen: (relic: ActiveRelic) => void) {
     this.onChosenCallback = onChosen;
     this.setVisible(true);
-    this.removeAll(false);
-    this.add(this.overlay);
+    this.contentContainer.removeAll(true);
 
     // Título do Modal
     const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, 38, 'ESCOLHA UMA RELÍQUIA', {
@@ -38,7 +41,7 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5);
-    this.add(title);
+    this.contentContainer.add(title);
 
     // Obter 3 relíquias que o jogador ainda não tem
     const currentRelicIds = GameState.activeRelics.map(r => r.id);
@@ -114,12 +117,13 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
         AudioService.playBuyUpgrade();
         GameState.addRelic(relic);
         this.setVisible(false);
+        this.contentContainer.removeAll(true);
         if (this.onChosenCallback) {
           this.onChosenCallback(relic);
         }
       });
 
-      this.add(cardContainer);
+      this.contentContainer.add(cardContainer);
     });
   }
 }

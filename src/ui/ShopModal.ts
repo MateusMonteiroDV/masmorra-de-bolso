@@ -5,9 +5,11 @@ import { UPGRADE_DEFINITIONS, UpgradeSystem } from '../systems/UpgradeSystem';
 import { AudioService } from '../systems/AudioService';
 
 export class ShopModal extends Phaser.GameObjects.Container {
-  private overlay: Phaser.GameObjects.Graphics;
+  private overlay: Phaser.GameObjects.Rectangle;
+  private contentContainer: Phaser.GameObjects.Container;
   private goldText!: Phaser.GameObjects.Text;
   private onCloseCallback?: () => void;
+  private escKey?: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -15,10 +17,19 @@ export class ShopModal extends Phaser.GameObjects.Container {
     this.setDepth(CONSTANTS.DEPTH.MODAL);
     scene.add.existing(this);
 
-    this.overlay = scene.add.graphics();
-    this.overlay.fillStyle(0x000000, 0.8);
-    this.overlay.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
+    this.overlay = scene.add.rectangle(
+      CONSTANTS.GAME_WIDTH / 2,
+      CONSTANTS.GAME_HEIGHT / 2,
+      CONSTANTS.GAME_WIDTH,
+      CONSTANTS.GAME_HEIGHT,
+      0x000000,
+      0.82
+    );
+    this.overlay.setInteractive();
     this.add(this.overlay);
+
+    this.contentContainer = scene.add.container(0, 0);
+    this.add(this.contentContainer);
 
     this.setVisible(false);
   }
@@ -26,12 +37,30 @@ export class ShopModal extends Phaser.GameObjects.Container {
   public show(onClose: () => void) {
     this.onCloseCallback = onClose;
     this.setVisible(true);
+
+    if (this.scene.input.keyboard) {
+      this.escKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+      this.escKey.once('down', () => this.close());
+    }
+
     this.refreshUI();
   }
 
+  public close() {
+    if (this.escKey) {
+      this.escKey.removeAllListeners();
+      this.escKey = undefined;
+    }
+
+    this.setVisible(false);
+    this.contentContainer.removeAll(true);
+    if (this.onCloseCallback) {
+      this.onCloseCallback();
+    }
+  }
+
   public refreshUI() {
-    this.removeAll(false);
-    this.add(this.overlay);
+    this.contentContainer.removeAll(true);
 
     const modalWidth = 320;
     const modalHeight = 210;
@@ -44,7 +73,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
     bg.fillRoundedRect(mx, my, modalWidth, modalHeight, 6);
     bg.lineStyle(2, 0xd97706, 1);
     bg.strokeRoundedRect(mx, my, modalWidth, modalHeight, 6);
-    this.add(bg);
+    this.contentContainer.add(bg);
 
     // Título
     const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 16, 'MELHORIAS PERMANENTES', {
@@ -53,7 +82,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
       color: '#f59e0b',
       fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.add(title);
+    this.contentContainer.add(title);
 
     // Ouro do Jogador
     this.goldText = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 30, `Ouro Guardado: ${GameState.bankedGold} G`, {
@@ -61,7 +90,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
       fontSize: '9px',
       color: '#fbbf24'
     }).setOrigin(0.5);
-    this.add(this.goldText);
+    this.contentContainer.add(this.goldText);
 
     // Lista de Upgrades
     let startY = my + 46;
@@ -78,7 +107,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
       const itemBg = this.scene.add.graphics();
       itemBg.fillStyle(0x232736, 0.7);
       itemBg.fillRoundedRect(mx + 10, iy, modalWidth - 20, itemHeight - 4, 4);
-      this.add(itemBg);
+      this.contentContainer.add(itemBg);
 
       // Nome do Upgrade e Nível
       const levelDots = '● '.repeat(currentLevel) + '○ '.repeat(def.maxLevel - currentLevel);
@@ -88,7 +117,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
         color: '#f8fafc',
         fontStyle: 'bold'
       });
-      this.add(nameText);
+      this.contentContainer.add(nameText);
 
       // Descrição
       const descText = this.scene.add.text(mx + 16, iy + 17, def.description, {
@@ -96,7 +125,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
         fontSize: '7.5px',
         color: '#94a3b8'
       });
-      this.add(descText);
+      this.contentContainer.add(descText);
 
       // Botão de Compra
       const btnX = mx + modalWidth - 62;
@@ -108,7 +137,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
       const btnColor = isMax ? 0x475569 : (canAfford ? 0x059669 : 0x7f1d1d);
       btnBg.fillStyle(btnColor, 1);
       btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 3);
-      this.add(btnBg);
+      this.contentContainer.add(btnBg);
 
       const btnLabel = isMax ? 'MAX' : `${cost} G`;
       const btnText = this.scene.add.text(btnX + btnW / 2, btnY + btnH / 2, btnLabel, {
@@ -117,7 +146,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
         color: '#ffffff',
         fontStyle: 'bold'
       }).setOrigin(0.5);
-      this.add(btnText);
+      this.contentContainer.add(btnText);
 
       if (canAfford && cost !== null) {
         btnBg.setInteractive(new Phaser.Geom.Rectangle(btnX, btnY, btnW, btnH), Phaser.Geom.Rectangle.Contains);
@@ -137,14 +166,13 @@ export class ShopModal extends Phaser.GameObjects.Container {
       fontFamily: 'monospace',
       fontSize: '9px',
       color: '#94a3b8'
-    }).setOrigin(0.5).setInteractive();
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     closeBtn.on('pointerover', () => closeBtn.setColor('#f87171'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#94a3b8'));
     closeBtn.on('pointerdown', () => {
-      this.setVisible(false);
-      if (this.onCloseCallback) this.onCloseCallback();
+      this.close();
     });
-    this.add(closeBtn);
+    this.contentContainer.add(closeBtn);
   }
 }
