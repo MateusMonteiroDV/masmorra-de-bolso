@@ -19,6 +19,7 @@ export class LobbyScene extends Phaser.Scene {
   // Estados de confirmação dos jogadores (Estilo Among Us / Impostor)
   private isSelfReady: boolean = false;
   private peerReadyMap: Map<string, boolean> = new Map();
+  private peersInLobby: Set<string> = new Set();
 
   private uiContainer!: Phaser.GameObjects.Container;
   private hostStatusText!: Phaser.GameObjects.Text;
@@ -38,6 +39,7 @@ export class LobbyScene extends Phaser.Scene {
 
     this.remotePlayers.clear();
     this.peerReadyMap.clear();
+    this.peersInLobby.clear();
     this.isSelfReady = NetworkManager.isHost; // Host começa marcado por padrão ou gerencia início
     this.isCountingDown = false;
 
@@ -104,11 +106,11 @@ export class LobbyScene extends Phaser.Scene {
       this.networkUnsubs = [];
     });
 
-    // Sincroniza estado inicial se aliado já estiver presente
+    // Sincroniza presença inicial na sala de espera
     if (NetworkManager.isConnected()) {
       NetworkManager.sendAction({
-        type: 'lobby_ready_toggle',
-        payload: { ready: this.isSelfReady }
+        type: 'lobby_presence',
+        payload: { inLobby: true, ready: this.isSelfReady }
       });
     }
   }
@@ -275,18 +277,18 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private setupLobbyNetwork() {
-    // Peers existentes
+    // Peers existentes que já estão no lobby
     NetworkManager.connectedPeers.forEach(peerId => {
-      this.createRemotePlayer(peerId);
+      if (this.peersInLobby.has(peerId)) {
+        this.createRemotePlayer(peerId);
+      }
     });
 
     const unsubJoin = NetworkManager.onPeerJoin((peerId: string) => {
-      this.createRemotePlayer(peerId);
-      AudioService.playBuyUpgrade();
-      // Envia nosso status atual para o parceiro recém-chegado
+      // Envia nossa presença para o novo peer conectado
       NetworkManager.sendAction({
-        type: 'lobby_ready_toggle',
-        payload: { ready: this.isSelfReady }
+        type: 'lobby_presence',
+        payload: { inLobby: true, ready: this.isSelfReady }
       });
       this.refreshLobbyStateUI();
     });
@@ -298,6 +300,7 @@ export class LobbyScene extends Phaser.Scene {
         remote.destroy();
         this.remotePlayers.delete(peerId);
       }
+      this.peersInLobby.delete(peerId);
       this.peerReadyMap.delete(peerId);
 
       // Se o anfitrião saiu da sala, o convidado restante é promovido a novo líder da sala
@@ -330,26 +333,49 @@ export class LobbyScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubLeave);
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
-      let remote = this.remotePlayers.get(peerId);
-      if (!remote) {
-        remote = this.createRemotePlayer(peerId);
+      if (this.peersInLobby.has(peerId)) {
+        let remote = this.remotePlayers.get(peerId);
+        if (!remote) {
+          remote = this.createRemotePlayer(peerId);
+        }
+        remote.applyNetworkState(state);
       }
-      remote.applyNetworkState(state);
     });
     this.networkUnsubs.push(unsubState);
 
     const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
 
-      if (action.type === 'shoot_arrow' && remote) {
-        remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
-      } else if (action.type === 'melee_attack' && remote) {
-        remote.remoteMeleeAttack();
+      if (action.type === 'lobby_presence') {
+        if (action.payload?.inLobby) {
+          const isNewlyArrived = !this.peersInLobby.has(peerId);
+          this.peersInLobby.add(peerId);
+          if (action.payload.ready !== undefined) {
+            this.peerReadyMap.set(peerId, !!action.payload.ready);
+          }
+          if (!remote) {
+            this.createRemotePlayer(peerId);
+          }
+          if (isNewlyArrived) {
+            AudioService.playBuyUpgrade();
+            // Confirma nossa presença de volta para o parceiro que acabou de chegar
+            NetworkManager.sendAction({
+              type: 'lobby_presence',
+              payload: { inLobby: true, ready: this.isSelfReady }
+            });
+          }
+          this.refreshLobbyStateUI();
+        }
       } else if (action.type === 'lobby_ready_toggle') {
+        this.peersInLobby.add(peerId);
         const isReady = !!action.payload?.ready;
         this.peerReadyMap.set(peerId, isReady);
         AudioService.playShieldBlock();
         this.refreshLobbyStateUI();
+      } else if (action.type === 'shoot_arrow' && remote) {
+        remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
+      } else if (action.type === 'melee_attack' && remote) {
+        remote.remoteMeleeAttack();
       } else if (action.type === 'lobby_start_countdown') {
         this.startCountdownSequence();
       }
@@ -373,19 +399,25 @@ export class LobbyScene extends Phaser.Scene {
     const width = CONSTANTS.GAME_WIDTH;
     const isHost = NetworkManager.isHost;
     const isConnected = NetworkManager.isConnected();
+    const peers = Array.from(NetworkManager.connectedPeers);
+    const hasPeers = peers.length > 0;
+    const allConnectedPeersInLobby = hasPeers && peers.every(p => this.peersInLobby.has(p));
 
     // 1. Atualizar linhas de status
     if (isHost) {
       this.hostStatusText.setText(`👑 Você (Líder da Sala): ${this.isSelfReady ? '🟢 PRONTO' : '🟡 AGUARDANDO'}`);
-      if (isConnected) {
-        const peerId = Array.from(NetworkManager.connectedPeers)[0];
+      if (!hasPeers) {
+        this.guestStatusText.setText('⚔️ Aliado: ⏳ AGUARDANDO JOGADOR ENTRAR...');
+      } else if (!allConnectedPeersInLobby) {
+        this.guestStatusText.setText('⚔️ Aliado: ⏳ AGUARDANDO ALIADO RETORNAR AO LOBBY...');
+      } else {
+        const peerId = peers[0];
         const isPeerReady = this.peerReadyMap.get(peerId) ?? false;
         this.guestStatusText.setText(`⚔️ Aliado: ${isPeerReady ? '🟢 PRONTO PARA A BATALHA!' : '⏳ AGUARDANDO CONFIRMAÇÃO...'}`);
-      } else {
-        this.guestStatusText.setText('⚔️ Aliado: ⏳ AGUARDANDO JOGADOR ENTRAR...');
       }
     } else {
-      this.hostStatusText.setText(`👑 Líder da Sala (Host): 🟢 SALA ABERTA`);
+      const isHostInLobby = hasPeers && peers.some(p => this.peersInLobby.has(p));
+      this.hostStatusText.setText(`👑 Líder da Sala (Host): ${isHostInLobby ? '🟢 NA SALA' : '⏳ RETORNANDO AO LOBBY...'}`);
       this.guestStatusText.setText(`⚔️ Você (Convidado): ${this.isSelfReady ? '🟢 ESTOU PRONTO!' : '⏳ CLIQUE ABAIXO PARA CONFIRMAR'}`);
     }
 
@@ -394,20 +426,26 @@ export class LobbyScene extends Phaser.Scene {
     this.actionButtonText.removeAllListeners();
 
     if (isHost) {
-      const allReady = isConnected ? Array.from(NetworkManager.connectedPeers).every(p => this.peerReadyMap.get(p) === true) : true;
-      const canStart = allReady && this.isSelfReady;
-
-      if (canStart) {
-        this.actionButtonBg.fillColor = 0x16a34a;
-        this.actionButtonText.setText(isConnected ? '⚔️ INICIAR MASMORRA (TODOS PRONTOS)' : '⚔️ INICIAR MASMORRA (SOLO)');
-        const handleStart = () => {
-          this.triggerStartMatch();
-        };
-        this.actionButtonBg.on('pointerdown', handleStart);
-        this.actionButtonText.on('pointerdown', handleStart);
-      } else {
+      if (hasPeers && !allConnectedPeersInLobby) {
+        // Aliado ainda está retornando ao Lobby da tela de estatísticas/morte
         this.actionButtonBg.fillColor = 0x475569;
-        this.actionButtonText.setText('⏳ AGUARDANDO ALIADO CONFIRMAR...');
+        this.actionButtonText.setText('⏳ AGUARDANDO ALIADO RETORNAR AO LOBBY...');
+      } else {
+        const allReady = hasPeers ? peers.every(p => this.peerReadyMap.get(p) === true) : true;
+        const canStart = allReady && this.isSelfReady;
+
+        if (canStart) {
+          this.actionButtonBg.fillColor = 0x16a34a;
+          this.actionButtonText.setText(hasPeers ? '⚔️ INICIAR MASMORRA (TODOS PRONTOS)' : '⚔️ INICIAR MASMORRA (SOLO)');
+          const handleStart = () => {
+            this.triggerStartMatch();
+          };
+          this.actionButtonBg.on('pointerdown', handleStart);
+          this.actionButtonText.on('pointerdown', handleStart);
+        } else {
+          this.actionButtonBg.fillColor = 0x475569;
+          this.actionButtonText.setText('⏳ AGUARDANDO ALIADO CONFIRMAR...');
+        }
       }
     } else {
       // Jogador Convidado (Botão de Pronto / Desmarcar)

@@ -24,7 +24,11 @@ export interface PlayerNetworkAction {
     | 'player_death'
     | 'all_players_dead'
     | 'lobby_ready_toggle'
-    | 'lobby_start_countdown';
+    | 'lobby_start_countdown'
+    | 'lobby_presence'
+    | 'lobby_peer_waiting'
+    | 'peer_ping'
+    | 'peer_bye';
   payload?: any;
 }
 

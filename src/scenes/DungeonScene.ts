@@ -298,6 +298,18 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   public override update(time: number, delta: number) {
+    // 0. Watchdog de Morte Cooperativa: se o jogador local morreu, monitora se todos os aliados também morreram
+    if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+      if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+        if (!anyAllyAlive) {
+          this.triggerAllPlayersDead(true);
+        }
+      } else {
+        this.triggerAllPlayersDead(true);
+      }
+    }
+
     // 1. Se o jogador ainda estiver vivo, atualiza ações e movimentação
     if (!this.player.health.isDead()) {
       this.player.update(time, delta);

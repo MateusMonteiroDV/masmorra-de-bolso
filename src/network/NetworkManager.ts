@@ -28,13 +28,24 @@ class NetworkManagerClass {
 
   // Canal local via BroadcastChannel para testes instantâneos no mesmo computador/navegador
   private localChannel: BroadcastChannel | null = null;
-  private localHeartbeatTimer: number | null = null;
+  private heartbeatTimer: number | null = null;
+  private peerLastSeen: Map<string, number> = new Map();
 
   private stateListeners: Set<StateListener> = new Set();
   private actionListeners: Set<ActionListener> = new Set();
   private peerJoinListeners: Set<PeerListener> = new Set();
   private peerLeaveListeners: Set<PeerListener> = new Set();
   private roomChangeListeners: Set<RoomChangeListener> = new Set();
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      const handleUnload = () => {
+        this.leave();
+      };
+      window.addEventListener('beforeunload', handleUnload);
+      window.addEventListener('pagehide', handleUnload);
+    }
+  }
 
   public isConnected(): boolean {
     return this.connectedPeers.size > 0;
@@ -90,10 +101,17 @@ class NetworkManagerClass {
       };
 
       this.stateAction.onMessage = (data: PlayerNetworkState, { peerId }: { peerId: string }) => {
+        this.peerLastSeen.set(peerId, Date.now());
         this.stateListeners.forEach(listener => listener(data, peerId));
       };
 
       this.actionAction.onMessage = (data: PlayerNetworkAction, { peerId }: { peerId: string }) => {
+        this.peerLastSeen.set(peerId, Date.now());
+        if (data.type === 'peer_ping') return;
+        if (data.type === 'peer_bye') {
+          this.handlePeerLeave(peerId);
+          return;
+        }
         this.actionListeners.forEach(listener => listener(data, peerId));
       };
     } catch (err) {
@@ -109,6 +127,8 @@ class NetworkManagerClass {
           const msg = event.data;
           if (!msg || msg.senderId === this.selfId) return;
 
+          this.peerLastSeen.set(msg.senderId, Date.now());
+
           if (msg.type === 'peer_hello') {
             this.handlePeerJoin(msg.senderId);
             // Responde anunciando que também estamos na sala
@@ -118,29 +138,55 @@ class NetworkManagerClass {
             });
           } else if (msg.type === 'peer_welcome') {
             this.handlePeerJoin(msg.senderId);
+          } else if (msg.type === 'peer_ping') {
+            // Heartbeat recebido, peerLastSeen já atualizado
           } else if (msg.type === 'peer_bye') {
             this.handlePeerLeave(msg.senderId);
           } else if (msg.type === 'state') {
             this.stateListeners.forEach(listener => listener(msg.data, msg.senderId));
           } else if (msg.type === 'action') {
+            if (msg.data?.type === 'peer_ping') return;
+            if (msg.data?.type === 'peer_bye') {
+              this.handlePeerLeave(msg.senderId);
+              return;
+            }
             this.actionListeners.forEach(listener => listener(msg.data, msg.senderId));
           }
         };
 
-        // Envia sinal inicial de presença local e inicia pulsação periódica de sincronia
+        // Envia sinal inicial de presença local
         this.localChannel.postMessage({ type: 'peer_hello', senderId: this.selfId });
-        this.localHeartbeatTimer = window.setInterval(() => {
-          if (this.localChannel) {
-            this.localChannel.postMessage({ type: 'peer_hello', senderId: this.selfId });
-          }
-        }, 1200);
       } catch (e) {
         console.warn('BroadcastChannel não suportado neste ambiente', e);
       }
     }
+
+    // 3. Heartbeat e monitor de presença unificado (1s)
+    if (typeof window !== 'undefined') {
+      this.heartbeatTimer = window.setInterval(() => {
+        // Envia pulso de presença para canal local e P2P
+        if (this.localChannel) {
+          this.localChannel.postMessage({ type: 'peer_ping', senderId: this.selfId });
+        }
+        if (this.actionAction && this.connectedPeers.size > 0) {
+          this.actionAction.send({ type: 'peer_ping' }).catch(() => {});
+        }
+
+        // Liveness check: remove peers inativos há mais de 3500ms
+        const now = Date.now();
+        for (const peerId of this.connectedPeers) {
+          const last = this.peerLastSeen.get(peerId);
+          if (last && now - last > 3500) {
+            console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >3.5s)`);
+            this.handlePeerLeave(peerId);
+          }
+        }
+      }, 1000);
+    }
   }
 
   private handlePeerJoin(peerId: string) {
+    this.peerLastSeen.set(peerId, Date.now());
     if (!this.connectedPeers.has(peerId)) {
       this.connectedPeers.add(peerId);
       console.log(`[P2P] Jogador conectado à sala: ${peerId}`);
@@ -149,6 +195,7 @@ class NetworkManagerClass {
   }
 
   private handlePeerLeave(peerId: string) {
+    this.peerLastSeen.delete(peerId);
     if (this.connectedPeers.has(peerId)) {
       this.connectedPeers.delete(peerId);
       console.log(`[P2P] Jogador desconectado da sala: ${peerId}`);
@@ -172,9 +219,15 @@ class NetworkManagerClass {
   public leave(): void {
     this.clearRoomUrl();
 
-    if (this.localHeartbeatTimer) {
-      clearInterval(this.localHeartbeatTimer);
-      this.localHeartbeatTimer = null;
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    if (this.actionAction && this.connectedPeers.size > 0) {
+      try {
+        this.actionAction.send({ type: 'peer_bye' }).catch(() => {});
+      } catch (e) {}
     }
 
     if (this.localChannel) {
@@ -199,6 +252,7 @@ class NetworkManagerClass {
     this.currentRoomId = null;
     this.isHost = false;
     this.connectedPeers.clear();
+    this.peerLastSeen.clear();
     this.roomChangeListeners.forEach(listener => listener(null));
   }
 

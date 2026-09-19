@@ -121,10 +121,9 @@ export class GameOverScene extends Phaser.Scene {
 
     const handleReturn = () => {
       if (isInMultiplayer) {
-        // Notifica o parceiro para voltarem juntos para o Lobby
+        // Notifica o aliado que já estamos no lobby o aguardando
         NetworkManager.sendAction({
-          type: 'scene_sync',
-          payload: { scene: 'LobbyScene' }
+          type: 'lobby_peer_waiting'
         });
         this.scene.start('LobbyScene');
       } else {
@@ -135,11 +134,28 @@ export class GameOverScene extends Phaser.Scene {
     btnBg.on('pointerdown', handleReturn);
     btnLabel.on('pointerdown', handleReturn);
 
-    // Se receber sinal do parceiro para voltar ao Lobby, sincroniza a transição
+    // Se o aliado já tiver retornado ao Lobby, exibe aviso visual amigável na tela
     if (isInMultiplayer) {
+      let waitingNote: Phaser.GameObjects.Text | null = null;
+
       const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction) => {
-        if (action.type === 'scene_sync' && action.payload?.scene === 'LobbyScene') {
-          this.scene.start('LobbyScene');
+        if (action.type === 'lobby_peer_waiting' || action.type === 'lobby_presence') {
+          if (!waitingNote && this.scene.isActive('GameOverScene')) {
+            waitingNote = this.add.text(width / 2, 196, '⚔️ Seu aliado já retornou ao Lobby e está te aguardando!', {
+              fontFamily: 'monospace',
+              fontSize: '7.5px',
+              color: '#38bdf8',
+              fontStyle: 'bold'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+              targets: waitingNote,
+              alpha: 0.4,
+              duration: 500,
+              yoyo: true,
+              repeat: -1
+            });
+          }
         }
       });
 
