@@ -7,6 +7,7 @@ import { RemotePlayer } from '../entities/player/RemotePlayer';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
 import { AudioService } from '../systems/AudioService';
 import { GameState } from '../core/GameState';
+import { RoomInputDialog } from '../ui/RoomInputDialog';
 
 export class LobbyScene extends Phaser.Scene {
   private player!: Player;
@@ -144,11 +145,33 @@ export class LobbyScene extends Phaser.Scene {
     });
     this.uiContainer.add(subTitle);
 
-    // Botão Copiar ID
-    const copyIdBtn = this.add.text(width - 125, 14, '🔑 ID', {
+    // Botão 1: Digitar / Conectar com outro ID de Sala
+    const joinOtherBtn = this.add.text(width - 175, 14, '🔑 DIGITAR ID', {
       fontFamily: 'monospace',
       fontSize: '7.5px',
       color: '#38bdf8',
+      fontStyle: 'bold',
+      backgroundColor: '#1e293b',
+      padding: { x: 5, y: 3 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    joinOtherBtn.on('pointerdown', () => {
+      RoomInputDialog.show({
+        title: '🔑 CONECTAR A OUTRO ID',
+        description: 'Digite ou cole o ID da sala do seu amigo (Ex: MDB-1234):',
+        onConfirm: (code) => {
+          NetworkManager.join(code, false);
+          this.scene.restart();
+        }
+      });
+    });
+    this.uiContainer.add(joinOtherBtn);
+
+    // Botão 2: Copiar ID
+    const copyIdBtn = this.add.text(width - 95, 14, '📋 ID', {
+      fontFamily: 'monospace',
+      fontSize: '7.5px',
+      color: '#94a3b8',
       fontStyle: 'bold',
       backgroundColor: '#1e293b',
       padding: { x: 5, y: 3 }
@@ -158,13 +181,13 @@ export class LobbyScene extends Phaser.Scene {
       navigator.clipboard?.writeText(roomId);
       copyIdBtn.setText('COPIADO!');
       this.time.delayedCall(1200, () => {
-        if (copyIdBtn.active) copyIdBtn.setText('🔑 ID');
+        if (copyIdBtn.active) copyIdBtn.setText('📋 ID');
       });
     });
     this.uiContainer.add(copyIdBtn);
 
-    // Botão Copiar Link
-    const copyLinkBtn = this.add.text(width - 55, 14, '📋 LINK', {
+    // Botão 3: Copiar Link Completo
+    const copyLinkBtn = this.add.text(width - 35, 14, '🔗 LINK', {
       fontFamily: 'monospace',
       fontSize: '7.5px',
       color: '#fde047',
@@ -178,7 +201,7 @@ export class LobbyScene extends Phaser.Scene {
       navigator.clipboard?.writeText(url);
       copyLinkBtn.setText('COPIADO!');
       this.time.delayedCall(1200, () => {
-        if (copyLinkBtn.active) copyLinkBtn.setText('📋 LINK');
+        if (copyLinkBtn.active) copyLinkBtn.setText('🔗 LINK');
       });
     });
     this.uiContainer.add(copyLinkBtn);

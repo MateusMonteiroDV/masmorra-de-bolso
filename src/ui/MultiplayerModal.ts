@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { CONSTANTS } from '../core/Constants';
 import { NetworkManager } from '../network/NetworkManager';
+import { RoomInputDialog } from './RoomInputDialog';
 
 export class MultiplayerModal extends Phaser.GameObjects.Container {
   private overlay: Phaser.GameObjects.Rectangle;
@@ -289,12 +290,15 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
       const handleJoinRoom = () => {
-        const inputCode = window.prompt('Digite ou cole o ID da Sala (Ex: MDB-1234):');
-        if (inputCode && inputCode.trim().length > 0) {
-          NetworkManager.join(inputCode.trim().toUpperCase(), false);
-          this.hide();
-          this.scene.scene.start('LobbyScene');
-        }
+        RoomInputDialog.show({
+          title: '🔑 CONECTAR COM ID DA SALA',
+          description: 'Digite ou cole o ID de 4 dígitos da sala (Ex: MDB-1234):',
+          onConfirm: (code) => {
+            NetworkManager.join(code, false);
+            this.hide();
+            this.scene.scene.start('LobbyScene');
+          }
+        });
       };
 
       joinBg.on('pointerdown', handleJoinRoom);
