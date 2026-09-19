@@ -4,6 +4,7 @@ import { HealthComponent } from '../../components/HealthComponent';
 import { MovementComponent } from '../../components/MovementComponent';
 import { CONSTANTS } from '../../core/Constants';
 import { CoinDrop } from '../items/CoinDrop';
+import { ArrowDrop } from '../items/ArrowDrop';
 import { EventBus } from '../../core/EventBus';
 
 export abstract class Enemy extends Entity {
@@ -36,13 +37,17 @@ export abstract class Enemy extends Entity {
   public die() {
     if (!this.active) return;
 
-    // Dropa moedas de ouro
+    // Dropa moedas de ouro e 1 flecha para reabastecimento
     if (this.dropGroup) {
       const numCoins = Math.max(1, Math.floor(this.goldReward));
       for (let i = 0; i < numCoins; i++) {
         const coin = new CoinDrop(this.scene, this.x, this.y, 1);
         this.dropGroup.add(coin);
       }
+
+      // Drop de 1 flecha por inimigo derrotado conforme solicitado
+      const arrow = new ArrowDrop(this.scene, this.x + 6, this.y - 4);
+      this.dropGroup.add(arrow);
     }
 
     EventBus.emit(CONSTANTS.EVENTS.ENEMY_DIED, this);

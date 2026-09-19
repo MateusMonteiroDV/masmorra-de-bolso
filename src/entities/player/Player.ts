@@ -150,10 +150,21 @@ export class Player extends Entity {
     // 1. Postura de Defesa com o Escudo
     this.isDefending = this.controller.isDefending();
     if (this.isDefending) {
-      this.setVelocity(0, 0);
+      // Permite movimentação tática lenta com escudo levantado
+      const moveInput = this.controller.getMovementVector();
+      if (moveInput.x !== 0 || moveInput.y !== 0) {
+        this.movement.moveInDirection(moveInput.x * 0.45, moveInput.y * 0.45);
+        if (moveInput.x < 0) this.facing = 'e';
+        else if (moveInput.x > 0) this.facing = 'd';
+      } else {
+        this.setVelocity(0, 0);
+      }
       this.setFlipX(false);
       this.setTexture(this.facing === 'd' ? 'roberto_d_08' : 'roberto_e_08');
+      this.showShieldAura();
       return;
+    } else {
+      this.hideShieldAura();
     }
 
     // 2. Leitura de Movimentação
@@ -181,11 +192,40 @@ export class Player extends Entity {
     }
   }
 
+  private shieldAuraGraphics?: Phaser.GameObjects.Graphics;
+
+  private showShieldAura() {
+    if (!this.shieldAuraGraphics) {
+      this.shieldAuraGraphics = this.scene.add.graphics();
+      this.shieldAuraGraphics.setDepth(CONSTANTS.DEPTH.CHARACTERS + 2);
+    }
+    this.shieldAuraGraphics.clear();
+    this.shieldAuraGraphics.setVisible(true);
+
+    const shieldX = this.x + (this.facing === 'd' ? 12 : -12);
+    const shieldY = this.y + 4;
+
+    this.shieldAuraGraphics.lineStyle(2, 0x38bdf8, 0.85);
+    this.shieldAuraGraphics.fillStyle(0x0284c7, 0.35);
+    this.shieldAuraGraphics.strokeCircle(shieldX, shieldY, 13);
+    this.shieldAuraGraphics.fillCircle(shieldX, shieldY, 13);
+  }
+
+  private hideShieldAura() {
+    if (this.shieldAuraGraphics) {
+      this.shieldAuraGraphics.setVisible(false);
+    }
+  }
+
   public handleActions(enemyGroup: Phaser.GameObjects.Group, arrowGroup: Phaser.GameObjects.Group) {
     if (this.health.isDead() || this.isDefending || this.actionLockTimer > 0) return;
 
     // 1. Disparo de Besta com Flecha (Clique Esquerdo, F ou J)
     if (this.controller.isShootCrossbowPressed() && this.bowCooldownTimer <= 0) {
+      if (GameState.arrows <= 0) {
+        this.showNoArrowsPopup();
+        return;
+      }
       this.shootArrow(arrowGroup);
       return;
     }
@@ -196,7 +236,32 @@ export class Player extends Entity {
     }
   }
 
+  private showNoArrowsPopup() {
+    this.bowCooldownTimer = 350;
+    AudioService.playAttackSwing();
+    const popup = this.scene.add.text(this.x, this.y - 28, 'SEM FLECHAS!', {
+      fontFamily: 'monospace',
+      fontSize: '7px',
+      color: '#ef4444',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: this.y - 40,
+      alpha: 0,
+      duration: 500,
+      ease: 'Quad.easeOut',
+      onComplete: () => popup.destroy()
+    });
+  }
+
   private shootArrow(arrowGroup: Phaser.GameObjects.Group) {
+    // Consome 1 flecha do inventário do jogador
+    GameState.useArrow();
+
     this.isShootingAnim = true;
     this.actionLockTimer = 220; // 220ms de animação
     this.bowCooldownTimer = CONSTANTS.PLAYER.BOW_COOLDOWN;
@@ -319,6 +384,9 @@ export class Player extends Entity {
     }
     if (this.indicatorText) {
       this.indicatorText.destroy();
+    }
+    if (this.shieldAuraGraphics) {
+      this.shieldAuraGraphics.destroy();
     }
     super.destroy(fromScene);
   }

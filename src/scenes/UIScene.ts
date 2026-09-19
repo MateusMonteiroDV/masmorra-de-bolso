@@ -10,6 +10,8 @@ export class UIScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
   private hpText?: Phaser.GameObjects.Text;
   private goldText!: Phaser.GameObjects.Text;
+  private arrowText!: Phaser.GameObjects.Text;
+  private waveText!: Phaser.GameObjects.Text;
   private p2pBadgeText?: Phaser.GameObjects.Text;
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
@@ -23,15 +25,37 @@ export class UIScene extends Phaser.Scene {
     this.hpText = undefined;
     this.hearts = [];
 
-    // 1. HUD Superior Esquerdo: Indicador de 10 HP
+    // 1. HUD Superior Esquerdo: Indicador de HP dos Corações
     this.createHeartsUI();
 
-    // 2. HUD Superior Direito: Contador de Moedas
+    // 2. Indicador de Onda Atual
+    this.waveText = this.add.text(14, 25, 'ONDA 1/4', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#c084fc',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+
+    // 3. HUD Superior Direito: Contador de Flechas (Quiver)
+    const arrowIcon = this.add.image(CONSTANTS.GAME_WIDTH - 142, 14, 'arrow_sprite');
+    arrowIcon.setScale(0.75);
+    arrowIcon.setRotation(-Math.PI / 4);
+
+    this.arrowText = this.add.text(CONSTANTS.GAME_WIDTH - 132, 9, `${GameState.arrows}`, {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#38bdf8',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+
+    // 4. HUD Superior Direito: Contador de Ouro
     const coinIcon = this.add.sprite(CONSTANTS.GAME_WIDTH - 85, 14, 'moeda_0');
     coinIcon.setScale(0.55);
     coinIcon.play('anim_moeda');
 
-    this.goldText = this.add.text(CONSTANTS.GAME_WIDTH - 72, 9, `0 G`, {
+    this.goldText = this.add.text(CONSTANTS.GAME_WIDTH - 72, 9, `${GameState.runGold} G`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#fbbf24',
@@ -39,7 +63,7 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 2
     });
 
-    // Indicador P2P no topo central da tela
+    // 5. Indicador P2P no topo central da tela
     if (NetworkManager.isConnected()) {
       this.p2pBadgeText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
         fontFamily: 'monospace',
@@ -50,11 +74,11 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    // 3. Guia de Teclas no Rodapé da Tela
+    // 6. Guia de Teclas no Rodapé da Tela
     this.add.text(
       CONSTANTS.GAME_WIDTH / 2,
       CONSTANTS.GAME_HEIGHT - 8,
-      '[WASD] Mover | [Espaço] Espada | [Clique/F/J] Besta | [Shift/Q] Defesa',
+      '[WASD] Mover | [Espaço/K] Espada | [Clique/F/J] Besta | [Shift/Q/Botão Direito] Escudo',
       {
         fontFamily: 'monospace',
         fontSize: '7px',
@@ -64,10 +88,10 @@ export class UIScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // 4. Barra Central: Ícones de Relíquias Ativas
+    // 7. Barra Central: Ícones de Relíquias Ativas
     this.relicIconsContainer = this.add.container(CONSTANTS.GAME_WIDTH / 2, CONSTANTS.GAME_HEIGHT - 22);
 
-    // 5. Banner de Notificação
+    // 8. Banner de Notificação
     this.notificationText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 60, '', {
       fontFamily: 'monospace',
       fontSize: '11px',
@@ -77,7 +101,7 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5).setAlpha(0);
 
-    // 6. Modal de Relíquias
+    // 9. Modal de Relíquias
     this.relicModal = new RelicSelectModal(this);
 
     this.setupEventListeners();
@@ -142,6 +166,19 @@ export class UIScene extends Phaser.Scene {
       this.goldText.setText(`${gold} G`);
     });
 
+    EventBus.on(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, (count: number) => {
+      if (this.arrowText && this.arrowText.active) {
+        this.arrowText.setText(`${count}`);
+        this.arrowText.setColor(count <= 3 ? '#f43f5e' : '#38bdf8');
+      }
+    });
+
+    EventBus.on(CONSTANTS.EVENTS.WAVE_CHANGED, (data: { wave: number; total: number; remaining: number }) => {
+      if (this.waveText && this.waveText.active) {
+        this.waveText.setText(`ONDA ${data.wave}/${data.total} [${data.remaining} restantes]`);
+      }
+    });
+
     EventBus.on(CONSTANTS.EVENTS.RELIC_ACQUIRED, () => {
       this.refreshRelicsBar();
     });
@@ -176,6 +213,8 @@ export class UIScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       EventBus.off(CONSTANTS.EVENTS.PLAYER_HEALTH_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED);
+      EventBus.off(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED);
+      EventBus.off(CONSTANTS.EVENTS.WAVE_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.RELIC_ACQUIRED);
       EventBus.off(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE);
     });

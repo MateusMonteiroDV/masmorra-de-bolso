@@ -88,7 +88,10 @@ export const CONSTANTS = {
     REQUEST_RELIC_CHOICE: 'ui:request_relic_choice',
     OPEN_SHOP: 'ui:open_shop',
     CLOSE_SHOP: 'ui:close_shop',
-    UPGRADE_PURCHASED: 'hub:upgrade_purchased'
+    UPGRADE_PURCHASED: 'hub:upgrade_purchased',
+    PLAYER_ARROWS_CHANGED: 'player:arrows_changed',
+    WAVE_CHANGED: 'wave:changed',
+    WAVE_COMPLETED: 'wave:completed'
   },
 
   STORAGE_KEY: 'masmorra_de_bolso_save_v1'

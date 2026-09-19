@@ -44,6 +44,7 @@ class GameStateManager {
   public currentFloor: number = 1;
   public activeRelics: ActiveRelic[] = [];
   public runEnemiesKilled: number = 0;
+  public arrows: number = 15;
 
   constructor() {
     this.loadFromStorage();
@@ -95,8 +96,24 @@ class GameStateManager {
     this.activeRelics = [];
     this.runEnemiesKilled = 0;
     this.currentFloor = 1;
+    this.arrows = 15;
     this.saveToStorage();
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, this.runGold);
+    EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);
+  }
+
+  public useArrow(): boolean {
+    if (this.arrows > 0) {
+      this.arrows--;
+      EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);
+      return true;
+    }
+    return false;
+  }
+
+  public addArrows(count: number = 1) {
+    this.arrows += count;
+    EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);
   }
 
   public addRunGold(amount: number) {

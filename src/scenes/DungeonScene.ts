@@ -6,13 +6,10 @@ import { CONSTANTS } from '../core/Constants';
 import { EventBus } from '../core/EventBus';
 import { CoinDrop } from '../entities/items/CoinDrop';
 import { Enemy } from '../entities/enemies/Enemy';
-import { SlimeEnemy } from '../entities/enemies/SlimeEnemy';
-import { BatEnemy } from '../entities/enemies/BatEnemy';
-import { SkeletonMage } from '../entities/enemies/SkeletonMage';
-import { KingSlimeBoss } from '../entities/enemies/KingSlimeBoss';
 import { RelicChest } from '../entities/items/RelicChest';
 import { NetworkManager } from '../network/NetworkManager';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
+import { WaveManager } from '../dungeon/WaveManager';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -27,6 +24,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private remotePlayers: Map<string, RemotePlayer> = new Map();
   private enemyMap: Map<string, Enemy> = new Map();
+  private waveManager!: WaveManager;
   private networkSyncTimer: number = 0;
   private isSpectating: boolean = false;
 
@@ -67,18 +65,15 @@ export class DungeonScene extends Phaser.Scene {
     // Câmera segue Roberto suavemente
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-    // 5. Espalhar Moedas Exploráveis pelo Mapa
+    // 5. Espalhar Moedas Iniciais de Exploração pelo Mapa
     this.spawnExplorationCoins();
 
-    // 6. Espalhar Monstros Hostis pelos Setores do Mapa
-    this.spawnEnemies();
-
-    // 7. Baús de Tesouro em Pontos Especiais
+    // 6. Baús de Tesouro em Pontos Estratégicos
     const chest1 = new RelicChest(this, 120, 830);
     const chest2 = new RelicChest(this, 980, 200);
     this.chests.push(chest1, chest2);
 
-    // 8. Configurar Sistema de Combate e Colisões
+    // 7. Configurar Sistema de Combate e Colisões
     this.combatSystem = new CombatSystem(this);
     this.combatSystem.setupCollisions(
       this.player,
@@ -89,6 +84,16 @@ export class DungeonScene extends Phaser.Scene {
       this.dropGroup
     );
 
+    // 8. Inicializar Gerenciador de Ondas (Waves) e Inimigos
+    this.waveManager = new WaveManager(
+      this,
+      this.enemyGroup,
+      this.dropGroup,
+      this.projectileGroup,
+      this.enemyMap
+    );
+    this.waveManager.start();
+
     // 9. Multiplayer P2P: Configurar jogadores remotos e sincronização
     this.remotePlayers.clear();
     this.setupNetworkMultiplayer();
@@ -98,24 +103,14 @@ export class DungeonScene extends Phaser.Scene {
       this.handlePlayerDeathCoop();
     });
 
-    // 11. Ouvinte de Derrota de Inimigos / Chefe
+    // 11. Ouvinte de Morte de Inimigos para Notificar o WaveManager
     EventBus.on(CONSTANTS.EVENTS.ENEMY_DIED, (deadEnemy: Enemy) => {
-      const enemyId = deadEnemy.getData('networkId');
-      if (enemyId === 'boss_king_slime') {
-        if (NetworkManager.isConnected()) {
-          NetworkManager.sendAction({ type: 'dungeon_victory' });
-        }
-        this.time.delayedCall(1600, () => {
-          this.scene.stop('UIScene');
-          this.scene.start('GameOverScene', { victory: true });
-        });
-      }
+      this.waveManager.onEnemyKilled(deadEnemy);
     });
   }
 
   private handlePlayerDeathCoop() {
     if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
-      // Se houver aliado vivo, entra em modo espectador para torcer pelo parceiro
       const aliveAlly = Array.from(this.remotePlayers.values()).find(r => r.active);
       if (aliveAlly) {
         this.isSpectating = true;
@@ -152,7 +147,6 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private setupNetworkMultiplayer() {
-    // Instanciar qualquer aliado já conectado na sala
     NetworkManager.connectedPeers.forEach(peerId => {
       this.createRemotePlayer(peerId);
     });
@@ -167,7 +161,6 @@ export class DungeonScene extends Phaser.Scene {
         remote.destroy();
         this.remotePlayers.delete(peerId);
       }
-      // Se estava observando este aliado e ele saiu
       if (this.isSpectating && this.player.health.isDead()) {
         this.scene.stop('UIScene');
         this.scene.start('GameOverScene', { victory: false });
@@ -190,7 +183,6 @@ export class DungeonScene extends Phaser.Scene {
       } else if (action.type === 'melee_attack' && remote) {
         remote.remoteMeleeAttack(this.enemyGroup);
       } else if (action.type === 'enemy_hit') {
-        // Aplicação autoritativa/sincronizada de dano no monstro correspondente
         const { enemyId, damage, sourceX, sourceY } = action.payload;
         const enemy = this.enemyMap.get(enemyId);
         if (enemy && enemy.active && enemy.health && !enemy.health.isDead()) {
@@ -204,6 +196,11 @@ export class DungeonScene extends Phaser.Scene {
           this.scene.stop('UIScene');
           this.scene.start('GameOverScene', { victory: true });
         });
+      } else if (action.type === 'scene_sync' && action.payload?.wave) {
+        if (!NetworkManager.isHost && this.waveManager.currentWave !== action.payload.wave) {
+          this.waveManager.currentWave = action.payload.wave - 1;
+          this.waveManager.nextWave();
+        }
       }
     });
   }
@@ -240,15 +237,7 @@ export class DungeonScene extends Phaser.Scene {
       { x: 380, y: 488 },
       { x: 220, y: 488 },
       { x: 750, y: 488 },
-      { x: 920, y: 488 },
-      { x: 180, y: 200 },
-      { x: 280, y: 260 },
-      { x: 160, y: 800 },
-      { x: 320, y: 880 },
-      { x: 800, y: 750 },
-      { x: 900, y: 850 },
-      { x: 820, y: 260 },
-      { x: 950, y: 320 }
+      { x: 920, y: 488 }
     ];
 
     coinPositions.forEach(pos => {
@@ -257,50 +246,8 @@ export class DungeonScene extends Phaser.Scene {
     });
   }
 
-  private spawnEnemies() {
-    this.enemyMap.clear();
-
-    // 1. Slimes com IDs de rede únicos
-    const slimePositions = [
-      { x: 570, y: 300 },
-      { x: 420, y: 488 },
-      { x: 720, y: 488 },
-      { x: 570, y: 700 },
-      { x: 240, y: 280 },
-      { x: 850, y: 320 },
-      { x: 340, y: 820 }
-    ];
-    slimePositions.forEach((pos, idx) => {
-      const id = `slime_${idx}`;
-      const slime = new SlimeEnemy(this, pos.x, pos.y, this.dropGroup);
-      slime.setData('networkId', id);
-      this.enemyGroup.add(slime);
-      this.enemyMap.set(id, slime);
-    });
-
-    // 2. Magos Conjuradores com IDs de rede únicos
-    const magePositions = [
-      { x: 780, y: 220 },
-      { x: 880, y: 720 }
-    ];
-    magePositions.forEach((pos, idx) => {
-      const id = `mage_${idx}`;
-      const mage = new SkeletonMage(this, pos.x, pos.y, this.dropGroup, this.projectileGroup);
-      mage.setData('networkId', id);
-      this.enemyGroup.add(mage);
-      this.enemyMap.set(id, mage);
-    });
-
-    // 3. Chefe com ID de rede único
-    const bossId = 'boss_king_slime';
-    const boss = new KingSlimeBoss(this, 880, 820, this.dropGroup, this.enemyGroup);
-    boss.setData('networkId', bossId);
-    this.enemyGroup.add(boss);
-    this.enemyMap.set(bossId, boss);
-  }
-
   public override update(time: number, delta: number) {
-    // 1. Se ainda estiver vivo, atualiza ações do jogador
+    // 1. Se o jogador ainda estiver vivo, atualiza ações e movimentação
     if (!this.player.health.isDead()) {
       this.player.update(time, delta);
       this.player.handleActions(this.enemyGroup, this.arrowGroup);
@@ -345,12 +292,12 @@ export class DungeonScene extends Phaser.Scene {
       }
     });
 
-    // 5. Atualizar Atração Magnética de Moedas
+    // 5. Atualizar Atração Magnética de Drops (Moedas e Flechas)
     if (!this.player.health.isDead()) {
-      const coins = this.dropGroup.getChildren() as CoinDrop[];
-      coins.forEach(coin => {
-        if (coin.active) {
-          coin.updateMagnet(this.player);
+      const drops = this.dropGroup.getChildren() as any[];
+      drops.forEach(drop => {
+        if (drop.active && typeof drop.updateMagnet === 'function') {
+          drop.updateMagnet(this.player);
         }
       });
     }
