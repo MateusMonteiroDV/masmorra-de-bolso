@@ -28,6 +28,7 @@ export class HubScene extends Phaser.Scene {
   private remotePlayers: Map<string, RemotePlayer> = new Map();
   private networkSyncTimer: number = 0;
   private arrowGroup!: Phaser.GameObjects.Group;
+  private networkUnsubs: Array<() => void> = [];
 
   constructor() {
     super({ key: 'HubScene' });
@@ -175,6 +176,8 @@ export class HubScene extends Phaser.Scene {
     const roomParam = urlParams.get('room');
     if (roomParam && !NetworkManager.currentRoomId) {
       NetworkManager.join(roomParam, false);
+      this.scene.start('LobbyScene');
+      return;
     }
   }
 
@@ -184,12 +187,13 @@ export class HubScene extends Phaser.Scene {
       this.createRemotePlayer(peerId);
     });
 
-    NetworkManager.onPeerJoin((peerId: string) => {
+    const unsubJoin = NetworkManager.onPeerJoin((peerId: string) => {
       this.createRemotePlayer(peerId);
       this.updateP2PStatusText();
     });
+    this.networkUnsubs.push(unsubJoin);
 
-    NetworkManager.onPeerLeave((peerId: string) => {
+    const unsubLeave = NetworkManager.onPeerLeave((peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
       if (remote) {
         remote.destroy();
@@ -197,16 +201,18 @@ export class HubScene extends Phaser.Scene {
       }
       this.updateP2PStatusText();
     });
+    this.networkUnsubs.push(unsubLeave);
 
-    NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+    const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
       let remote = this.remotePlayers.get(peerId);
       if (!remote) {
         remote = this.createRemotePlayer(peerId);
       }
       remote.applyNetworkState(state);
     });
+    this.networkUnsubs.push(unsubState);
 
-    NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
+    const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
       if (action.type === 'shoot_arrow' && remote) {
         remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
@@ -215,12 +221,21 @@ export class HubScene extends Phaser.Scene {
       } else if (action.type === 'scene_sync') {
         if (action.payload?.scene === 'DungeonScene') {
           this.startDungeonRun(false);
+        } else if (action.payload?.scene === 'LobbyScene') {
+          this.scene.start('LobbyScene');
         }
       }
     });
+    this.networkUnsubs.push(unsubAction);
 
-    NetworkManager.onRoomChange(() => {
+    const unsubRoom = NetworkManager.onRoomChange(() => {
       this.updateP2PStatusText();
+    });
+    this.networkUnsubs.push(unsubRoom);
+
+    this.events.once('shutdown', () => {
+      this.networkUnsubs.forEach(unsub => unsub());
+      this.networkUnsubs = [];
     });
 
     this.updateP2PStatusText();
@@ -312,7 +327,8 @@ export class HubScene extends Phaser.Scene {
     const distPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.portal.x, this.portal.y);
     if (distPortal < 28) {
       if (!this.portalPromptText) {
-        this.portalPromptText = this.add.text(this.portal.x, this.portal.y + 18, '[E] Descer Masmorra', {
+        const portalLabel = NetworkManager.currentRoomId ? '[E] Sala de Espera' : '[E] Descer Masmorra';
+        this.portalPromptText = this.add.text(this.portal.x, this.portal.y + 18, portalLabel, {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#a855f7',
@@ -322,7 +338,11 @@ export class HubScene extends Phaser.Scene {
       }
 
       if (this.player.controller.isInteractPressed()) {
-        this.startDungeonRun(true);
+        if (NetworkManager.currentRoomId) {
+          this.scene.start('LobbyScene');
+        } else {
+          this.startDungeonRun(true);
+        }
       }
     } else if (this.portalPromptText) {
       this.portalPromptText.destroy();

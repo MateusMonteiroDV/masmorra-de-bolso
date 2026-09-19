@@ -192,28 +192,26 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       }).setOrigin(0.5);
       this.bgContainer.add(rosterLabel);
 
-      // Se for o Host: Botão "INICIAR MASMORRA"
+      // Botão: Entrar na Sala de Espera / Lobby
       const startRunBg = this.scene.add.graphics();
       startRunBg.fillStyle(0x16a34a, 1);
-      startRunBg.fillRoundedRect(cx - 85, by + 116, 170, 22, 4);
-      startRunBg.setInteractive(new Phaser.Geom.Rectangle(cx - 85, by + 116, 170, 22), Phaser.Geom.Rectangle.Contains);
+      startRunBg.fillRoundedRect(cx - 95, by + 116, 190, 22, 4);
+      startRunBg.setInteractive(new Phaser.Geom.Rectangle(cx - 95, by + 116, 190, 22), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(startRunBg);
 
-      const startRunBtn = this.scene.add.text(cx, by + 127, '⚔️ INICIAR MASMORRA', {
+      const startRunBtn = this.scene.add.text(cx, by + 127, '⚔️ IR PARA A SALA DE ESPERA', {
         fontFamily: 'monospace',
         fontSize: '7px',
         color: '#ffffff',
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      const handleStartRun = () => {
+      const handleGoLobby = () => {
         this.hide();
-        if (this.onStartGameCallback) {
-          this.onStartGameCallback();
-        }
+        this.scene.scene.start('LobbyScene');
       };
-      startRunBg.on('pointerdown', handleStartRun);
-      startRunBtn.on('pointerdown', handleStartRun);
+      startRunBg.on('pointerdown', handleGoLobby);
+      startRunBtn.on('pointerdown', handleGoLobby);
       this.bgContainer.add(startRunBtn);
 
       // Botão Sair da Sala
@@ -259,9 +257,8 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         const randomNum = Math.floor(1000 + Math.random() * 9000);
         const roomId = `MDB-${randomNum}`;
         NetworkManager.join(roomId, true);
-        this.scene.time.delayedCall(20, () => {
-          this.renderContent();
-        });
+        this.hide();
+        this.scene.scene.start('LobbyScene');
       };
 
       createBg.on('pointerdown', handleCreateRoom);
@@ -295,9 +292,8 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         const inputCode = window.prompt('Digite ou cole o ID da Sala (Ex: MDB-1234):');
         if (inputCode && inputCode.trim().length > 0) {
           NetworkManager.join(inputCode.trim().toUpperCase(), false);
-          this.scene.time.delayedCall(20, () => {
-            this.renderContent();
-          });
+          this.hide();
+          this.scene.scene.start('LobbyScene');
         }
       };
 

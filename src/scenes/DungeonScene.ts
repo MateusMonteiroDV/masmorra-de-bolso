@@ -27,6 +27,7 @@ export class DungeonScene extends Phaser.Scene {
   private waveManager!: WaveManager;
   private networkSyncTimer: number = 0;
   private isSpectating: boolean = false;
+  private networkUnsubs: Array<() => void> = [];
 
   constructor() {
     super({ key: 'DungeonScene' });
@@ -151,11 +152,12 @@ export class DungeonScene extends Phaser.Scene {
       this.createRemotePlayer(peerId);
     });
 
-    NetworkManager.onPeerJoin((peerId: string) => {
+    const unsubJoin = NetworkManager.onPeerJoin((peerId: string) => {
       this.createRemotePlayer(peerId);
     });
+    this.networkUnsubs.push(unsubJoin);
 
-    NetworkManager.onPeerLeave((peerId: string) => {
+    const unsubLeave = NetworkManager.onPeerLeave((peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
       if (remote) {
         remote.destroy();
@@ -166,16 +168,18 @@ export class DungeonScene extends Phaser.Scene {
         this.scene.start('GameOverScene', { victory: false });
       }
     });
+    this.networkUnsubs.push(unsubLeave);
 
-    NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+    const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
       let remote = this.remotePlayers.get(peerId);
       if (!remote) {
         remote = this.createRemotePlayer(peerId);
       }
       remote.applyNetworkState(state);
     });
+    this.networkUnsubs.push(unsubState);
 
-    NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
+    const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
 
       if (action.type === 'shoot_arrow' && remote) {
@@ -202,6 +206,12 @@ export class DungeonScene extends Phaser.Scene {
           this.waveManager.nextWave();
         }
       }
+    });
+    this.networkUnsubs.push(unsubAction);
+
+    this.events.once('shutdown', () => {
+      this.networkUnsubs.forEach(unsub => unsub());
+      this.networkUnsubs = [];
     });
   }
 
