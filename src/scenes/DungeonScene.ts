@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { Player } from '../entities/player/Player';
+import { RemotePlayer } from '../entities/player/RemotePlayer';
 import { CombatSystem } from '../systems/CombatSystem';
 import { CONSTANTS } from '../core/Constants';
 import { EventBus } from '../core/EventBus';
@@ -10,6 +11,8 @@ import { BatEnemy } from '../entities/enemies/BatEnemy';
 import { SkeletonMage } from '../entities/enemies/SkeletonMage';
 import { KingSlimeBoss } from '../entities/enemies/KingSlimeBoss';
 import { RelicChest } from '../entities/items/RelicChest';
+import { NetworkManager } from '../network/NetworkManager';
+import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -21,6 +24,9 @@ export class DungeonScene extends Phaser.Scene {
   private arrowGroup!: Phaser.GameObjects.Group;
   private wallGroup!: Phaser.Physics.Arcade.StaticGroup;
   private chests: RelicChest[] = [];
+
+  private remotePlayers: Map<string, RemotePlayer> = new Map();
+  private networkSyncTimer: number = 0;
 
   constructor() {
     super({ key: 'DungeonScene' });
@@ -80,13 +86,62 @@ export class DungeonScene extends Phaser.Scene {
       this.dropGroup
     );
 
-    // 9. Ouvinte de Morte do Roberto
+    // 9. Multiplayer P2P: Configurar jogadores remotos e sincronização
+    this.remotePlayers.clear();
+    this.setupNetworkMultiplayer();
+
+    // 10. Ouvinte de Morte do Roberto
     EventBus.once(CONSTANTS.EVENTS.PLAYER_DIED, () => {
       this.time.delayedCall(1200, () => {
         this.scene.stop('UIScene');
         this.scene.start('GameOverScene', { victory: false });
       });
     });
+  }
+
+  private setupNetworkMultiplayer() {
+    // Instanciar qualquer aliado já conectado na sala
+    NetworkManager.connectedPeers.forEach(peerId => {
+      this.createRemotePlayer(peerId);
+    });
+
+    NetworkManager.onPeerJoin((peerId: string) => {
+      this.createRemotePlayer(peerId);
+    });
+
+    NetworkManager.onPeerLeave((peerId: string) => {
+      const remote = this.remotePlayers.get(peerId);
+      if (remote) {
+        remote.destroy();
+        this.remotePlayers.delete(peerId);
+      }
+    });
+
+    NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+      let remote = this.remotePlayers.get(peerId);
+      if (!remote) {
+        remote = this.createRemotePlayer(peerId);
+      }
+      remote.applyNetworkState(state);
+    });
+
+    NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
+      const remote = this.remotePlayers.get(peerId);
+      if (action.type === 'shoot_arrow' && remote) {
+        remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
+      } else if (action.type === 'melee_attack' && remote) {
+        remote.remoteMeleeAttack(this.enemyGroup);
+      }
+    });
+  }
+
+  private createRemotePlayer(peerId: string): RemotePlayer {
+    if (this.remotePlayers.has(peerId)) {
+      return this.remotePlayers.get(peerId)!;
+    }
+    const remote = new RemotePlayer(this, this.player.x + 25, this.player.y, peerId);
+    this.remotePlayers.set(peerId, remote);
+    return remote;
   }
 
   private createWorldBoundaries(w: number, h: number) {
@@ -147,20 +202,7 @@ export class DungeonScene extends Phaser.Scene {
       this.enemyGroup.add(slime);
     });
 
-    // 2. Morcegos (inativos por enquanto conforme solicitado)
-    /*
-    const batPositions = [
-      { x: 300, y: 380 },
-      { x: 820, y: 600 },
-      { x: 200, y: 650 }
-    ];
-    batPositions.forEach(pos => {
-      const bat = new BatEnemy(this, pos.x, pos.y, this.dropGroup);
-      this.enemyGroup.add(bat);
-    });
-    */
-
-    // 3. Magos Conjuradores
+    // 2. Magos Conjuradores
     const magePositions = [
       { x: 780, y: 220 },
       { x: 880, y: 720 }
@@ -170,7 +212,7 @@ export class DungeonScene extends Phaser.Scene {
       this.enemyGroup.add(mage);
     });
 
-    // 4. Chefe na área de ruínas no canto inferior direito
+    // 3. Chefe na área de ruínas no canto inferior direito
     const boss = new KingSlimeBoss(this, 880, 820, this.dropGroup, this.enemyGroup);
     this.enemyGroup.add(boss);
   }
@@ -182,15 +224,45 @@ export class DungeonScene extends Phaser.Scene {
     this.player.update(time, delta);
     this.player.handleActions(this.enemyGroup, this.arrowGroup);
 
-    // 2. Atualizar Comportamento dos Inimigos (Perseguição ao Roberto)
-    const enemies = this.enemyGroup.getChildren() as Enemy[];
-    enemies.forEach(enemy => {
-      if (enemy.active) {
-        enemy.aiBehavior(this.player, delta);
+    // 2. Sincronização de Rede P2P (25Hz)
+    this.networkSyncTimer += delta;
+    if (this.networkSyncTimer >= 40) {
+      this.networkSyncTimer = 0;
+      if (NetworkManager.isConnected()) {
+        NetworkManager.sendState(this.player.getNetworkState());
+      }
+    }
+
+    // 3. Atualizar Aliados Remotos
+    this.remotePlayers.forEach(remote => {
+      if (remote.active) {
+        remote.update(time, delta);
       }
     });
 
-    // 3. Atualizar Atração Magnética de Moedas
+    // 4. Atualizar Comportamento dos Inimigos (Perseguição ao Jogador Mais Próximo)
+    const enemies = this.enemyGroup.getChildren() as Enemy[];
+    enemies.forEach(enemy => {
+      if (enemy.active) {
+        // Encontra o alvo mais próximo entre o jogador local e os aliados remotos
+        let closestTarget: Phaser.GameObjects.Sprite = this.player;
+        let minDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+
+        this.remotePlayers.forEach(remote => {
+          if (remote.active) {
+            const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, remote.x, remote.y);
+            if (d < minDist) {
+              minDist = d;
+              closestTarget = remote;
+            }
+          }
+        });
+
+        enemy.aiBehavior(closestTarget, delta);
+      }
+    });
+
+    // 5. Atualizar Atração Magnética de Moedas
     const coins = this.dropGroup.getChildren() as CoinDrop[];
     coins.forEach(coin => {
       if (coin.active) {
@@ -198,7 +270,7 @@ export class DungeonScene extends Phaser.Scene {
       }
     });
 
-    // 4. Interação com Baús
+    // 6. Interação com Baús
     this.chests.forEach(chest => {
       if (chest.checkPlayerNear(this.player) && this.player.controller.isInteractPressed()) {
         chest.open();
