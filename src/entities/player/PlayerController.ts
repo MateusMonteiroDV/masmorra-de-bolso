@@ -35,6 +35,21 @@ export class PlayerController {
       this.keyJ = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
       this.keyK = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
       this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+      // Bloqueia a propagação para o navegador/IBus (evita popup de texto/números no canto superior esquerdo)
+      keyboard.addCapture([
+        Phaser.Input.Keyboard.KeyCodes.W,
+        Phaser.Input.Keyboard.KeyCodes.A,
+        Phaser.Input.Keyboard.KeyCodes.S,
+        Phaser.Input.Keyboard.KeyCodes.D,
+        Phaser.Input.Keyboard.KeyCodes.Q,
+        Phaser.Input.Keyboard.KeyCodes.E,
+        Phaser.Input.Keyboard.KeyCodes.F,
+        Phaser.Input.Keyboard.KeyCodes.J,
+        Phaser.Input.Keyboard.KeyCodes.K,
+        Phaser.Input.Keyboard.KeyCodes.SPACE,
+        Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      ]);
     }
 
     this.scene.input.mouse?.disableContextMenu();
