@@ -192,7 +192,7 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       startRunBg.fillRoundedRect(cx - 85, by + 116, 170, 22, 4);
       this.bgContainer.add(startRunBg);
 
-      const startRunBtn = this.scene.add.text(cx, by + 127, '⚔️ INICIAR MASMORRA EM DUPLA', {
+      const startRunBtn = this.scene.add.text(cx, by + 127, '⚔️ INICIAR MASMORRA', {
         fontFamily: 'monospace',
         fontSize: '7px',
         color: '#ffffff',
