@@ -23,7 +23,7 @@ export class LobbyScene extends Phaser.Scene {
   private uiContainer!: Phaser.GameObjects.Container;
   private hostStatusText!: Phaser.GameObjects.Text;
   private guestStatusText!: Phaser.GameObjects.Text;
-  private actionButtonBg!: Phaser.GameObjects.Graphics;
+  private actionButtonBg!: Phaser.GameObjects.Rectangle;
   private actionButtonText!: Phaser.GameObjects.Text;
   private isCountingDown: boolean = false;
   private countdownText?: Phaser.GameObjects.Text;
@@ -178,7 +178,11 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     copyIdBtn.on('pointerdown', () => {
-      navigator.clipboard?.writeText(roomId);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(roomId).catch(() => {});
+        }
+      } catch (e) {}
       copyIdBtn.setText('COPIADO!');
       this.time.delayedCall(1200, () => {
         if (copyIdBtn.active) copyIdBtn.setText('📋 ID');
@@ -198,7 +202,11 @@ export class LobbyScene extends Phaser.Scene {
 
     copyLinkBtn.on('pointerdown', () => {
       const url = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-      navigator.clipboard?.writeText(url);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).catch(() => {});
+        }
+      } catch (e) {}
       copyLinkBtn.setText('COPIADO!');
       this.time.delayedCall(1200, () => {
         if (copyLinkBtn.active) copyLinkBtn.setText('🔗 LINK');
@@ -236,8 +244,9 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.uiContainer.add(controlsTip);
 
-    // Botão de Ação Inferior (Pronto / Iniciar)
-    this.actionButtonBg = this.add.graphics();
+    // Botão de Ação Inferior (Pronto / Iniciar) em Rectangle interativo sólido
+    this.actionButtonBg = this.add.rectangle(width / 2, 237, 220, 26, 0x475569);
+    this.actionButtonBg.setInteractive({ useHandCursor: true });
     this.uiContainer.add(this.actionButtonBg);
 
     this.actionButtonText = this.add.text(width / 2, 237, '', {
@@ -245,7 +254,7 @@ export class LobbyScene extends Phaser.Scene {
       fontSize: '8.5px',
       color: '#ffffff',
       fontStyle: 'bold'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.uiContainer.add(this.actionButtonText);
 
     // Botão Sair da Sala
@@ -355,40 +364,31 @@ export class LobbyScene extends Phaser.Scene {
     }
 
     // 2. Atualizar Botão de Ação
-    this.actionButtonBg.clear();
-    this.actionButtonBg.removeInteractive();
-
-    const btnW = 210;
-    const btnH = 26;
-    const btnX = width / 2 - btnW / 2;
-    const btnY = 224;
+    this.actionButtonBg.removeAllListeners();
+    this.actionButtonText.removeAllListeners();
 
     if (isHost) {
       const allReady = isConnected ? Array.from(NetworkManager.connectedPeers).every(p => this.peerReadyMap.get(p) === true) : true;
       const canStart = allReady && this.isSelfReady;
 
-      const color = canStart ? 0x16a34a : 0x475569;
-      this.actionButtonBg.fillStyle(color, 1);
-      this.actionButtonBg.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
-
       if (canStart) {
+        this.actionButtonBg.fillColor = 0x16a34a;
         this.actionButtonText.setText(isConnected ? '⚔️ INICIAR MASMORRA (TODOS PRONTOS)' : '⚔️ INICIAR MASMORRA (SOLO)');
-        this.actionButtonBg.setInteractive(new Phaser.Geom.Rectangle(btnX, btnY, btnW, btnH), Phaser.Geom.Rectangle.Contains);
-        this.actionButtonBg.once('pointerdown', () => {
+        const handleStart = () => {
           this.triggerStartMatch();
-        });
+        };
+        this.actionButtonBg.on('pointerdown', handleStart);
+        this.actionButtonText.on('pointerdown', handleStart);
       } else {
+        this.actionButtonBg.fillColor = 0x475569;
         this.actionButtonText.setText('⏳ AGUARDANDO ALIADO CONFIRMAR...');
       }
     } else {
       // Jogador Convidado (Botão de Pronto / Desmarcar)
-      const color = this.isSelfReady ? 0x991b1b : 0x059669;
-      this.actionButtonBg.fillStyle(color, 1);
-      this.actionButtonBg.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
-
+      this.actionButtonBg.fillColor = this.isSelfReady ? 0x991b1b : 0x059669;
       this.actionButtonText.setText(this.isSelfReady ? '❌ CANCELAR CONFIRMAÇÃO' : '✅ ESTOU PRONTO!');
-      this.actionButtonBg.setInteractive(new Phaser.Geom.Rectangle(btnX, btnY, btnW, btnH), Phaser.Geom.Rectangle.Contains);
-      this.actionButtonBg.once('pointerdown', () => {
+
+      const handleToggle = () => {
         this.isSelfReady = !this.isSelfReady;
         AudioService.playBuyUpgrade();
         NetworkManager.sendAction({
@@ -396,7 +396,9 @@ export class LobbyScene extends Phaser.Scene {
           payload: { ready: this.isSelfReady }
         });
         this.refreshLobbyStateUI();
-      });
+      };
+      this.actionButtonBg.on('pointerdown', handleToggle);
+      this.actionButtonText.on('pointerdown', handleToggle);
     }
   }
 
