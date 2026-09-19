@@ -1,5 +1,7 @@
+node_modules/
+dist/
 .DS_Store
 Thumbs.db
-node_modules/
+*.local
 .vscode/
 .idea/

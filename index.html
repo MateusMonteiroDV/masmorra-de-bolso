@@ -2,124 +2,50 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Teste de Sprite</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Masmorra de Bolso - Roguelite 2D</title>
   <style>
-    body {
-      background: #222;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #090a0f;
+      color: #e2e8f0;
+      font-family: 'Courier New', Courier, monospace, system-ui, sans-serif;
+    }
+
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      color: #eee;
-      font-family: sans-serif;
     }
+
+    /* Renderização pixel-art nítida sem borrões */
     canvas {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
       image-rendering: pixelated;
-      background: #333;
-      border: 2px solid #555;
+      image-rendering: crisp-edges;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <p>Use as <strong>Setas (← / →)</strong> para andar e <strong>Espaço</strong> para atacar</p>
-  <canvas id="game" width="400" height="300"></canvas>
-
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-
-    const sprite = new Image();
-    sprite.src = './html/personagem_principal.png';
-
-    const COLS = 4;
-    const ROWS = 2;
-
-    let frameWidth = 0;
-    let frameHeight = 0;
-
-    sprite.onload = () => {
-      frameWidth = sprite.width / COLS;
-      frameHeight = sprite.height / ROWS;
-      requestAnimationFrame(loop);
-    };
-
-    let posX = 150;
-    let currentAnim = 'idle'; // 'idle', 'walk', 'attack'
-    let currentFrame = 0;
-    let frameTimer = 0;
-    const frameSpeed = 8; // velocidade da troca de quadros
-
-    const keys = {};
-    window.addEventListener('keydown', (e) => (keys[e.code] = true));
-    window.addEventListener('keyup', (e) => (keys[e.code] = false));
-
-    function update() {
-      // Estado de ataque
-      if (keys['Space'] && currentAnim !== 'attack') {
-        currentAnim = 'attack';
-        currentFrame = 0;
-        frameTimer = 0;
-      }
-
-      if (currentAnim === 'attack') {
-        frameTimer++;
-        if (frameTimer >= frameSpeed) {
-          frameTimer = 0;
-          currentFrame++;
-          if (currentFrame >= COLS) {
-            currentAnim = 'idle';
-            currentFrame = 0;
-          }
-        }
-        return;
-      }
-
-      // Estado de caminhada ou parado
-      if (keys['ArrowRight']) {
-        posX += 2;
-        currentAnim = 'walk';
-      } else if (keys['ArrowLeft']) {
-        posX -= 2;
-        currentAnim = 'walk';
-      } else {
-        currentAnim = 'idle';
-      }
-
-      if (currentAnim === 'walk') {
-        frameTimer++;
-        if (frameTimer >= frameSpeed) {
-          frameTimer = 0;
-          currentFrame = (currentFrame + 1) % COLS;
-        }
-      } else {
-        currentFrame = 0;
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const row = currentAnim === 'attack' ? 1 : 0;
-      const col = currentFrame;
-
-      const sx = col * frameWidth;
-      const sy = row * frameHeight;
-
-      // Desenha com escala ampliada (x3) para manter o visual pixel art
-      const scale = 3;
-      ctx.drawImage(
-        sprite,
-        sx, sy, frameWidth, frameHeight,
-        posX, 120, frameWidth * scale, frameHeight * scale
-      );
-    }
-
-    function loop() {
-      update();
-      draw();
-      requestAnimationFrame(loop);
-    }
-  </script>
+  <div id="game-container"></div>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

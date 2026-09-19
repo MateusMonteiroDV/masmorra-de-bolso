@@ -1,0 +1,28 @@
+{
+  "name": "masmorra-de-bolso",
+  "version": "1.0.0",
+  "description": "Roguelite 2D Top-Down em Pixel Art",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "game",
+    "roguelite",
+    "phaser3",
+    "vite",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}
