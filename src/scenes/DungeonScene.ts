@@ -174,6 +174,11 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
+    // Se não há nenhum aliado vivo na masmorra, todos os heróis caíram!
+    if (NetworkManager.isConnected()) {
+      NetworkManager.sendAction({ type: 'all_players_dead' });
+    }
+
     this.triggerGameOverLocally();
   }
 
@@ -275,9 +280,8 @@ export class DungeonScene extends Phaser.Scene {
           this.scene.start('GameOverScene', { victory: true });
         });
       } else if (action.type === 'all_players_dead') {
-        if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
-          this.triggerGameOverLocally();
-        }
+        this.remotePlayers.forEach(r => r.markDead());
+        this.triggerGameOverLocally();
       } else if (action.type === 'player_death') {
         const deadPeer = this.remotePlayers.get(peerId);
         if (deadPeer) {

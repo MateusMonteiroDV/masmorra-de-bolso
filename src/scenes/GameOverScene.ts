@@ -103,7 +103,11 @@ export class GameOverScene extends Phaser.Scene {
     const btnBg = this.add.rectangle(btnX, btnY, btnW, btnH, isInMultiplayer ? 0x16a34a : 0x2563eb);
     btnBg.setInteractive({ useHandCursor: true });
 
-    const btnLabelText = isInMultiplayer ? '⚔️ RETORNAR AO LOBBY (SALA DE ESPERA)' : 'RETORNAR À BASE';
+    let countdownSeconds = 4;
+    const btnLabelText = isInMultiplayer
+      ? `⚔️ RETORNAR AO LOBBY (${countdownSeconds}s)`
+      : 'RETORNAR À BASE';
+
     const btnLabel = this.add.text(btnX, btnY, btnLabelText, {
       fontFamily: 'monospace',
       fontSize: '8px',
@@ -119,7 +123,10 @@ export class GameOverScene extends Phaser.Scene {
       btnBg.fillColor = isInMultiplayer ? 0x16a34a : 0x2563eb;
     });
 
+    let returned = false;
     const handleReturn = () => {
+      if (returned) return;
+      returned = true;
       if (isInMultiplayer) {
         // Notifica o aliado que já estamos no lobby o aguardando
         NetworkManager.sendAction({
@@ -133,6 +140,27 @@ export class GameOverScene extends Phaser.Scene {
 
     btnBg.on('pointerdown', handleReturn);
     btnLabel.on('pointerdown', handleReturn);
+
+    // Retorno automático ao Lobby após contagem regressiva em partidas multiplayer
+    if (isInMultiplayer) {
+      const countdownTimer = this.time.addEvent({
+        delay: 1000,
+        repeat: countdownSeconds - 1,
+        callback: () => {
+          countdownSeconds--;
+          if (btnLabel && btnLabel.active) {
+            btnLabel.setText(`⚔️ RETORNAR AO LOBBY (${countdownSeconds}s)`);
+          }
+          if (countdownSeconds <= 0) {
+            handleReturn();
+          }
+        }
+      });
+
+      this.events.once('shutdown', () => {
+        countdownTimer.destroy();
+      });
+    }
 
     // Se o aliado já tiver retornado ao Lobby, exibe aviso visual amigável na tela
     if (isInMultiplayer) {
