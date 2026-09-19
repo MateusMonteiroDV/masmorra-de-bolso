@@ -294,9 +294,12 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
           title: '🔑 CONECTAR COM ID DA SALA',
           description: 'Digite ou cole o ID de 4 dígitos da sala (Ex: MDB-1234):',
           onConfirm: (code) => {
+            const currentScene = this.scene;
             NetworkManager.join(code, false);
             this.hide();
-            this.scene.scene.start('LobbyScene');
+            if (currentScene && currentScene.scene) {
+              currentScene.scene.start('LobbyScene');
+            }
           }
         });
       };

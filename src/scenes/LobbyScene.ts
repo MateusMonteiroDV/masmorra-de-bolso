@@ -40,6 +40,12 @@ export class LobbyScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.peerReadyMap.clear();
     this.peersInLobby.clear();
+
+    // Se estiver sozinho na sala, assume liderança da sala como Host
+    if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
+      NetworkManager.isHost = true;
+    }
+
     this.isSelfReady = NetworkManager.isHost; // Host começa marcado por padrão ou gerencia início
     this.isCountingDown = false;
 
@@ -158,12 +164,15 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     joinOtherBtn.on('pointerdown', () => {
+      const currentScene = this.scene;
       RoomInputDialog.show({
         title: '🔑 CONECTAR A OUTRO ID',
         description: 'Digite ou cole o ID da sala do seu amigo (Ex: MDB-1234):',
         onConfirm: (code) => {
           NetworkManager.join(code, false);
-          this.scene.restart();
+          if (currentScene) {
+            currentScene.restart();
+          }
         }
       });
     });
@@ -396,6 +405,12 @@ export class LobbyScene extends Phaser.Scene {
   private refreshLobbyStateUI() {
     if (this.isCountingDown) return;
 
+    // Se o jogador estiver sozinho na sala e era convidado, é promovido a Host imediatamente
+    if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
+      NetworkManager.isHost = true;
+      this.isSelfReady = true;
+    }
+
     const width = CONSTANTS.GAME_WIDTH;
     const isHost = NetworkManager.isHost;
     const isConnected = NetworkManager.isConnected();
@@ -416,8 +431,12 @@ export class LobbyScene extends Phaser.Scene {
         this.guestStatusText.setText(`⚔️ Aliado: ${isPeerReady ? '🟢 PRONTO PARA A BATALHA!' : '⏳ AGUARDANDO CONFIRMAÇÃO...'}`);
       }
     } else {
-      const isHostInLobby = hasPeers && peers.some(p => this.peersInLobby.has(p));
-      this.hostStatusText.setText(`👑 Líder da Sala (Host): ${isHostInLobby ? '🟢 NA SALA' : '⏳ RETORNANDO AO LOBBY...'}`);
+      if (!hasPeers) {
+        this.hostStatusText.setText('👑 Líder da Sala (Host): ⏳ AGUARDANDO CONEXÃO...');
+      } else {
+        const isHostInLobby = peers.some(p => this.peersInLobby.has(p));
+        this.hostStatusText.setText(`👑 Líder da Sala (Host): ${isHostInLobby ? '🟢 NA SALA' : '⏳ RETORNANDO AO LOBBY...'}`);
+      }
       this.guestStatusText.setText(`⚔️ Você (Convidado): ${this.isSelfReady ? '🟢 ESTOU PRONTO!' : '⏳ CLIQUE ABAIXO PARA CONFIRMAR'}`);
     }
 

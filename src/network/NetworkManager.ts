@@ -172,16 +172,18 @@ class NetworkManagerClass {
           this.actionAction.send({ type: 'peer_ping' }).catch(() => {});
         }
 
-        // Liveness check: remove peers inativos há mais de 3500ms
+        // Liveness check: remove peers inativos há mais de 3000ms
         const now = Date.now();
+        const timedOutPeers: string[] = [];
         for (const peerId of this.connectedPeers) {
           const last = this.peerLastSeen.get(peerId);
-          if (last && now - last > 3500) {
-            console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >3.5s)`);
-            this.handlePeerLeave(peerId);
+          if (!last || now - last > 3000) {
+            console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >3s)`);
+            timedOutPeers.push(peerId);
           }
         }
-      }, 1000);
+        timedOutPeers.forEach(id => this.handlePeerLeave(id));
+      }, 800);
     }
   }
 
