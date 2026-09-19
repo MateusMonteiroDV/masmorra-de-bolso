@@ -23,6 +23,8 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
   public currentScene?: string;
 
   public isDead(): boolean {
+    const isDungeon = this.scene && this.scene.scene && this.scene.scene.key === 'DungeonScene';
+    if (!isDungeon) return false;
     return this._isDead || this.currentHp <= 0;
   }
 
@@ -91,21 +93,25 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.maxHp = state.maxHp;
     this.currentScene = state.scene;
 
-    if (state.currentHp <= 0 || (state.scene && state.scene !== 'DungeonScene')) {
-      this._isDead = true;
+    const isDungeon = this.scene && this.scene.scene && this.scene.scene.key === 'DungeonScene';
+
+    if (isDungeon) {
+      if (state.currentHp <= 0) {
+        this._isDead = true;
+      }
+      if (this.isDead()) {
+        this.currentHp = 0;
+        this.setFlipX(false);
+        try {
+          this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
+        } catch (e) {}
+        this.renderHpBar();
+        return;
+      }
+    } else {
+      this._isDead = false;
     }
 
-    if (this.isDead()) {
-      this.currentHp = 0;
-      this.setFlipX(false);
-      try {
-        this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
-      } catch (e) {}
-      this.renderHpBar();
-      return;
-    }
-
-    this.currentHp = state.currentHp;
     this.setFlipX(false);
 
     if (this.isDefending) {
