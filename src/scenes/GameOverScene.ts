@@ -94,32 +94,35 @@ export class GameOverScene extends Phaser.Scene {
       color: '#64748b'
     }).setOrigin(0.5);
 
-    // Botão de Retorno: Se em multiplayer, volta à Sala de Espera (Lobby) mantendo a conexão!
     const btnW = isInMultiplayer ? 230 : 160;
     const btnH = 26;
     const btnX = width / 2;
-    const btnY = 222;
+    const btnY = 214;
 
-    const btnBg = this.add.rectangle(btnX, btnY, btnW, btnH, isInMultiplayer ? 0x16a34a : 0x2563eb);
-    btnBg.setInteractive({ useHandCursor: true });
+    const btnBg = this.add.rectangle(0, 0, btnW, btnH, isInMultiplayer ? 0x16a34a : 0x2563eb);
 
     let countdownSeconds = 4;
     const btnLabelText = isInMultiplayer
       ? `⚔️ RETORNAR AO LOBBY (${countdownSeconds}s)`
       : 'RETORNAR À BASE';
 
-    const btnLabel = this.add.text(btnX, btnY, btnLabelText, {
+    const btnLabel = this.add.text(0, 0, btnLabelText, {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#ffffff',
       fontStyle: 'bold'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
 
-    btnBg.on('pointerover', () => {
+    const btnContainer = this.add.container(btnX, btnY, [btnBg, btnLabel]);
+    btnContainer.setSize(btnW, btnH);
+    btnContainer.setDepth(CONSTANTS.DEPTH.UI + 100);
+    btnContainer.setInteractive({ useHandCursor: true });
+
+    btnContainer.on('pointerover', () => {
       btnBg.fillColor = isInMultiplayer ? 0x22c55e : 0x3b82f6;
     });
 
-    btnBg.on('pointerout', () => {
+    btnContainer.on('pointerout', () => {
       btnBg.fillColor = isInMultiplayer ? 0x16a34a : 0x2563eb;
     });
 
@@ -138,8 +141,7 @@ export class GameOverScene extends Phaser.Scene {
       }
     };
 
-    btnBg.on('pointerdown', handleReturn);
-    btnLabel.on('pointerdown', handleReturn);
+    btnContainer.on('pointerdown', handleReturn);
 
     // Retorno automático ao Lobby após contagem regressiva em partidas multiplayer
     if (isInMultiplayer) {

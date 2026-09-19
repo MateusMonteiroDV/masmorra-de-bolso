@@ -10,6 +10,7 @@ import { RelicChest } from '../entities/items/RelicChest';
 import { NetworkManager } from '../network/NetworkManager';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
 import { WaveManager } from '../dungeon/WaveManager';
+import { GameState } from '../core/GameState';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -150,24 +151,34 @@ export class DungeonScene extends Phaser.Scene {
           repeat: -1
         });
 
-        // Botão de emergência / sair para GameOver no modo espectador
+        // Botão para retornar imediatamente ao Lobby no modo espectador
         const exitBtn = this.add.text(
           CONSTANTS.GAME_WIDTH / 2,
-          CONSTANTS.GAME_HEIGHT - 22,
-          '[ ⚔️ IR PARA FIM DE JOGO / LOBBY ]',
+          CONSTANTS.GAME_HEIGHT - 20,
+          '[ ⚔️ RETORNAR AO LOBBY ]',
           {
             fontFamily: 'monospace',
-            fontSize: '7.5px',
+            fontSize: '8px',
             color: '#38bdf8',
             backgroundColor: '#0f172a',
-            padding: { x: 6, y: 3 },
+            padding: { x: 8, y: 4 },
             stroke: '#000000',
             strokeThickness: 2
           }
-        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 50).setInteractive({ useHandCursor: true });
+        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 100).setInteractive({ useHandCursor: true });
+
+        exitBtn.on('pointerover', () => {
+          exitBtn.setColor('#facc15');
+        });
+        exitBtn.on('pointerout', () => {
+          exitBtn.setColor('#38bdf8');
+        });
 
         exitBtn.on('pointerdown', () => {
-          this.triggerGameOverLocally();
+          GameState.endRun(false);
+          NetworkManager.sendAction({ type: 'lobby_peer_waiting' });
+          this.scene.stop('UIScene');
+          this.scene.start('LobbyScene');
         });
 
         return;
