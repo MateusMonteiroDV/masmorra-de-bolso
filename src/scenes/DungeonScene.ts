@@ -27,6 +27,7 @@ export class DungeonScene extends Phaser.Scene {
   private waveManager!: WaveManager;
   private networkSyncTimer: number = 0;
   private isSpectating: boolean = false;
+  private isTransitioningToGameOver: boolean = false;
   private networkUnsubs: Array<() => void> = [];
 
   constructor() {
@@ -111,8 +112,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private handlePlayerDeathCoop() {
+    NetworkManager.sendAction({ type: 'player_death' });
+
     if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
-      const aliveAlly = Array.from(this.remotePlayers.values()).find(r => r.active);
+      const aliveAlly = Array.from(this.remotePlayers.values()).find(r => r.active && !r.isDead());
       if (aliveAlly) {
         this.isSpectating = true;
         this.cameras.main.startFollow(aliveAlly, true, 0.1, 0.1);
@@ -141,6 +144,19 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
+    this.triggerAllPlayersDead(true);
+  }
+
+  private triggerAllPlayersDead(broadcast: boolean = true) {
+    if (this.isTransitioningToGameOver) return;
+    this.isTransitioningToGameOver = true;
+
+    if (broadcast && NetworkManager.isConnected()) {
+      NetworkManager.sendAction({
+        type: 'all_players_dead'
+      });
+    }
+
     this.time.delayedCall(1200, () => {
       this.scene.stop('UIScene');
       this.scene.start('GameOverScene', { victory: false });
@@ -164,8 +180,10 @@ export class DungeonScene extends Phaser.Scene {
         this.remotePlayers.delete(peerId);
       }
       if (this.isSpectating && this.player.health.isDead()) {
-        this.scene.stop('UIScene');
-        this.scene.start('GameOverScene', { victory: false });
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+        if (!anyAllyAlive) {
+          this.triggerAllPlayersDead(false);
+        }
       }
     });
     this.networkUnsubs.push(unsubLeave);
@@ -176,6 +194,13 @@ export class DungeonScene extends Phaser.Scene {
         remote = this.createRemotePlayer(peerId);
       }
       remote.applyNetworkState(state);
+
+      if (this.isSpectating && this.player.health.isDead()) {
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+        if (!anyAllyAlive) {
+          this.triggerAllPlayersDead(true);
+        }
+      }
     });
     this.networkUnsubs.push(unsubState);
 
@@ -200,10 +225,27 @@ export class DungeonScene extends Phaser.Scene {
           this.scene.stop('UIScene');
           this.scene.start('GameOverScene', { victory: true });
         });
-      } else if (action.type === 'scene_sync' && action.payload?.wave) {
-        if (!NetworkManager.isHost && this.waveManager.currentWave !== action.payload.wave) {
-          this.waveManager.currentWave = action.payload.wave - 1;
-          this.waveManager.nextWave();
+      } else if (action.type === 'all_players_dead') {
+        this.triggerAllPlayersDead(false);
+      } else if (action.type === 'player_death') {
+        if (this.player.health.isDead()) {
+          const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+          if (!anyAllyAlive) {
+            this.triggerAllPlayersDead(true);
+          }
+        }
+      } else if (action.type === 'scene_sync') {
+        if (action.payload?.scene === 'GameOverScene') {
+          this.scene.stop('UIScene');
+          this.scene.start('GameOverScene', { victory: !!action.payload.victory });
+        } else if (action.payload?.scene === 'LobbyScene') {
+          this.scene.stop('UIScene');
+          this.scene.start('LobbyScene');
+        } else if (action.payload?.wave) {
+          if (!NetworkManager.isHost && this.waveManager.currentWave !== action.payload.wave) {
+            this.waveManager.currentWave = action.payload.wave - 1;
+            this.waveManager.nextWave();
+          }
         }
       }
     });

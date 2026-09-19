@@ -19,6 +19,10 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
   private currentHp: number = 6;
   private maxHp: number = 6;
 
+  public isDead(): boolean {
+    return this.currentHp <= 0;
+  }
+
   constructor(scene: Phaser.Scene, x: number, y: number, peerId: string) {
     super(scene, x, y, 'roberto_d_00');
 

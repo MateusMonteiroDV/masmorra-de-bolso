@@ -6,16 +6,6 @@ type ActionListener = (action: PlayerNetworkAction, peerId: string) => void;
 type PeerListener = (peerId: string) => void;
 type RoomChangeListener = (roomId: string | null) => void;
 
-// Relays Nostr públicos, rápidos e verificados sem exigência de autenticação (AUTH)
-const VERIFIED_NOSTR_RELAYS = [
-  'wss://nos.lol',
-  'wss://purplerelay.com',
-  'wss://relay.primal.net',
-  'wss://nostr.sathoarder.com',
-  'wss://yabu.me/v2',
-  'wss://nostr.data.haus'
-];
-
 class NetworkManagerClass {
   public selfId: string = selfId;
   public currentRoomId: string | null = null;
@@ -25,10 +15,6 @@ class NetworkManagerClass {
   private room: any = null;
   private stateAction: any = null;
   private actionAction: any = null;
-
-  // Canal local via BroadcastChannel para testes instantâneos no mesmo computador/navegador
-  private localChannel: BroadcastChannel | null = null;
-  private localHeartbeatTimer: number | null = null;
 
   private stateListeners: Set<StateListener> = new Set();
   private actionListeners: Set<ActionListener> = new Set();
@@ -49,7 +35,7 @@ class NetworkManagerClass {
   }
 
   public join(roomId: string, asHost: boolean = false): void {
-    if (this.room || this.localChannel) {
+    if (this.room) {
       this.leave();
     }
 
@@ -58,35 +44,26 @@ class NetworkManagerClass {
     this.isHost = asHost;
     this.roomChangeListeners.forEach(listener => listener(cleanRoomId));
 
-    // 1. Conexão WebRTC P2P Global via Trystero Nostr com relays verificados
     try {
-      const config = {
-        appId: 'masmorra-de-bolso-p2p',
-        relayConfig: {
-          urls: VERIFIED_NOSTR_RELAYS,
-          redundancy: 4,
-          warnOnRelayFailure: false
-        },
-        rtcConfig: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-          ]
-        }
-      };
-
+      // Configuração do Trystero via Nostr (Serverless WebRTC P2P)
+      const config = { appId: 'masmorra-de-bolso-p2p' };
       this.room = joinRoom(config, cleanRoomId);
 
+      // No Trystero v0.25+, makeAction retorna um objeto de ação { send, onMessage }
       this.stateAction = this.room.makeAction('pState');
       this.actionAction = this.room.makeAction('pAction');
 
+      // Listeners de entrada e saída de jogadores no Trystero v0.25
       this.room.onPeerJoin = (peerId: string) => {
-        this.handlePeerJoin(peerId);
+        console.log(`[P2P] Peer conectado: ${peerId}`);
+        this.connectedPeers.add(peerId);
+        this.peerJoinListeners.forEach(listener => listener(peerId));
       };
 
       this.room.onPeerLeave = (peerId: string) => {
-        this.handlePeerLeave(peerId);
+        console.log(`[P2P] Peer desconectado: ${peerId}`);
+        this.connectedPeers.delete(peerId);
+        this.peerLeaveListeners.forEach(listener => listener(peerId));
       };
 
       this.stateAction.onMessage = (data: PlayerNetworkState, { peerId }: { peerId: string }) => {
@@ -97,79 +74,11 @@ class NetworkManagerClass {
         this.actionListeners.forEach(listener => listener(data, peerId));
       };
     } catch (err) {
-      console.warn('[P2P WebRTC] Aviso ao inicializar sala:', err);
-    }
-
-    // 2. Ponte de Canal Local (BroadcastChannel)
-    // Permite testar duas abas no mesmo notebook com latência zero e 100% de confiabilidade imediata
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      try {
-        this.localChannel = new BroadcastChannel(`mdb_room_${cleanRoomId}`);
-        this.localChannel.onmessage = (event) => {
-          const msg = event.data;
-          if (!msg || msg.senderId === this.selfId) return;
-
-          if (msg.type === 'peer_hello') {
-            this.handlePeerJoin(msg.senderId);
-            // Responde anunciando que também estamos na sala
-            this.localChannel?.postMessage({
-              type: 'peer_welcome',
-              senderId: this.selfId
-            });
-          } else if (msg.type === 'peer_welcome') {
-            this.handlePeerJoin(msg.senderId);
-          } else if (msg.type === 'peer_bye') {
-            this.handlePeerLeave(msg.senderId);
-          } else if (msg.type === 'state') {
-            this.stateListeners.forEach(listener => listener(msg.data, msg.senderId));
-          } else if (msg.type === 'action') {
-            this.actionListeners.forEach(listener => listener(msg.data, msg.senderId));
-          }
-        };
-
-        // Envia sinal inicial de presença local e inicia pulsação periódica de sincronia
-        this.localChannel.postMessage({ type: 'peer_hello', senderId: this.selfId });
-        this.localHeartbeatTimer = window.setInterval(() => {
-          if (this.localChannel) {
-            this.localChannel.postMessage({ type: 'peer_hello', senderId: this.selfId });
-          }
-        }, 1200);
-      } catch (e) {
-        console.warn('BroadcastChannel não suportado neste ambiente', e);
-      }
-    }
-  }
-
-  private handlePeerJoin(peerId: string) {
-    if (!this.connectedPeers.has(peerId)) {
-      this.connectedPeers.add(peerId);
-      console.log(`[P2P] Jogador conectado à sala: ${peerId}`);
-      this.peerJoinListeners.forEach(listener => listener(peerId));
-    }
-  }
-
-  private handlePeerLeave(peerId: string) {
-    if (this.connectedPeers.has(peerId)) {
-      this.connectedPeers.delete(peerId);
-      console.log(`[P2P] Jogador desconectado da sala: ${peerId}`);
-      this.peerLeaveListeners.forEach(listener => listener(peerId));
+      console.error('[P2P] Erro ao inicializar sala:', err);
     }
   }
 
   public leave(): void {
-    if (this.localHeartbeatTimer) {
-      clearInterval(this.localHeartbeatTimer);
-      this.localHeartbeatTimer = null;
-    }
-
-    if (this.localChannel) {
-      try {
-        this.localChannel.postMessage({ type: 'peer_bye', senderId: this.selfId });
-        this.localChannel.close();
-      } catch (e) {}
-      this.localChannel = null;
-    }
-
     if (this.room) {
       try {
         this.room.leave();
@@ -180,7 +89,6 @@ class NetworkManagerClass {
       this.stateAction = null;
       this.actionAction = null;
     }
-
     this.currentRoomId = null;
     this.isHost = false;
     this.connectedPeers.clear();
@@ -191,25 +99,11 @@ class NetworkManagerClass {
     if (this.stateAction && this.connectedPeers.size > 0) {
       this.stateAction.send(state).catch(() => {});
     }
-    if (this.localChannel && this.connectedPeers.size > 0) {
-      this.localChannel.postMessage({
-        type: 'state',
-        senderId: this.selfId,
-        data: state
-      });
-    }
   }
 
   public sendAction(action: PlayerNetworkAction): void {
     if (this.actionAction && this.connectedPeers.size > 0) {
       this.actionAction.send(action).catch(() => {});
-    }
-    if (this.localChannel && this.connectedPeers.size > 0) {
-      this.localChannel.postMessage({
-        type: 'action',
-        senderId: this.selfId,
-        data: action
-      });
     }
   }
 

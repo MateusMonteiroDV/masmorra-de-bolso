@@ -21,6 +21,8 @@ export interface PlayerNetworkAction {
     | 'enemy_damage'
     | 'chest_open'
     | 'dungeon_victory'
+    | 'player_death'
+    | 'all_players_dead'
     | 'lobby_ready_toggle'
     | 'lobby_start_countdown';
   payload?: any;
