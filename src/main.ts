@@ -7,24 +7,6 @@ import { DungeonScene } from './scenes/DungeonScene';
 import { UIScene } from './scenes/UIScene';
 import { GameOverScene } from './scenes/GameOverScene';
 
-// Previne que o navegador e o gerenciador de entrada do sistema (como IBus no Linux/Wayland com Chromium/Brave)
-// interceptem as teclas de movimento (WASD) e abram caixas de composição/números no canto superior esquerdo (0,0)
-window.addEventListener('keydown', (e) => {
-  const target = e.target as HTMLElement;
-  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-    return;
-  }
-  const gameKeys = [
-    'KeyW', 'KeyA', 'KeyS', 'KeyD',
-    'KeyQ', 'KeyE', 'KeyF', 'KeyJ', 'KeyK',
-    'Space', 'ShiftLeft', 'ShiftRight',
-    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'
-  ];
-  if (gameKeys.includes(e.code)) {
-    e.preventDefault();
-  }
-}, { passive: false });
-
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
