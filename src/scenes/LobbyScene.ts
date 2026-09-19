@@ -20,6 +20,7 @@ export class LobbyScene extends Phaser.Scene {
   private isSelfReady: boolean = false;
   private peerReadyMap: Map<string, boolean> = new Map();
   private peersInLobby: Set<string> = new Set();
+  private peerSceneMap: Map<string, string> = new Map();
 
   private uiContainer!: Phaser.GameObjects.Container;
   private hostStatusText!: Phaser.GameObjects.Text;
@@ -40,6 +41,7 @@ export class LobbyScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.peerReadyMap.clear();
     this.peersInLobby.clear();
+    this.peerSceneMap.clear();
 
     // Se estiver sozinho na sala, assume liderança da sala como Host
     if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
@@ -342,12 +344,16 @@ export class LobbyScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubLeave);
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
-      if (this.peersInLobby.has(peerId)) {
+      this.peerSceneMap.set(peerId, state.scene || 'LobbyScene');
+      if (this.peersInLobby.has(peerId) && (!state.scene || state.scene === 'LobbyScene')) {
         let remote = this.remotePlayers.get(peerId);
         if (!remote) {
           remote = this.createRemotePlayer(peerId);
         }
         remote.applyNetworkState(state);
+      }
+      if (!NetworkManager.isHost && state.scene === 'DungeonScene') {
+        this.refreshLobbyStateUI();
       }
     });
     this.networkUnsubs.push(unsubState);
@@ -359,6 +365,7 @@ export class LobbyScene extends Phaser.Scene {
         if (action.payload?.inLobby) {
           const isNewlyArrived = !this.peersInLobby.has(peerId);
           this.peersInLobby.add(peerId);
+          this.peerSceneMap.set(peerId, 'LobbyScene');
           if (action.payload.ready !== undefined) {
             this.peerReadyMap.set(peerId, !!action.payload.ready);
           }
@@ -387,6 +394,10 @@ export class LobbyScene extends Phaser.Scene {
         remote.remoteMeleeAttack();
       } else if (action.type === 'lobby_start_countdown') {
         this.startCountdownSequence();
+      } else if (action.type === 'scene_sync' && action.payload?.scene === 'DungeonScene') {
+        GameState.startNewRun();
+        this.scene.start('DungeonScene');
+        this.scene.launch('UIScene');
       }
     });
     this.networkUnsubs.push(unsubAction);
@@ -431,11 +442,17 @@ export class LobbyScene extends Phaser.Scene {
         this.guestStatusText.setText(`⚔️ Aliado: ${isPeerReady ? '🟢 PRONTO PARA A BATALHA!' : '⏳ AGUARDANDO CONFIRMAÇÃO...'}`);
       }
     } else {
+      const isHostInDungeon = peers.some(p => this.peerSceneMap.get(p) === 'DungeonScene');
+      const isHostInLobby = peers.some(p => this.peersInLobby.has(p));
+
       if (!hasPeers) {
         this.hostStatusText.setText('👑 Líder da Sala (Host): ⏳ AGUARDANDO CONEXÃO...');
+      } else if (isHostInDungeon) {
+        this.hostStatusText.setText('👑 Líder da Sala (Host): ⚔️ EM BATALHA NA MASMORRA!');
+      } else if (isHostInLobby) {
+        this.hostStatusText.setText('👑 Líder da Sala (Host): 🟢 NA SALA');
       } else {
-        const isHostInLobby = peers.some(p => this.peersInLobby.has(p));
-        this.hostStatusText.setText(`👑 Líder da Sala (Host): ${isHostInLobby ? '🟢 NA SALA' : '⏳ RETORNANDO AO LOBBY...'}`);
+        this.hostStatusText.setText('👑 Líder da Sala (Host): ⏳ RETORNANDO AO LOBBY...');
       }
       this.guestStatusText.setText(`⚔️ Você (Convidado): ${this.isSelfReady ? '🟢 ESTOU PRONTO!' : '⏳ CLIQUE ABAIXO PARA CONFIRMAR'}`);
     }
@@ -467,21 +484,36 @@ export class LobbyScene extends Phaser.Scene {
         }
       }
     } else {
-      // Jogador Convidado (Botão de Pronto / Desmarcar)
-      this.actionButtonBg.fillColor = this.isSelfReady ? 0x991b1b : 0x059669;
-      this.actionButtonText.setText(this.isSelfReady ? '❌ CANCELAR CONFIRMAÇÃO' : '✅ ESTOU PRONTO!');
+      const isHostInDungeon = peers.some(p => this.peerSceneMap.get(p) === 'DungeonScene');
 
-      const handleToggle = () => {
-        this.isSelfReady = !this.isSelfReady;
-        AudioService.playBuyUpgrade();
-        NetworkManager.sendAction({
-          type: 'lobby_ready_toggle',
-          payload: { ready: this.isSelfReady }
-        });
-        this.refreshLobbyStateUI();
-      };
-      this.actionButtonBg.on('pointerdown', handleToggle);
-      this.actionButtonText.on('pointerdown', handleToggle);
+      if (hasPeers && isHostInDungeon) {
+        // Se o Host já está em combate na masmorra, permite entrar na batalha imediatamente
+        this.actionButtonBg.fillColor = 0x16a34a;
+        this.actionButtonText.setText('⚔️ ENTRAR NA MASMORRA COM O HOST');
+        const handleJoinDungeon = () => {
+          GameState.startNewRun();
+          this.scene.start('DungeonScene');
+          this.scene.launch('UIScene');
+        };
+        this.actionButtonBg.on('pointerdown', handleJoinDungeon);
+        this.actionButtonText.on('pointerdown', handleJoinDungeon);
+      } else {
+        // Jogador Convidado (Botão de Pronto / Desmarcar normal)
+        this.actionButtonBg.fillColor = this.isSelfReady ? 0x991b1b : 0x059669;
+        this.actionButtonText.setText(this.isSelfReady ? '❌ CANCELAR CONFIRMAÇÃO' : '✅ ESTOU PRONTO!');
+
+        const handleToggle = () => {
+          this.isSelfReady = !this.isSelfReady;
+          AudioService.playBuyUpgrade();
+          NetworkManager.sendAction({
+            type: 'lobby_ready_toggle',
+            payload: { ready: this.isSelfReady }
+          });
+          this.refreshLobbyStateUI();
+        };
+        this.actionButtonBg.on('pointerdown', handleToggle);
+        this.actionButtonText.on('pointerdown', handleToggle);
+      }
     }
   }
 

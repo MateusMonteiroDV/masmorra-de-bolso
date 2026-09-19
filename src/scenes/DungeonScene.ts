@@ -100,6 +100,13 @@ export class DungeonScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.setupNetworkMultiplayer();
 
+    if (NetworkManager.isHost && NetworkManager.isConnected()) {
+      NetworkManager.sendAction({
+        type: 'scene_sync',
+        payload: { scene: 'DungeonScene' }
+      });
+    }
+
     // 10. Ouvinte de Morte do Roberto com Suporte Cooperativo (Espectador)
     EventBus.once(CONSTANTS.EVENTS.PLAYER_DIED, () => {
       this.handlePlayerDeathCoop();
