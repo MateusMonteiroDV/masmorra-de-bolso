@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 import { CONSTANTS } from '../../core/Constants';
 import { Enemy } from '../enemies/Enemy';
 import { NetworkManager } from '../../network/NetworkManager';
