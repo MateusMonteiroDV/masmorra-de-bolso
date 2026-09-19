@@ -100,6 +100,7 @@ export class GameOverScene extends Phaser.Scene {
     const btnY = 214;
 
     const btnBg = this.add.rectangle(0, 0, btnW, btnH, isInMultiplayer ? 0x16a34a : 0x2563eb);
+    btnBg.setInteractive({ useHandCursor: true });
 
     let countdownSeconds = 4;
     const btnLabelText = isInMultiplayer
@@ -112,19 +113,28 @@ export class GameOverScene extends Phaser.Scene {
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
+    btnLabel.setInteractive({ useHandCursor: true });
 
     const btnContainer = this.add.container(btnX, btnY, [btnBg, btnLabel]);
     btnContainer.setSize(btnW, btnH);
     btnContainer.setDepth(CONSTANTS.DEPTH.UI + 100);
-    btnContainer.setInteractive({ useHandCursor: true });
+    btnContainer.setInteractive(
+      new Phaser.Geom.Rectangle(-btnW / 2, -btnH / 2, btnW, btnH),
+      Phaser.Geom.Rectangle.Contains
+    );
 
-    btnContainer.on('pointerover', () => {
-      btnBg.fillColor = isInMultiplayer ? 0x22c55e : 0x3b82f6;
-    });
+    const setHover = (hover: boolean) => {
+      btnBg.fillColor = hover
+        ? (isInMultiplayer ? 0x22c55e : 0x3b82f6)
+        : (isInMultiplayer ? 0x16a34a : 0x2563eb);
+    };
 
-    btnContainer.on('pointerout', () => {
-      btnBg.fillColor = isInMultiplayer ? 0x16a34a : 0x2563eb;
-    });
+    btnContainer.on('pointerover', () => setHover(true));
+    btnContainer.on('pointerout', () => setHover(false));
+    btnBg.on('pointerover', () => setHover(true));
+    btnBg.on('pointerout', () => setHover(false));
+    btnLabel.on('pointerover', () => setHover(true));
+    btnLabel.on('pointerout', () => setHover(false));
 
     let returned = false;
     const handleReturn = () => {
@@ -142,6 +152,8 @@ export class GameOverScene extends Phaser.Scene {
     };
 
     btnContainer.on('pointerdown', handleReturn);
+    btnBg.on('pointerdown', handleReturn);
+    btnLabel.on('pointerdown', handleReturn);
 
     // Retorno automático ao Lobby após contagem regressiva em partidas multiplayer
     if (isInMultiplayer) {

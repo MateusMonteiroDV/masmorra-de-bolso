@@ -35,7 +35,7 @@ export class SlimeEnemy extends Enemy {
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
-    if (!this.active || this.isDying || this.health.isDead()) return;
+    if (!this.active || this.isDying || this.health.isDead() || !player || !player.active) return;
 
     if (this.attackCooldownTimer > 0) {
       this.attackCooldownTimer -= delta;

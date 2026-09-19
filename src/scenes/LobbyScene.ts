@@ -362,12 +362,13 @@ export class LobbyScene extends Phaser.Scene {
     const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
 
-      if (action.type === 'lobby_presence') {
-        if (action.payload?.inLobby) {
+      if (action.type === 'lobby_presence' || action.type === 'lobby_peer_waiting') {
+        const inLobby = action.type === 'lobby_peer_waiting' || !!action.payload?.inLobby;
+        if (inLobby) {
           const isNewlyArrived = !this.peersInLobby.has(peerId);
           this.peersInLobby.add(peerId);
           this.peerSceneMap.set(peerId, 'LobbyScene');
-          if (action.payload.ready !== undefined) {
+          if (action.payload?.ready !== undefined) {
             this.peerReadyMap.set(peerId, !!action.payload.ready);
           }
           if (!remote) {

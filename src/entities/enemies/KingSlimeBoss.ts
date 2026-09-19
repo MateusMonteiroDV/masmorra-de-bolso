@@ -39,7 +39,7 @@ export class KingSlimeBoss extends Enemy {
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
-    if (!this.active || this.health.isDead() || this.isSlamming) return;
+    if (!this.active || this.health.isDead() || this.isSlamming || !player || !player.active) return;
 
     // Perseguição padrão
     const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
@@ -114,10 +114,12 @@ export class KingSlimeBoss extends Enemy {
             AudioService.playEnemyHit();
 
             // Causa dano em área no jogador se não tiver esquivado
-            const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-            if (dist < 34) {
-              const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
-              playerEntity.health?.takeDamage(CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE);
+            if (player && player.active) {
+              const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+              if (dist < 34) {
+                const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
+                playerEntity.health?.takeDamage(CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE);
+              }
             }
 
             // Invocação de 1 a 2 slimes menores

@@ -29,6 +29,7 @@ export class DungeonScene extends Phaser.Scene {
   private networkSyncTimer: number = 0;
   private isSpectating: boolean = false;
   private isTransitioningToGameOver: boolean = false;
+  private gameOverTimer?: Phaser.Time.TimerEvent;
   private networkUnsubs: Array<() => void> = [];
 
   constructor() {
@@ -39,6 +40,11 @@ export class DungeonScene extends Phaser.Scene {
     const mapW = CONSTANTS.MAP_WIDTH;
     const mapH = CONSTANTS.MAP_HEIGHT;
     this.isSpectating = false;
+    this.isTransitioningToGameOver = false;
+    if (this.gameOverTimer) {
+      this.gameOverTimer.destroy();
+      this.gameOverTimer = undefined;
+    }
 
     // 1. Configurar Limites do Mundo e Câmera
     this.physics.world.setBounds(0, 0, mapW, mapH);
@@ -175,6 +181,13 @@ export class DungeonScene extends Phaser.Scene {
         });
 
         exitBtn.on('pointerdown', () => {
+          if (this.gameOverTimer) {
+            this.gameOverTimer.destroy();
+            this.gameOverTimer = undefined;
+          }
+          this.cameras.main.stopFollow();
+          this.isSpectating = false;
+          this.isTransitioningToGameOver = true;
           GameState.endRun(false);
           NetworkManager.sendAction({ type: 'lobby_peer_waiting' });
           this.scene.stop('UIScene');
@@ -196,8 +209,9 @@ export class DungeonScene extends Phaser.Scene {
   private triggerGameOverLocally() {
     if (this.isTransitioningToGameOver) return;
     this.isTransitioningToGameOver = true;
+    this.cameras.main.stopFollow();
 
-    this.time.delayedCall(1000, () => {
+    this.gameOverTimer = this.time.delayedCall(1000, () => {
       this.scene.stop('UIScene');
       this.scene.start('GameOverScene', { victory: false });
     });
@@ -216,10 +230,13 @@ export class DungeonScene extends Phaser.Scene {
     const unsubLeave = NetworkManager.onPeerLeave((peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
       if (remote) {
+        if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
+          this.cameras.main.stopFollow();
+        }
         remote.destroy();
         this.remotePlayers.delete(peerId);
       }
-      if (this.player.health.isDead()) {
+      if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
         const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
           this.triggerGameOverLocally();
@@ -233,6 +250,9 @@ export class DungeonScene extends Phaser.Scene {
       if (state.scene && state.scene !== 'DungeonScene') {
         const remote = this.remotePlayers.get(peerId);
         if (remote) {
+          if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
+            this.cameras.main.stopFollow();
+          }
           remote.destroy();
           this.remotePlayers.delete(peerId);
         }
@@ -266,6 +286,9 @@ export class DungeonScene extends Phaser.Scene {
       if (action.type === 'lobby_presence' || action.type === 'lobby_peer_waiting') {
         // Aliado já foi para o Lobby! Não está mais na masmorra
         if (remote) {
+          if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
+            this.cameras.main.stopFollow();
+          }
           remote.destroy();
           this.remotePlayers.delete(peerId);
         }
@@ -327,10 +350,15 @@ export class DungeonScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubAction);
 
     this.events.once('shutdown', () => {
+      if (this.gameOverTimer) {
+        this.gameOverTimer.destroy();
+        this.gameOverTimer = undefined;
+      }
+      this.cameras.main.stopFollow();
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
-      EventBus.off(CONSTANTS.EVENTS.PLAYER_DIED);
-      EventBus.off(CONSTANTS.EVENTS.ENEMY_DIED);
+      EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);
+      EventBus.removeAllListeners(CONSTANTS.EVENTS.ENEMY_DIED);
     });
   }
 
@@ -413,7 +441,7 @@ export class DungeonScene extends Phaser.Scene {
         let minDist = closestTarget ? Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y) : 999999;
 
         this.remotePlayers.forEach(remote => {
-          if (remote.active) {
+          if (remote.active && !remote.isDead()) {
             const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, remote.x, remote.y);
             if (d < minDist) {
               minDist = d;

@@ -37,7 +37,7 @@ export class SkeletonMage extends Enemy {
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
-    if (!this.active || this.health.isDead()) return;
+    if (!this.active || this.health.isDead() || !player || !player.active) return;
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
