@@ -18,6 +18,11 @@ export class PlayerController {
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
 
+  // Buffer de teclas brutas direto do DOM (redundância caso o Phaser KeyCode falhe no notebook)
+  private static rawKeysDown: Set<string> = new Set();
+  private static rawJustDown: Set<string> = new Set();
+  private static isGlobalListenerSetup: boolean = false;
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     const keyboard = scene.input.keyboard;
@@ -52,6 +57,28 @@ export class PlayerController {
       ]);
     }
 
+    // Ouvinte global no nível da janela do navegador para garantir resposta em qualquer notebook
+    if (!PlayerController.isGlobalListenerSetup && typeof window !== 'undefined') {
+      PlayerController.isGlobalListenerSetup = true;
+
+      window.addEventListener('keydown', (e: KeyboardEvent) => {
+        PlayerController.rawKeysDown.add(e.code);
+        PlayerController.rawKeysDown.add(e.key.toLowerCase());
+        PlayerController.rawJustDown.add(e.code);
+        PlayerController.rawJustDown.add(e.key.toLowerCase());
+      });
+
+      window.addEventListener('keyup', (e: KeyboardEvent) => {
+        PlayerController.rawKeysDown.delete(e.code);
+        PlayerController.rawKeysDown.delete(e.key.toLowerCase());
+      });
+
+      window.addEventListener('blur', () => {
+        PlayerController.rawKeysDown.clear();
+        PlayerController.rawJustDown.clear();
+      });
+    }
+
     this.scene.input.mouse?.disableContextMenu();
 
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -70,56 +97,86 @@ export class PlayerController {
     });
   }
 
+  private isKeyDown(code: string, char: string, phaserKey?: Phaser.Input.Keyboard.Key): boolean {
+    return Boolean(
+      phaserKey?.isDown ||
+      PlayerController.rawKeysDown.has(code) ||
+      PlayerController.rawKeysDown.has(char)
+    );
+  }
+
+  private isJustPressed(code: string, char: string, phaserKey?: Phaser.Input.Keyboard.Key): boolean {
+    const phaserDown = phaserKey ? Phaser.Input.Keyboard.JustDown(phaserKey) : false;
+    const rawDown = PlayerController.rawJustDown.has(code) || PlayerController.rawJustDown.has(char);
+    if (rawDown) {
+      PlayerController.rawJustDown.delete(code);
+      PlayerController.rawJustDown.delete(char);
+      return true;
+    }
+    return phaserDown;
+  }
+
   public getMovementVector(): { x: number; y: number } {
     let x = 0;
     let y = 0;
 
-    // A ou Seta Esquerda -> Direção negativa (-1)
-    if (this.keyA?.isDown || this.cursors?.left.isDown) {
-      x -= 1;
-    }
-    // D ou Seta Direita -> Direção positiva (+1)
-    if (this.keyD?.isDown || this.cursors?.right.isDown) {
-      x += 1;
-    }
+    // A ou Seta Esquerda ou Tecla física A (ou Q em teclado AZERTY)
+    const isLeft =
+      this.isKeyDown('KeyA', 'a', this.keyA) ||
+      this.isKeyDown('ArrowLeft', 'arrowleft', this.cursors?.left) ||
+      this.isKeyDown('KeyQ', 'q');
 
-    // W ou Seta Cima -> (-1)
-    if (this.keyW?.isDown || this.cursors?.up.isDown) {
-      y -= 1;
-    }
-    // S ou Seta Baixo -> (+1)
-    if (this.keyS?.isDown || this.cursors?.down.isDown) {
-      y += 1;
-    }
+    // D ou Seta Direita ou Tecla física D
+    const isRight =
+      this.isKeyDown('KeyD', 'd', this.keyD) ||
+      this.isKeyDown('ArrowRight', 'arrowright', this.cursors?.right);
+
+    // W ou Seta Cima ou Tecla física W (ou Z em teclado AZERTY)
+    const isUp =
+      this.isKeyDown('KeyW', 'w', this.keyW) ||
+      this.isKeyDown('ArrowUp', 'arrowup', this.cursors?.up) ||
+      this.isKeyDown('KeyZ', 'z');
+
+    // S ou Seta Baixo ou Tecla física S
+    const isDown =
+      this.isKeyDown('KeyS', 's', this.keyS) ||
+      this.isKeyDown('ArrowDown', 'arrowdown', this.cursors?.down);
+
+    if (isLeft) x -= 1;
+    if (isRight) x += 1;
+    if (isUp) y -= 1;
+    if (isDown) y += 1;
 
     return { x, y };
   }
 
   // Golpe com Espada (Espaço ou K)
   public isMeleeAttackPressed(): boolean {
-    const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
-    const kDown = this.keyK ? Phaser.Input.Keyboard.JustDown(this.keyK) : false;
-    return spaceDown || kDown;
+    const space = this.isJustPressed('Space', ' ', this.keySpace);
+    const k = this.isJustPressed('KeyK', 'k', this.keyK);
+    return space || k;
   }
 
   // Tiro com Besta / Flecha (Clique do Mouse, F ou J)
   public isShootCrossbowPressed(): boolean {
-    const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
-    const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
+    const f = this.isJustPressed('KeyF', 'f', this.keyF);
+    const j = this.isJustPressed('KeyJ', 'j', this.keyJ);
     const mouseShoot = this.mouseShootTriggered;
     this.mouseShootTriggered = false;
-    return fDown || jDown || mouseShoot;
+    return f || j || mouseShoot;
   }
 
   // Defesa com Escudo (Shift, Q ou Botão Direito do Mouse)
   public isDefending(): boolean {
-    const shiftDown = this.keyShift?.isDown ?? false;
-    const qDown = this.keyQ?.isDown ?? false;
-    return shiftDown || qDown || this.mouseDefendDown;
+    const shift =
+      this.isKeyDown('ShiftLeft', 'shift', this.keyShift) ||
+      this.isKeyDown('ShiftRight', 'shift');
+    const q = this.isKeyDown('KeyQ', 'q', this.keyQ);
+    return shift || q || this.mouseDefendDown;
   }
 
   public isInteractPressed(): boolean {
-    return this.keyE ? Phaser.Input.Keyboard.JustDown(this.keyE) : false;
+    return this.isJustPressed('KeyE', 'e', this.keyE);
   }
 
   public getAimAngle(playerX: number, playerY: number, facingDirX: number, facingDirY: number): number {
