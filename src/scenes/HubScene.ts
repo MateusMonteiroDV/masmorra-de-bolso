@@ -175,6 +175,7 @@ export class HubScene extends Phaser.Scene {
     const urlParams = new URLSearchParams(window.location.search);
     const roomParam = urlParams.get('room');
     if (roomParam && !NetworkManager.currentRoomId) {
+      NetworkManager.clearRoomUrl();
       NetworkManager.join(roomParam, false);
       this.scene.start('LobbyScene');
       return;

@@ -156,7 +156,22 @@ class NetworkManagerClass {
     }
   }
 
+  public clearRoomUrl(): void {
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('room')) {
+          url.searchParams.delete('room');
+          const cleanQuery = url.search ? url.search : '';
+          window.history.replaceState({}, document.title, url.pathname + cleanQuery);
+        }
+      } catch (e) {}
+    }
+  }
+
   public leave(): void {
+    this.clearRoomUrl();
+
     if (this.localHeartbeatTimer) {
       clearInterval(this.localHeartbeatTimer);
       this.localHeartbeatTimer = null;

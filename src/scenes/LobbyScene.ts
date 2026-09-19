@@ -299,6 +299,32 @@ export class LobbyScene extends Phaser.Scene {
         this.remotePlayers.delete(peerId);
       }
       this.peerReadyMap.delete(peerId);
+
+      // Se o anfitrião saiu da sala, o convidado restante é promovido a novo líder da sala
+      if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
+        NetworkManager.isHost = true;
+        this.isSelfReady = true;
+
+        const notice = this.add.text(
+          CONSTANTS.GAME_WIDTH / 2,
+          96,
+          'O ANFITRIÃO SAIU. VOCÊ AGORA É O LÍDER DA SALA!',
+          {
+            fontFamily: 'monospace',
+            fontSize: '7.5px',
+            color: '#38bdf8',
+            backgroundColor: '#0f172a',
+            padding: { x: 6, y: 3 },
+            stroke: '#000000',
+            strokeThickness: 2
+          }
+        ).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI + 60);
+
+        this.time.delayedCall(2500, () => {
+          notice.destroy();
+        });
+      }
+
       this.refreshLobbyStateUI();
     });
     this.networkUnsubs.push(unsubLeave);
