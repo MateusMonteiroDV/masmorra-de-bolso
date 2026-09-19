@@ -105,8 +105,8 @@ export class SlimeEnemy extends Enemy {
 
     // Dropa as moedas e flechas da vitória
     if (this.dropGroup) {
-      const numCoins = Math.max(1, Math.floor(this.goldReward));
-      for (let i = 0; i < numCoins; i++) {
+      // Slimes comuns têm 50% de chance de dropar 1 moeda de ouro
+      if (Math.random() < 0.5) {
         const coin = new CoinDrop(this.scene, this.x, this.y, 1);
         this.dropGroup.add(coin);
       }

@@ -47,13 +47,13 @@ export const CONSTANTS = {
       HP: 4,                   // Mais fraco (morre em 2 tiros de flecha)
       SPEED: 45,
       DAMAGE: 1,               // Dano pré-definido (1 a 10)
-      XP_OR_GOLD: 2
+      XP_OR_GOLD: 1            // Chance de drop de 1 moeda
     },
     BAT: {
       HP: 6,                   // Médio ágil (3 tiros de flecha)
       SPEED: 80,
       DAMAGE: 2,
-      XP_OR_GOLD: 3
+      XP_OR_GOLD: 1            // 1 moeda
     },
     MAGE: {
       HP: 8,                   // Conjurador à distância (4 tiros de flecha)
@@ -62,7 +62,7 @@ export const CONSTANTS = {
       ATTACK_RANGE: 160,
       COOLDOWN: 2200,
       PROJECTILE_SPEED: 80,
-      XP_OR_GOLD: 5
+      XP_OR_GOLD: 2            // 2 moedas
     },
     BOSS: {
       HP: 24,                  // Chefe / Monstro forte (12 tiros de flecha)
@@ -70,7 +70,7 @@ export const CONSTANTS = {
       DAMAGE: 5,
       SLAM_DAMAGE: 5,
       SLAM_COOLDOWN: 4000,
-      XP_OR_GOLD: 20
+      XP_OR_GOLD: 6            // 6 moedas de recompensa
     }
   },
 

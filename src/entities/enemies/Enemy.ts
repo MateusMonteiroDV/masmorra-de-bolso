@@ -40,7 +40,7 @@ export abstract class Enemy extends Entity {
 
     // Dropa moedas de ouro e 1 flecha para reabastecimento
     if (this.dropGroup) {
-      const numCoins = Math.max(1, Math.floor(this.goldReward));
+      const numCoins = Math.floor(this.goldReward);
       for (let i = 0; i < numCoins; i++) {
         const coin = new CoinDrop(this.scene, this.x, this.y, 1);
         this.dropGroup.add(coin);

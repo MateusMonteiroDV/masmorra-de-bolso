@@ -229,15 +229,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private spawnExplorationCoins() {
+    // Apenas 2 moedas secretas em cantos distantes da masmorra
     const coinPositions = [
-      { x: 570, y: 350 },
-      { x: 570, y: 220 },
-      { x: 570, y: 650 },
-      { x: 570, y: 780 },
-      { x: 380, y: 488 },
-      { x: 220, y: 488 },
-      { x: 750, y: 488 },
-      { x: 920, y: 488 }
+      { x: 140, y: 140 },
+      { x: 1000, y: 840 }
     ];
 
     coinPositions.forEach(pos => {
