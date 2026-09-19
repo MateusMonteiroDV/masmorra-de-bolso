@@ -40,6 +40,9 @@ export class HubScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.arrowGroup = this.add.group({ runChildUpdate: true });
 
+    // Na base, o arsenal de flechas está sempre reabastecido para testes
+    GameState.arrows = 15 + (GameState.upgrades.quiverLevel ?? 0) * 5;
+
     // 1. Cenário do Hub (Chão de pedra aconchegante)
     const tileSize = CONSTANTS.TILE_SIZE;
     for (let x = 0; x < width; x += tileSize) {

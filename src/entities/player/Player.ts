@@ -222,7 +222,7 @@ export class Player extends Entity {
 
     // 1. Disparo de Besta com Flecha (Clique Esquerdo, F ou J)
     if (this.controller.isShootCrossbowPressed() && this.bowCooldownTimer <= 0) {
-      if (GameState.arrows <= 0) {
+      if (this.scene.scene.key === 'DungeonScene' && GameState.arrows <= 0) {
         this.showNoArrowsPopup();
         return;
       }
@@ -259,26 +259,31 @@ export class Player extends Entity {
   }
 
   private shootArrow(arrowGroup: Phaser.GameObjects.Group) {
-    // Consome 1 flecha do inventário do jogador
-    GameState.useArrow();
+    // Consome flecha apenas durante a incursão na masmorra
+    if (this.scene.scene.key === 'DungeonScene') {
+      GameState.useArrow();
+    }
 
     this.isShootingAnim = true;
-    this.actionLockTimer = 220; // 220ms de animação
+    this.actionLockTimer = 200; // 200ms de animação de disparo
     this.bowCooldownTimer = CONSTANTS.PLAYER.BOW_COOLDOWN;
     this.setVelocity(0, 0);
 
     const pointer = this.scene.input.activePointer;
+    const isMouse = this.controller.wasMouseShoot && pointer && (pointer.worldX !== 0 || pointer.worldY !== 0);
 
-    // Se o ponteiro estiver do lado esquerdo do Roberto, vira para a esquerda
-    if (pointer && pointer.worldX < this.x - 10) {
-      this.facing = 'e';
-    } else if (pointer && pointer.worldX > this.x + 10) {
-      this.facing = 'd';
+    // Ajusta a direção da mira se foi disparado pelo clique do mouse
+    if (isMouse) {
+      if (pointer.worldX < this.x - 10) {
+        this.facing = 'e';
+      } else if (pointer.worldX > this.x + 10) {
+        this.facing = 'd';
+      }
     }
 
     this.setFlipX(false);
 
-    const isAimingUp = pointer && pointer.worldY < this.y - 45 && Math.abs(pointer.worldX - this.x) < 50;
+    const isAimingUp = isMouse && pointer.worldY < this.y - 45 && Math.abs(pointer.worldX - this.x) < 50;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {
@@ -288,11 +293,11 @@ export class Player extends Entity {
     this.play(shootAnim, true);
     AudioService.playAttackSwing();
 
-    // Disparar o projétil da flecha
-    const targetX = pointer && (pointer.worldX !== 0 || pointer.worldY !== 0)
+    // Mira: se disparado pelo mouse, segue o ponteiro; se disparado pelo teclado (F ou J), segue para frente
+    const targetX = isMouse
       ? pointer.worldX
-      : (this.facing === 'd' ? this.x + 100 : this.x - 100);
-    const targetY = pointer && (pointer.worldX !== 0 || pointer.worldY !== 0)
+      : (this.facing === 'd' ? this.x + 180 : this.x - 180);
+    const targetY = isMouse
       ? pointer.worldY
       : this.y;
 

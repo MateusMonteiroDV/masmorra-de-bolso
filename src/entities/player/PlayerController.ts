@@ -17,6 +17,8 @@ export class PlayerController {
 
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
+  public wasMouseShoot: boolean = false;
+  private keyShootTriggered: boolean = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -35,6 +37,14 @@ export class PlayerController {
       this.keyJ = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
       this.keyK = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
       this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+      // Ouvintes de evento direto para garantir detecção instantânea das teclas F e J
+      keyboard.on('keydown-F', () => {
+        this.keyShootTriggered = true;
+      });
+      keyboard.on('keydown-J', () => {
+        this.keyShootTriggered = true;
+      });
     }
 
     this.scene.input.mouse?.disableContextMenu();
@@ -91,9 +101,23 @@ export class PlayerController {
   public isShootCrossbowPressed(): boolean {
     const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
     const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
+    const keyTriggered = this.keyShootTriggered;
+    this.keyShootTriggered = false;
+
     const mouseShoot = this.mouseShootTriggered;
     this.mouseShootTriggered = false;
-    return fDown || jDown || mouseShoot;
+
+    if (mouseShoot) {
+      this.wasMouseShoot = true;
+      return true;
+    }
+
+    if (fDown || jDown || keyTriggered) {
+      this.wasMouseShoot = false;
+      return true;
+    }
+
+    return false;
   }
 
   // Defesa com Escudo (Shift, Q ou Botão Direito do Mouse)

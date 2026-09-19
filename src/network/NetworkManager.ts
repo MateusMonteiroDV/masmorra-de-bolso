@@ -13,8 +13,8 @@ class NetworkManagerClass {
   public connectedPeers: Set<string> = new Set();
 
   private room: any = null;
-  private sendStateFn: any = null;
-  private sendActionFn: any = null;
+  private stateAction: any = null;
+  private actionAction: any = null;
 
   private stateListeners: Set<StateListener> = new Set();
   private actionListeners: Set<ActionListener> = new Set();
@@ -44,35 +44,38 @@ class NetworkManagerClass {
     this.isHost = asHost;
     this.roomChangeListeners.forEach(listener => listener(cleanRoomId));
 
-    // Configuração do Trystero via Nostr (Serverless WebRTC P2P)
-    const config = { appId: 'masmorra-de-bolso-p2p' };
-    this.room = joinRoom(config, cleanRoomId);
+    try {
+      // Configuração do Trystero via Nostr (Serverless WebRTC P2P)
+      const config = { appId: 'masmorra-de-bolso-p2p' };
+      this.room = joinRoom(config, cleanRoomId);
 
-    const [sendState, getState] = this.room.makeAction('pState');
-    const [sendAction, getAction] = this.room.makeAction('pAction');
+      // No Trystero v0.25+, makeAction retorna um objeto de ação { send, onMessage }
+      this.stateAction = this.room.makeAction('pState');
+      this.actionAction = this.room.makeAction('pAction');
 
-    this.sendStateFn = sendState;
-    this.sendActionFn = sendAction;
+      // Listeners de entrada e saída de jogadores no Trystero v0.25
+      this.room.onPeerJoin = (peerId: string) => {
+        console.log(`[P2P] Peer conectado: ${peerId}`);
+        this.connectedPeers.add(peerId);
+        this.peerJoinListeners.forEach(listener => listener(peerId));
+      };
 
-    this.room.onPeerJoin((peerId: string) => {
-      console.log(`[P2P] Peer conectado: ${peerId}`);
-      this.connectedPeers.add(peerId);
-      this.peerJoinListeners.forEach(listener => listener(peerId));
-    });
+      this.room.onPeerLeave = (peerId: string) => {
+        console.log(`[P2P] Peer desconectado: ${peerId}`);
+        this.connectedPeers.delete(peerId);
+        this.peerLeaveListeners.forEach(listener => listener(peerId));
+      };
 
-    this.room.onPeerLeave((peerId: string) => {
-      console.log(`[P2P] Peer desconectado: ${peerId}`);
-      this.connectedPeers.delete(peerId);
-      this.peerLeaveListeners.forEach(listener => listener(peerId));
-    });
+      this.stateAction.onMessage = (data: PlayerNetworkState, { peerId }: { peerId: string }) => {
+        this.stateListeners.forEach(listener => listener(data, peerId));
+      };
 
-    getState((data: PlayerNetworkState, peerId: string) => {
-      this.stateListeners.forEach(listener => listener(data, peerId));
-    });
-
-    getAction((data: PlayerNetworkAction, peerId: string) => {
-      this.actionListeners.forEach(listener => listener(data, peerId));
-    });
+      this.actionAction.onMessage = (data: PlayerNetworkAction, { peerId }: { peerId: string }) => {
+        this.actionListeners.forEach(listener => listener(data, peerId));
+      };
+    } catch (err) {
+      console.error('[P2P] Erro ao inicializar sala:', err);
+    }
   }
 
   public leave(): void {
@@ -83,6 +86,8 @@ class NetworkManagerClass {
         console.warn('Erro ao sair da sala P2P', e);
       }
       this.room = null;
+      this.stateAction = null;
+      this.actionAction = null;
     }
     this.currentRoomId = null;
     this.isHost = false;
@@ -91,14 +96,14 @@ class NetworkManagerClass {
   }
 
   public sendState(state: PlayerNetworkState): void {
-    if (this.sendStateFn && this.connectedPeers.size > 0) {
-      this.sendStateFn(state);
+    if (this.stateAction && this.connectedPeers.size > 0) {
+      this.stateAction.send(state).catch(() => {});
     }
   }
 
   public sendAction(action: PlayerNetworkAction): void {
-    if (this.sendActionFn && this.connectedPeers.size > 0) {
-      this.sendActionFn(action);
+    if (this.actionAction && this.connectedPeers.size > 0) {
+      this.actionAction.send(action).catch(() => {});
     }
   }
 
