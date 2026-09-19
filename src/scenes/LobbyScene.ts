@@ -344,6 +344,7 @@ export class LobbyScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubLeave);
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+      const prevScene = this.peerSceneMap.get(peerId);
       this.peerSceneMap.set(peerId, state.scene || 'LobbyScene');
       if (this.peersInLobby.has(peerId) && (!state.scene || state.scene === 'LobbyScene')) {
         let remote = this.remotePlayers.get(peerId);
@@ -352,7 +353,7 @@ export class LobbyScene extends Phaser.Scene {
         }
         remote.applyNetworkState(state);
       }
-      if (!NetworkManager.isHost && state.scene === 'DungeonScene') {
+      if (prevScene !== state.scene) {
         this.refreshLobbyStateUI();
       }
     });
@@ -431,9 +432,12 @@ export class LobbyScene extends Phaser.Scene {
 
     // 1. Atualizar linhas de status
     if (isHost) {
+      const isPeerInDungeon = peers.some(p => this.peerSceneMap.get(p) === 'DungeonScene');
       this.hostStatusText.setText(`👑 Você (Líder da Sala): ${this.isSelfReady ? '🟢 PRONTO' : '🟡 AGUARDANDO'}`);
       if (!hasPeers) {
         this.guestStatusText.setText('⚔️ Aliado: ⏳ AGUARDANDO JOGADOR ENTRAR...');
+      } else if (isPeerInDungeon) {
+        this.guestStatusText.setText('⚔️ Aliado: ⚔️ EM BATALHA NA MASMORRA...');
       } else if (!allConnectedPeersInLobby) {
         this.guestStatusText.setText('⚔️ Aliado: ⏳ AGUARDANDO ALIADO RETORNAR AO LOBBY...');
       } else {
@@ -462,7 +466,12 @@ export class LobbyScene extends Phaser.Scene {
     this.actionButtonText.removeAllListeners();
 
     if (isHost) {
-      if (hasPeers && !allConnectedPeersInLobby) {
+      const isPeerInDungeon = peers.some(p => this.peerSceneMap.get(p) === 'DungeonScene');
+      if (hasPeers && isPeerInDungeon) {
+        // Aliado ainda está vivo na masmorra
+        this.actionButtonBg.fillColor = 0x475569;
+        this.actionButtonText.setText('⏳ AGUARDANDO ALIADO RETORNAR DA MASMORRA...');
+      } else if (hasPeers && !allConnectedPeersInLobby) {
         // Aliado ainda está retornando ao Lobby da tela de estatísticas/morte
         this.actionButtonBg.fillColor = 0x475569;
         this.actionButtonText.setText('⏳ AGUARDANDO ALIADO RETORNAR AO LOBBY...');
@@ -487,16 +496,8 @@ export class LobbyScene extends Phaser.Scene {
       const isHostInDungeon = peers.some(p => this.peerSceneMap.get(p) === 'DungeonScene');
 
       if (hasPeers && isHostInDungeon) {
-        // Se o Host já está em combate na masmorra, permite entrar na batalha imediatamente
-        this.actionButtonBg.fillColor = 0x16a34a;
-        this.actionButtonText.setText('⚔️ ENTRAR NA MASMORRA COM O HOST');
-        const handleJoinDungeon = () => {
-          GameState.startNewRun();
-          this.scene.start('DungeonScene');
-          this.scene.launch('UIScene');
-        };
-        this.actionButtonBg.on('pointerdown', handleJoinDungeon);
-        this.actionButtonText.on('pointerdown', handleJoinDungeon);
+        this.actionButtonBg.fillColor = 0x475569;
+        this.actionButtonText.setText('⏳ AGUARDANDO LÍDER RETORNAR DA MASMORRA...');
       } else {
         // Jogador Convidado (Botão de Pronto / Desmarcar normal)
         this.actionButtonBg.fillColor = this.isSelfReady ? 0x991b1b : 0x059669;

@@ -167,26 +167,19 @@ export class DungeonScene extends Phaser.Scene {
         ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 50).setInteractive({ useHandCursor: true });
 
         exitBtn.on('pointerdown', () => {
-          this.triggerAllPlayersDead(true);
+          this.triggerGameOverLocally();
         });
 
         return;
       }
     }
 
-    this.triggerAllPlayersDead(true);
+    this.triggerGameOverLocally();
   }
 
-  private triggerAllPlayersDead(broadcast: boolean = true) {
+  private triggerGameOverLocally() {
     if (this.isTransitioningToGameOver) return;
     this.isTransitioningToGameOver = true;
-
-    if (broadcast && NetworkManager.isConnected()) {
-      NetworkManager.sendAction({
-        type: 'scene_sync',
-        payload: { scene: 'GameOverScene' }
-      });
-    }
 
     this.time.delayedCall(1000, () => {
       this.scene.stop('UIScene');
@@ -213,7 +206,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.player.health.isDead()) {
         const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
-          this.triggerAllPlayersDead(false);
+          this.triggerGameOverLocally();
         }
       }
     });
@@ -230,7 +223,7 @@ export class DungeonScene extends Phaser.Scene {
         if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
           const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
           if (!anyAllyAlive) {
-            this.triggerAllPlayersDead(true);
+            this.triggerGameOverLocally();
           }
         }
         return;
@@ -245,7 +238,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.isSpectating && this.player.health.isDead() && !this.isTransitioningToGameOver) {
         const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
-          this.triggerAllPlayersDead(true);
+          this.triggerGameOverLocally();
         }
       }
     });
@@ -255,13 +248,13 @@ export class DungeonScene extends Phaser.Scene {
       const remote = this.remotePlayers.get(peerId);
 
       if (action.type === 'lobby_presence' || action.type === 'lobby_peer_waiting') {
-        // Aliado já foi para o Lobby! Não está mais vivo na masmorra
+        // Aliado já foi para o Lobby! Não está mais na masmorra
         if (remote) {
           remote.destroy();
           this.remotePlayers.delete(peerId);
         }
         if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
-          this.triggerAllPlayersDead(true);
+          this.triggerGameOverLocally();
         }
       } else if (action.type === 'shoot_arrow' && remote) {
         remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
@@ -282,7 +275,9 @@ export class DungeonScene extends Phaser.Scene {
           this.scene.start('GameOverScene', { victory: true });
         });
       } else if (action.type === 'all_players_dead') {
-        this.triggerAllPlayersDead(false);
+        if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+          this.triggerGameOverLocally();
+        }
       } else if (action.type === 'player_death') {
         const deadPeer = this.remotePlayers.get(peerId);
         if (deadPeer) {
@@ -291,15 +286,21 @@ export class DungeonScene extends Phaser.Scene {
         if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
           const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
           if (!anyAllyAlive) {
-            this.triggerAllPlayersDead(true);
+            this.triggerGameOverLocally();
           }
         }
       } else if (action.type === 'scene_sync') {
         if (action.payload?.scene === 'GameOverScene') {
-          this.triggerAllPlayersDead(false);
+          // Jogador vivo NUNCA é puxado para GameOverScene por terceiros
+          if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+            this.triggerGameOverLocally();
+          }
         } else if (action.payload?.scene === 'LobbyScene') {
-          this.scene.stop('UIScene');
-          this.scene.start('LobbyScene');
+          // Jogador vivo NUNCA é puxado para LobbyScene enquanto estiver em combate
+          if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+            this.scene.stop('UIScene');
+            this.scene.start('LobbyScene');
+          }
         } else if (action.payload?.wave) {
           if (!NetworkManager.isHost && this.waveManager.currentWave !== action.payload.wave) {
             this.waveManager.currentWave = action.payload.wave - 1;
@@ -360,10 +361,10 @@ export class DungeonScene extends Phaser.Scene {
       if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
         const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
-          this.triggerAllPlayersDead(true);
+          this.triggerGameOverLocally();
         }
       } else {
-        this.triggerAllPlayersDead(true);
+        this.triggerGameOverLocally();
       }
     }
 
