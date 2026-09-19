@@ -8,6 +8,8 @@ export class CoinDrop extends Phaser.Physics.Arcade.Sprite {
   private magnetRadius: number = 55;
   private magnetSpeed: number = 140;
 
+  private isCollected: boolean = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number, value: number = 1) {
     super(scene, x, y, 'moeda_0');
     this.value = value;
@@ -32,6 +34,8 @@ export class CoinDrop extends Phaser.Physics.Arcade.Sprite {
   }
 
   public updateMagnet(player: Phaser.GameObjects.Sprite) {
+    if (this.isCollected) return;
+
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     if (dist < this.magnetRadius) {
       const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
@@ -44,16 +48,30 @@ export class CoinDrop extends Phaser.Physics.Arcade.Sprite {
   }
 
   public collect() {
+    if (this.isCollected) return;
+    this.isCollected = true;
+
+    // Desativa colisão física para evitar múltiplas coletas
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.enable = false;
+      this.setVelocity(0, 0);
+    }
+
     AudioService.playCoin();
     GameState.addRunGold(this.value);
 
-    this.scene.tweens.add({
-      targets: this,
-      y: this.y - 15,
-      alpha: 0,
-      scale: 0.7,
-      duration: 180,
-      onComplete: () => this.destroy()
+    // Toca a animação de brilho/partículas de desaparecimento
+    this.play('anim_moeda_collect');
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.destroy();
+    });
+
+    // Fallback de segurança para garantir remoção
+    this.scene.time.delayedCall(400, () => {
+      if (this.active) {
+        this.destroy();
+      }
     });
   }
 }

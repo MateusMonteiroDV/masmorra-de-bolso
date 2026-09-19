@@ -56,12 +56,25 @@ export class PreloadScene extends Phaser.Scene {
   private createAnimations() {
     const anims = this.anims;
 
-    // Animação da Moeda Girando
+    // Animação da Moeda Girando (Frames 0 a 4: rotação contínua)
     anims.create({
       key: 'anim_moeda',
-      frames: Array.from({ length: 9 }, (_, i) => ({ key: `moeda_${i}` })),
-      frameRate: 10,
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `moeda_${i}` })),
+      frameRate: 8,
       repeat: -1
+    });
+
+    // Animação da Coleta da Moeda (Frames 5 a 8: brilho dourado e desaparecimento)
+    anims.create({
+      key: 'anim_moeda_collect',
+      frames: [
+        { key: 'moeda_5' },
+        { key: 'moeda_6' },
+        { key: 'moeda_7' },
+        { key: 'moeda_8' }
+      ],
+      frameRate: 12,
+      repeat: 0
     });
 
     // Animação da Nuvem de Impacto
