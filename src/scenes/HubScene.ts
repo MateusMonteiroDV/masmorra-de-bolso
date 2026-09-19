@@ -205,6 +205,14 @@ export class HubScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubLeave);
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+      if (state.scene && state.scene !== 'HubScene') {
+        const remote = this.remotePlayers.get(peerId);
+        if (remote) {
+          remote.destroy();
+          this.remotePlayers.delete(peerId);
+        }
+        return;
+      }
       let remote = this.remotePlayers.get(peerId);
       if (!remote) {
         remote = this.createRemotePlayer(peerId);
@@ -278,7 +286,7 @@ export class HubScene extends Phaser.Scene {
     if (this.networkSyncTimer >= 40) {
       this.networkSyncTimer = 0;
       if (NetworkManager.isConnected()) {
-        NetworkManager.sendState(this.player.getNetworkState());
+        NetworkManager.sendState(this.player.getNetworkState('HubScene'));
       }
     }
 

@@ -366,7 +366,7 @@ export class Player extends Entity {
     });
   }
 
-  public getNetworkState(): PlayerNetworkState {
+  public getNetworkState(sceneKey?: string): PlayerNetworkState {
     const body = this.body as Phaser.Physics.Arcade.Body;
     return {
       x: this.x,
@@ -379,7 +379,8 @@ export class Player extends Entity {
       isShooting: this.isShootingAnim,
       isDefending: this.isDefending,
       currentHp: this.health.currentHp,
-      maxHp: this.health.maxHp
+      maxHp: this.health.maxHp,
+      scene: sceneKey || this.scene.scene.key
     };
   }
 

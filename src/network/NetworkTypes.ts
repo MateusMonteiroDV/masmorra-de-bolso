@@ -10,6 +10,7 @@ export interface PlayerNetworkState {
   isDefending: boolean;
   currentHp: number;
   maxHp: number;
+  scene?: string;
 }
 
 export interface PlayerNetworkAction {

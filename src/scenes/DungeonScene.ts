@@ -115,7 +115,9 @@ export class DungeonScene extends Phaser.Scene {
     NetworkManager.sendAction({ type: 'player_death' });
 
     if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
-      const aliveAlly = Array.from(this.remotePlayers.values()).find(r => r.active && !r.isDead());
+      const aliveAlly = Array.from(this.remotePlayers.values()).find(
+        r => r.active && r.isAliveInDungeon()
+      );
       if (aliveAlly) {
         this.isSpectating = true;
         this.cameras.main.startFollow(aliveAlly, true, 0.1, 0.1);
@@ -131,7 +133,7 @@ export class DungeonScene extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: 2
           }
-        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 10);
+        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 50);
 
         this.tweens.add({
           targets: banner,
@@ -140,6 +142,27 @@ export class DungeonScene extends Phaser.Scene {
           yoyo: true,
           repeat: -1
         });
+
+        // Botão de emergência / sair para GameOver no modo espectador
+        const exitBtn = this.add.text(
+          CONSTANTS.GAME_WIDTH / 2,
+          CONSTANTS.GAME_HEIGHT - 22,
+          '[ ⚔️ IR PARA FIM DE JOGO / LOBBY ]',
+          {
+            fontFamily: 'monospace',
+            fontSize: '7.5px',
+            color: '#38bdf8',
+            backgroundColor: '#0f172a',
+            padding: { x: 6, y: 3 },
+            stroke: '#000000',
+            strokeThickness: 2
+          }
+        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 50).setInteractive({ useHandCursor: true });
+
+        exitBtn.on('pointerdown', () => {
+          this.triggerAllPlayersDead(true);
+        });
+
         return;
       }
     }
@@ -180,8 +203,8 @@ export class DungeonScene extends Phaser.Scene {
         remote.destroy();
         this.remotePlayers.delete(peerId);
       }
-      if (this.isSpectating && this.player.health.isDead()) {
-        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+      if (this.player.health.isDead()) {
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
           this.triggerAllPlayersDead(false);
         }
@@ -190,14 +213,30 @@ export class DungeonScene extends Phaser.Scene {
     this.networkUnsubs.push(unsubLeave);
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
+      // Se o aliado não estiver na Dungeon (está no Lobby ou Hub), ele saiu da masmorra
+      if (state.scene && state.scene !== 'DungeonScene') {
+        const remote = this.remotePlayers.get(peerId);
+        if (remote) {
+          remote.destroy();
+          this.remotePlayers.delete(peerId);
+        }
+        if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+          const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
+          if (!anyAllyAlive) {
+            this.triggerAllPlayersDead(true);
+          }
+        }
+        return;
+      }
+
       let remote = this.remotePlayers.get(peerId);
       if (!remote) {
         remote = this.createRemotePlayer(peerId);
       }
       remote.applyNetworkState(state);
 
-      if (this.isSpectating && this.player.health.isDead()) {
-        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+      if (this.isSpectating && this.player.health.isDead() && !this.isTransitioningToGameOver) {
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
           this.triggerAllPlayersDead(true);
         }
@@ -208,7 +247,16 @@ export class DungeonScene extends Phaser.Scene {
     const unsubAction = NetworkManager.onAction((action: PlayerNetworkAction, peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
 
-      if (action.type === 'shoot_arrow' && remote) {
+      if (action.type === 'lobby_presence' || action.type === 'lobby_peer_waiting') {
+        // Aliado já foi para o Lobby! Não está mais vivo na masmorra
+        if (remote) {
+          remote.destroy();
+          this.remotePlayers.delete(peerId);
+        }
+        if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+          this.triggerAllPlayersDead(true);
+        }
+      } else if (action.type === 'shoot_arrow' && remote) {
         remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
       } else if (action.type === 'melee_attack' && remote) {
         remote.remoteMeleeAttack(this.enemyGroup);
@@ -233,8 +281,8 @@ export class DungeonScene extends Phaser.Scene {
         if (deadPeer) {
           deadPeer.markDead();
         }
-        if (this.player.health.isDead()) {
-          const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+        if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
+          const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
           if (!anyAllyAlive) {
             this.triggerAllPlayersDead(true);
           }
@@ -258,6 +306,8 @@ export class DungeonScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
+      EventBus.off(CONSTANTS.EVENTS.PLAYER_DIED);
+      EventBus.off(CONSTANTS.EVENTS.ENEMY_DIED);
     });
   }
 
@@ -298,10 +348,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   public override update(time: number, delta: number) {
-    // 0. Watchdog de Morte Cooperativa: se o jogador local morreu, monitora se todos os aliados também morreram
+    // 0. Watchdog de Morte Cooperativa: se o jogador local morreu, monitora se todos os aliados na masmorra também morreram
     if (this.player.health.isDead() && !this.isTransitioningToGameOver) {
       if (NetworkManager.isConnected() && this.remotePlayers.size > 0) {
-        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => !r.isDead());
+        const anyAllyAlive = Array.from(this.remotePlayers.values()).some(r => r.isAliveInDungeon());
         if (!anyAllyAlive) {
           this.triggerAllPlayersDead(true);
         }
@@ -321,7 +371,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.networkSyncTimer >= 40) {
       this.networkSyncTimer = 0;
       if (NetworkManager.isConnected()) {
-        NetworkManager.sendState(this.player.getNetworkState());
+        NetworkManager.sendState(this.player.getNetworkState('DungeonScene'));
       }
     }
 

@@ -19,8 +19,16 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
   private currentHp: number = 6;
   private maxHp: number = 6;
 
+  public currentScene?: string;
+
   public isDead(): boolean {
     return this.currentHp <= 0;
+  }
+
+  public isAliveInDungeon(): boolean {
+    if (this.currentHp <= 0) return false;
+    if (this.currentScene && this.currentScene !== 'DungeonScene') return false;
+    return true;
   }
 
   public markDead(): void {
@@ -79,6 +87,7 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.isDefending = state.isDefending;
     this.currentHp = state.currentHp;
     this.maxHp = state.maxHp;
+    this.currentScene = state.scene;
 
     this.setFlipX(false);
 

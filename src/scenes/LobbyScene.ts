@@ -537,7 +537,7 @@ export class LobbyScene extends Phaser.Scene {
     if (this.networkSyncTimer >= 40) {
       this.networkSyncTimer = 0;
       if (NetworkManager.isConnected()) {
-        NetworkManager.sendState(this.player.getNetworkState());
+        NetworkManager.sendState(this.player.getNetworkState('LobbyScene'));
       }
     }
   }
