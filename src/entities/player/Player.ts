@@ -20,14 +20,14 @@ export class Player extends Entity {
   public isShootingAnim: boolean = false;
   public isDefending: boolean = false;
 
+  private actionLockTimer: number = 0;
   private bowCooldownTimer: number = 0;
-  private projectileGroup?: Phaser.GameObjects.Group;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, projectileGroup?: Phaser.GameObjects.Group) {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'roberto_d_00');
 
-    this.projectileGroup = projectileGroup;
     this.setDepth(CONSTANTS.DEPTH.CHARACTERS);
+    this.setFlipX(false); // Sempre desativa flipX pois os sprites do artista já têm direções desenhadas
 
     // Ajuste da Hitbox do Roberto no sprite 64x64
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -38,7 +38,6 @@ export class Player extends Entity {
 
     this.stats = GameState.getComputedPlayerStats();
 
-    // HealthComponent com 10 HP base
     this.health = new HealthComponent(this, this.stats.maxHp, true, CONSTANTS.PLAYER.INVULNERABLE_DURATION);
     this.movement = new MovementComponent(this, this.stats.moveSpeed, CONSTANTS.PLAYER.DASH_SPEED, this.stats.dashCooldown, this.health);
     this.attackComponent = new AttackComponent(this, this.stats.baseDamage, CONSTANTS.PLAYER.ATTACK_COOLDOWN);
@@ -61,6 +60,7 @@ export class Player extends Entity {
 
   public handleDeath() {
     this.setVelocity(0, 0);
+    this.setFlipX(false);
     this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
     AudioService.playPlayerHurt();
 
@@ -77,16 +77,22 @@ export class Player extends Entity {
       this.bowCooldownTimer -= delta;
     }
 
+    // Trava temporária durante golpe ou disparo
+    if (this.actionLockTimer > 0) {
+      this.actionLockTimer -= delta;
+      if (this.actionLockTimer <= 0) {
+        this.isAttackingAnim = false;
+        this.isShootingAnim = false;
+      }
+      return;
+    }
+
     // 1. Postura de Defesa com o Escudo
     this.isDefending = this.controller.isDefending();
     if (this.isDefending) {
       this.setVelocity(0, 0);
+      this.setFlipX(false);
       this.setTexture(this.facing === 'd' ? 'roberto_d_08' : 'roberto_e_08');
-      return;
-    }
-
-    // Se estiver em animação de ataque ou tiro, espera concluir
-    if (this.isAttackingAnim || this.isShootingAnim) {
       return;
     }
 
@@ -94,10 +100,16 @@ export class Player extends Entity {
     const moveInput = this.controller.getMovementVector();
     this.movement.moveInDirection(moveInput.x, moveInput.y);
 
-    if (moveInput.x > 0) this.facing = 'd';
-    else if (moveInput.x < 0) this.facing = 'e';
+    // Ajuste explícito de direção (Esquerda vs Direita)
+    if (moveInput.x < 0) {
+      this.facing = 'e';
+    } else if (moveInput.x > 0) {
+      this.facing = 'd';
+    }
 
-    // 3. Atualizar Animação de Caminhada / Idle
+    this.setFlipX(false);
+
+    // 3. Atualizar Animação de Caminhada / Espera
     if (moveInput.x !== 0 || moveInput.y !== 0) {
       const animKey = this.facing === 'd' ? 'roberto_walk_d' : 'roberto_walk_e';
       if (this.anims.currentAnim?.key !== animKey) {
@@ -110,15 +122,15 @@ export class Player extends Entity {
   }
 
   public handleActions(enemyGroup: Phaser.GameObjects.Group, arrowGroup: Phaser.GameObjects.Group) {
-    if (this.health.isDead() || this.isDefending) return;
+    if (this.health.isDead() || this.isDefending || this.actionLockTimer > 0) return;
 
-    // 1. Disparo de Besta com Flecha (Clique Esquerdo ou F)
+    // 1. Disparo de Besta com Flecha (Clique Esquerdo, F ou J)
     if (this.controller.isShootCrossbowPressed() && this.bowCooldownTimer <= 0) {
       this.shootArrow(arrowGroup);
       return;
     }
 
-    // 2. Golpe Melee com Espada (Espaço)
+    // 2. Golpe Melee com Espada (Espaço ou K)
     if (this.controller.isMeleeAttackPressed() && this.attackComponent.canAttack) {
       this.meleeAttack(enemyGroup);
     }
@@ -126,11 +138,22 @@ export class Player extends Entity {
 
   private shootArrow(arrowGroup: Phaser.GameObjects.Group) {
     this.isShootingAnim = true;
+    this.actionLockTimer = 220; // 220ms de animação
     this.bowCooldownTimer = CONSTANTS.PLAYER.BOW_COOLDOWN;
     this.setVelocity(0, 0);
 
     const pointer = this.scene.input.activePointer;
-    const isAimingUp = pointer && pointer.worldY < this.y - 40 && Math.abs(pointer.worldX - this.x) < 50;
+
+    // Se o ponteiro estiver do lado esquerdo do Roberto, vira para a esquerda
+    if (pointer && pointer.worldX < this.x - 10) {
+      this.facing = 'e';
+    } else if (pointer && pointer.worldX > this.x + 10) {
+      this.facing = 'd';
+    }
+
+    this.setFlipX(false);
+
+    const isAimingUp = pointer && pointer.worldY < this.y - 45 && Math.abs(pointer.worldX - this.x) < 50;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {
@@ -141,27 +164,32 @@ export class Player extends Entity {
     AudioService.playAttackSwing();
 
     // Disparar o projétil da flecha
-    const targetX = pointer ? pointer.worldX : (this.facing === 'd' ? this.x + 100 : this.x - 100);
-    const targetY = pointer ? pointer.worldY : this.y;
+    const targetX = pointer && (pointer.worldX !== 0 || pointer.worldY !== 0)
+      ? pointer.worldX
+      : (this.facing === 'd' ? this.x + 100 : this.x - 100);
+    const targetY = pointer && (pointer.worldX !== 0 || pointer.worldY !== 0)
+      ? pointer.worldY
+      : this.y;
+
+    const arrowX = this.x + (this.facing === 'd' ? 14 : -14);
+    const arrowY = this.y - 2;
 
     const arrow = new ArrowProjectile(
       this.scene,
-      this.x + (this.facing === 'd' ? 14 : -14),
-      this.y - 2,
+      arrowX,
+      arrowY,
       targetX,
       targetY,
       this.stats.arrowDamage
     );
     arrowGroup.add(arrow);
-
-    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      this.isShootingAnim = false;
-    });
   }
 
   private meleeAttack(enemyGroup: Phaser.GameObjects.Group) {
     this.isAttackingAnim = true;
+    this.actionLockTimer = 250;
     this.setVelocity(0, 0);
+    this.setFlipX(false);
 
     const attackAnim = this.facing === 'd' ? 'roberto_attack_d' : 'roberto_attack_e';
     this.play(attackAnim, true);
@@ -181,9 +209,5 @@ export class Player extends Entity {
         }
       }
     );
-
-    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      this.isAttackingAnim = false;
-    });
   }
 }

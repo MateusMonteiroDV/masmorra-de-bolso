@@ -7,7 +7,7 @@ import { RelicSelectModal } from '../ui/RelicSelectModal';
 
 export class UIScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
-  private hpText!: Phaser.GameObjects.Text;
+  private hpText?: Phaser.GameObjects.Text;
   private goldText!: Phaser.GameObjects.Text;
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
@@ -18,6 +18,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   public create() {
+    this.hpText = undefined;
+    this.hearts = [];
+
     // 1. HUD Superior Esquerdo: Indicador de 10 HP
     this.createHeartsUI();
 
@@ -35,13 +38,13 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 3. Guia de Teclas no Rodapé da Tela
-    const helpBar = this.add.text(
+    this.add.text(
       CONSTANTS.GAME_WIDTH / 2,
       CONSTANTS.GAME_HEIGHT - 8,
-      '[WASD] Mover | [Espaço] Espada | [Clique/F] Besta | [Shift/Q] Defesa',
+      '[WASD] Mover | [Espaço] Espada | [Clique/F/J] Besta | [Shift/Q] Defesa',
       {
         fontFamily: 'monospace',
-        fontSize: '7.5px',
+        fontSize: '7px',
         color: '#94a3b8',
         stroke: '#000000',
         strokeThickness: 2
@@ -68,7 +71,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createHeartsUI() {
-    this.hearts.forEach(h => h.destroy());
+    this.hearts.forEach(h => {
+      if (h && h.active) h.destroy();
+    });
     this.hearts = [];
 
     const stats = GameState.getComputedPlayerStats();
@@ -82,18 +87,17 @@ export class UIScene extends Phaser.Scene {
       this.hearts.push(heart);
     }
 
-    if (!this.hpText) {
-      this.hpText = this.add.text(startX + stats.maxHp * spacing + 4, startY - 5, `${stats.currentHp}/${stats.maxHp} HP`, {
-        fontFamily: 'monospace',
-        fontSize: '8.5px',
-        color: '#f87171',
-        stroke: '#000000',
-        strokeThickness: 2
-      });
-    } else {
-      this.hpText.setText(`${stats.currentHp}/${stats.maxHp} HP`);
-      this.hpText.setX(startX + stats.maxHp * spacing + 4);
+    if (this.hpText && this.hpText.active) {
+      this.hpText.destroy();
     }
+
+    this.hpText = this.add.text(startX + stats.maxHp * spacing + 6, startY - 5, `${stats.currentHp}/${stats.maxHp} HP`, {
+      fontFamily: 'monospace',
+      fontSize: '9px',
+      color: '#f87171',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
   }
 
   private updateHearts(current: number, max: number) {
@@ -102,14 +106,16 @@ export class UIScene extends Phaser.Scene {
     }
 
     for (let i = 0; i < this.hearts.length; i++) {
-      if (i < current) {
-        this.hearts[i].setTexture(ASSET_KEYS.UI.HEART_FULL);
-      } else {
-        this.hearts[i].setTexture(ASSET_KEYS.UI.HEART_EMPTY);
+      if (this.hearts[i] && this.hearts[i].active) {
+        if (i < current) {
+          this.hearts[i].setTexture(ASSET_KEYS.UI.HEART_FULL);
+        } else {
+          this.hearts[i].setTexture(ASSET_KEYS.UI.HEART_EMPTY);
+        }
       }
     }
 
-    if (this.hpText) {
+    if (this.hpText && this.hpText.active) {
       this.hpText.setText(`${current}/${max} HP`);
     }
   }

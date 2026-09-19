@@ -52,7 +52,7 @@ export class DungeonScene extends Phaser.Scene {
     // 4. Spawn do Protagonista Roberto no centro do nexo verde
     const startX = 570;
     const startY = 488;
-    this.player = new Player(this, startX, startY, this.arrowGroup);
+    this.player = new Player(this, startX, startY);
     this.player.setName('player');
 
     // Câmera segue Roberto suavemente
@@ -147,7 +147,8 @@ export class DungeonScene extends Phaser.Scene {
       this.enemyGroup.add(slime);
     });
 
-    // 2. Morcegos Rápidos
+    // 2. Morcegos (inativos por enquanto conforme solicitado)
+    /*
     const batPositions = [
       { x: 300, y: 380 },
       { x: 820, y: 600 },
@@ -157,6 +158,7 @@ export class DungeonScene extends Phaser.Scene {
       const bat = new BatEnemy(this, pos.x, pos.y, this.dropGroup);
       this.enemyGroup.add(bat);
     });
+    */
 
     // 3. Magos Conjuradores
     const magePositions = [

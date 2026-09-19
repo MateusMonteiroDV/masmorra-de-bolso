@@ -11,10 +11,12 @@ export class PlayerController {
   private keyShift!: Phaser.Input.Keyboard.Key;
   private keyQ!: Phaser.Input.Keyboard.Key;
   private keyF!: Phaser.Input.Keyboard.Key;
+  private keyJ!: Phaser.Input.Keyboard.Key;
+  private keyK!: Phaser.Input.Keyboard.Key;
   private keyE!: Phaser.Input.Keyboard.Key;
 
-  private mouseShootTriggered: boolean = false;
-  private mouseDefendDown: boolean = false;
+  public mouseShootTriggered: boolean = false;
+  public mouseDefendDown: boolean = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -30,22 +32,24 @@ export class PlayerController {
       this.keyShift = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
       this.keyQ = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
       this.keyF = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      this.keyJ = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+      this.keyK = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
       this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
 
     this.scene.input.mouse?.disableContextMenu();
 
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.leftButtonDown()) {
+      if (pointer.button === 0 || pointer.leftButtonDown()) {
         this.mouseShootTriggered = true;
       }
-      if (pointer.rightButtonDown()) {
+      if (pointer.button === 2 || pointer.rightButtonDown()) {
         this.mouseDefendDown = true;
       }
     });
 
     this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!pointer.rightButtonDown()) {
+      if (pointer.button === 2 || !pointer.rightButtonDown()) {
         this.mouseDefendDown = false;
       }
     });
@@ -55,28 +59,44 @@ export class PlayerController {
     let x = 0;
     let y = 0;
 
-    if (this.keyA?.isDown || this.cursors?.left.isDown) x -= 1;
-    if (this.keyD?.isDown || this.cursors?.right.isDown) x += 1;
-    if (this.keyW?.isDown || this.cursors?.up.isDown) y -= 1;
-    if (this.keyS?.isDown || this.cursors?.down.isDown) y += 1;
+    // A ou Seta Esquerda -> Direção negativa (-1)
+    if (this.keyA?.isDown || this.cursors?.left.isDown) {
+      x -= 1;
+    }
+    // D ou Seta Direita -> Direção positiva (+1)
+    if (this.keyD?.isDown || this.cursors?.right.isDown) {
+      x += 1;
+    }
+
+    // W ou Seta Cima -> (-1)
+    if (this.keyW?.isDown || this.cursors?.up.isDown) {
+      y -= 1;
+    }
+    // S ou Seta Baixo -> (+1)
+    if (this.keyS?.isDown || this.cursors?.down.isDown) {
+      y += 1;
+    }
 
     return { x, y };
   }
 
-  // Golpe com Espada (Espaço)
+  // Golpe com Espada (Espaço ou K)
   public isMeleeAttackPressed(): boolean {
-    return this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
+    const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
+    const kDown = this.keyK ? Phaser.Input.Keyboard.JustDown(this.keyK) : false;
+    return spaceDown || kDown;
   }
 
-  // Tiro com Besta (Clique Esquerdo ou F)
+  // Tiro com Besta / Flecha (Clique do Mouse, F ou J)
   public isShootCrossbowPressed(): boolean {
-    const keyFDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
+    const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
+    const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
     const mouseShoot = this.mouseShootTriggered;
     this.mouseShootTriggered = false;
-    return keyFDown || mouseShoot;
+    return fDown || jDown || mouseShoot;
   }
 
-  // Postura de Defesa (Shift, Q ou Botão Direito mantido pressionado)
+  // Defesa com Escudo (Shift, Q ou Botão Direito do Mouse)
   public isDefending(): boolean {
     const shiftDown = this.keyShift?.isDown ?? false;
     const qDown = this.keyQ?.isDown ?? false;

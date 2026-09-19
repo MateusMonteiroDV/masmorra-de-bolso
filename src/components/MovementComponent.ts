@@ -48,13 +48,6 @@ export class MovementComponent {
     // Normalização para velocidade uniforme em 8 direções
     const vector = new Phaser.Math.Vector2(dirX, dirY).normalize();
     this.owner.setVelocity(vector.x * this.baseSpeed, vector.y * this.baseSpeed);
-
-    // Ajusta direção visual (flip horizontal)
-    if (dirX < 0) {
-      this.owner.setFlipX(true);
-    } else if (dirX > 0) {
-      this.owner.setFlipX(false);
-    }
   }
 
   public dash(dirX: number, dirY: number): boolean {
