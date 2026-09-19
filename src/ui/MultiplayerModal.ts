@@ -134,6 +134,7 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       const copyCodeBg = this.scene.add.graphics();
       copyCodeBg.fillStyle(0x0369a1, 1);
       copyCodeBg.fillRoundedRect(cx - 105, by + 76, 100, 18, 3);
+      copyCodeBg.setInteractive(new Phaser.Geom.Rectangle(cx - 105, by + 76, 100, 18), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(copyCodeBg);
 
       const copyCodeBtn = this.scene.add.text(cx - 55, by + 85, '📋 COPIAR ID', {
@@ -143,19 +144,22 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      copyCodeBtn.on('pointerdown', () => {
+      const handleCopyCode = () => {
         navigator.clipboard?.writeText(currentRoom);
         copyCodeBtn.setText('ID COPIADO!');
         this.scene.time.delayedCall(1200, () => {
           if (copyCodeBtn.active) copyCodeBtn.setText('📋 COPIAR ID');
         });
-      });
+      };
+      copyCodeBg.on('pointerdown', handleCopyCode);
+      copyCodeBtn.on('pointerdown', handleCopyCode);
       this.bgContainer.add(copyCodeBtn);
 
       // Botão 2: Copiar Link Completo de Convite
       const copyLinkBg = this.scene.add.graphics();
       copyLinkBg.fillStyle(0x0284c7, 1);
       copyLinkBg.fillRoundedRect(cx + 5, by + 76, 100, 18, 3);
+      copyLinkBg.setInteractive(new Phaser.Geom.Rectangle(cx + 5, by + 76, 100, 18), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(copyLinkBg);
 
       const copyLinkBtn = this.scene.add.text(cx + 55, by + 85, '🔗 COPIAR LINK', {
@@ -165,14 +169,16 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      copyLinkBtn.on('pointerdown', () => {
+      const handleCopyLink = () => {
         const url = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
         navigator.clipboard?.writeText(url);
         copyLinkBtn.setText('LINK COPIADO!');
         this.scene.time.delayedCall(1200, () => {
           if (copyLinkBtn.active) copyLinkBtn.setText('🔗 COPIAR LINK');
         });
-      });
+      };
+      copyLinkBg.on('pointerdown', handleCopyLink);
+      copyLinkBtn.on('pointerdown', handleCopyLink);
       this.bgContainer.add(copyLinkBtn);
 
       // Lista de Membros da Sala
@@ -186,10 +192,11 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       }).setOrigin(0.5);
       this.bgContainer.add(rosterLabel);
 
-      // Se for o Host: Botão "INICIAR PARTIDA EM EQUIPE"
+      // Se for o Host: Botão "INICIAR MASMORRA"
       const startRunBg = this.scene.add.graphics();
       startRunBg.fillStyle(0x16a34a, 1);
       startRunBg.fillRoundedRect(cx - 85, by + 116, 170, 22, 4);
+      startRunBg.setInteractive(new Phaser.Geom.Rectangle(cx - 85, by + 116, 170, 22), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(startRunBg);
 
       const startRunBtn = this.scene.add.text(cx, by + 127, '⚔️ INICIAR MASMORRA', {
@@ -199,12 +206,14 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      startRunBtn.on('pointerdown', () => {
+      const handleStartRun = () => {
         this.hide();
         if (this.onStartGameCallback) {
           this.onStartGameCallback();
         }
-      });
+      };
+      startRunBg.on('pointerdown', handleStartRun);
+      startRunBtn.on('pointerdown', handleStartRun);
       this.bgContainer.add(startRunBtn);
 
       // Botão Sair da Sala
@@ -216,7 +225,9 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
 
       leaveBtn.on('pointerdown', () => {
         NetworkManager.leave();
-        this.renderContent();
+        this.scene.time.delayedCall(20, () => {
+          this.renderContent();
+        });
       });
       this.bgContainer.add(leaveBtn);
 
@@ -233,6 +244,7 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       const createBg = this.scene.add.graphics();
       createBg.fillStyle(0x0284c7, 1);
       createBg.fillRoundedRect(cx - 90, by + 54, 180, 26, 4);
+      createBg.setInteractive(new Phaser.Geom.Rectangle(cx - 90, by + 54, 180, 26), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(createBg);
 
       const createBtn = this.scene.add.text(cx, by + 67, '⚡ CRIAR SALA (GERAR ID)', {
@@ -242,13 +254,18 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      createBtn.on('pointerdown', () => {
+      const handleCreateRoom = () => {
         // Gera um ID de 4 dígitos limpo e fácil de compartilhar
         const randomNum = Math.floor(1000 + Math.random() * 9000);
         const roomId = `MDB-${randomNum}`;
         NetworkManager.join(roomId, true);
-        this.renderContent();
-      });
+        this.scene.time.delayedCall(20, () => {
+          this.renderContent();
+        });
+      };
+
+      createBg.on('pointerdown', handleCreateRoom);
+      createBtn.on('pointerdown', handleCreateRoom);
       this.bgContainer.add(createBtn);
 
       // OPÇÃO 2: DIGITAR ID DE UMA SALA EXISTENTE
@@ -264,6 +281,7 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       joinBg.fillRoundedRect(cx - 90, by + 106, 180, 24, 4);
       joinBg.lineStyle(1, 0x475569, 1);
       joinBg.strokeRoundedRect(cx - 90, by + 106, 180, 24, 4);
+      joinBg.setInteractive(new Phaser.Geom.Rectangle(cx - 90, by + 106, 180, 24), Phaser.Geom.Rectangle.Contains);
       this.bgContainer.add(joinBg);
 
       const joinBtn = this.scene.add.text(cx, by + 118, '🔑 CONECTAR COM ID DA SALA', {
@@ -273,13 +291,18 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
         fontStyle: 'bold'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      joinBtn.on('pointerdown', () => {
+      const handleJoinRoom = () => {
         const inputCode = window.prompt('Digite ou cole o ID da Sala (Ex: MDB-1234):');
         if (inputCode && inputCode.trim().length > 0) {
           NetworkManager.join(inputCode.trim().toUpperCase(), false);
-          this.renderContent();
+          this.scene.time.delayedCall(20, () => {
+            this.renderContent();
+          });
         }
-      });
+      };
+
+      joinBg.on('pointerdown', handleJoinRoom);
+      joinBtn.on('pointerdown', handleJoinRoom);
       this.bgContainer.add(joinBtn);
     }
 

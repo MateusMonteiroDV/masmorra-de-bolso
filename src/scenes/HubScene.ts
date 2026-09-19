@@ -216,6 +216,10 @@ export class HubScene extends Phaser.Scene {
       }
     });
 
+    NetworkManager.onRoomChange(() => {
+      this.updateP2PStatusText();
+    });
+
     this.updateP2PStatusText();
   }
 

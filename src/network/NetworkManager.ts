@@ -4,6 +4,7 @@ import { PlayerNetworkState, PlayerNetworkAction, RoomInfo } from './NetworkType
 type StateListener = (state: PlayerNetworkState, peerId: string) => void;
 type ActionListener = (action: PlayerNetworkAction, peerId: string) => void;
 type PeerListener = (peerId: string) => void;
+type RoomChangeListener = (roomId: string | null) => void;
 
 class NetworkManagerClass {
   public selfId: string = selfId;
@@ -19,6 +20,7 @@ class NetworkManagerClass {
   private actionListeners: Set<ActionListener> = new Set();
   private peerJoinListeners: Set<PeerListener> = new Set();
   private peerLeaveListeners: Set<PeerListener> = new Set();
+  private roomChangeListeners: Set<RoomChangeListener> = new Set();
 
   public isConnected(): boolean {
     return this.connectedPeers.size > 0;
@@ -40,6 +42,7 @@ class NetworkManagerClass {
     const cleanRoomId = roomId.trim().toUpperCase();
     this.currentRoomId = cleanRoomId;
     this.isHost = asHost;
+    this.roomChangeListeners.forEach(listener => listener(cleanRoomId));
 
     // Configuração do Trystero via Nostr (Serverless WebRTC P2P)
     const config = { appId: 'masmorra-de-bolso-p2p' };
@@ -84,6 +87,7 @@ class NetworkManagerClass {
     this.currentRoomId = null;
     this.isHost = false;
     this.connectedPeers.clear();
+    this.roomChangeListeners.forEach(listener => listener(null));
   }
 
   public sendState(state: PlayerNetworkState): void {
@@ -96,6 +100,11 @@ class NetworkManagerClass {
     if (this.sendActionFn && this.connectedPeers.size > 0) {
       this.sendActionFn(action);
     }
+  }
+
+  public onRoomChange(listener: RoomChangeListener): () => void {
+    this.roomChangeListeners.add(listener);
+    return () => this.roomChangeListeners.delete(listener);
   }
 
   public onState(listener: StateListener): () => void {
