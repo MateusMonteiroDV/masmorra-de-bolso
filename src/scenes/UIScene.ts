@@ -32,7 +32,12 @@ export class UIScene extends Phaser.Scene {
     this.createHeartsUI();
 
     // 2. Indicador de Onda Atual
-    this.waveText = this.add.text(14, 25, 'ONDA 1/4', {
+    const dungeonScene = this.scene.get('DungeonScene') as any;
+    const initialWave = dungeonScene?.waveManager?.currentWave || 1;
+    const initialTotal = dungeonScene?.waveManager?.totalWaves || 4;
+    const initialRemaining = dungeonScene?.waveManager?.remainingEnemies || 5;
+
+    this.waveText = this.add.text(14, 25, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#c084fc',

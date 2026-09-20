@@ -31,7 +31,7 @@ export class WaveManager {
   private waveConfigs: WaveConfig[] = [
     {
       waveNumber: 1,
-      title: 'ONDA 1: OS PRIMEIROS HABITANTES',
+      title: 'ONDA 1/4: OS PRIMEIROS HABITANTES',
       slimes: [
         { x: 570, y: 320 },
         { x: 440, y: 488 },
@@ -43,7 +43,7 @@ export class WaveManager {
     },
     {
       waveNumber: 2,
-      title: 'ONDA 2: A CONJURAÇÃO DAS RUÍNAS',
+      title: 'ONDA 2/4: A CONJURAÇÃO DAS RUÍNAS',
       slimes: [
         { x: 320, y: 300 },
         { x: 820, y: 300 },
@@ -59,7 +59,7 @@ export class WaveManager {
     },
     {
       waveNumber: 3,
-      title: 'ONDA 3: FRENESI DOS MONSTROS',
+      title: 'ONDA 3/4: FRENESI DOS MONSTROS',
       slimes: [
         { x: 260, y: 280 },
         { x: 880, y: 280 },
@@ -77,7 +77,7 @@ export class WaveManager {
     },
     {
       waveNumber: 4,
-      title: 'ONDA FINAL: O DESPERTAR DO REI SLIME',
+      title: 'ONDA 4/4 (CHEFE): O DESPERTAR DO REI SLIME',
       slimes: [
         { x: 480, y: 420 },
         { x: 660, y: 420 },
@@ -177,6 +177,9 @@ export class WaveManager {
   public onEnemyKilled(deadEnemy: Enemy) {
     if (this.isTransitioning) return;
 
+    // Inimigos invocados pelo chefe (minions) não decrementam o contador da onda
+    if (deadEnemy.getData('isMinion')) return;
+
     this.remainingEnemies = Math.max(0, this.remainingEnemies - 1);
     this.emitWaveUpdate();
 
@@ -186,20 +189,26 @@ export class WaveManager {
 
       if (this.currentWave >= this.totalWaves) {
         // Vitória completa da Masmorra
-        this.showWaveBanner('👑 TODAS AS ONDAS CONQUISTADAS!', true);
+        this.showWaveBanner('👑 TODAS AS 4 ONDAS VENCIDAS! O REI SLIME CAIU!', true);
         EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);
 
         if (NetworkManager.isConnected()) {
           NetworkManager.sendAction({ type: 'dungeon_victory' });
         }
 
-        this.scene.time.delayedCall(2000, () => {
+        // Dá 4 segundos para o jogador ver a comemoração, abrir o Baú do Chefe e recolher suas recompensas
+        this.scene.time.delayedCall(4000, () => {
           this.scene.scene.stop('UIScene');
           this.scene.scene.start('GameOverScene', { victory: true });
         });
       } else {
-        // Próxima Onda com contagem regressiva
-        this.showWaveBanner(`✨ ONDA ${this.currentWave} CONCLUÍDA!`, false);
+        // Próxima Onda com contagem regressiva e aviso claro do chefe
+        const nextWave = this.currentWave + 1;
+        const bannerText = nextWave === this.totalWaves
+          ? `✨ ONDA ${this.currentWave}/4 CONCLUÍDA! PREPARE-SE PARA A ONDA 4 (CHEFE)!`
+          : `✨ ONDA ${this.currentWave}/4 CONCLUÍDA!`;
+
+        this.showWaveBanner(bannerText, false);
         EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);
 
         this.scene.time.delayedCall(3000, () => {

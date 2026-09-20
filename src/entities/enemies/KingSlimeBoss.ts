@@ -136,6 +136,7 @@ export class KingSlimeBoss extends Enemy {
     for (let i = 0; i < 2; i++) {
       const offsetX = (i === 0 ? -24 : 24);
       const slime = new SlimeEnemy(this.scene, this.x + offsetX, this.y + 10, this.dropGroup);
+      slime.setData('isMinion', true);
       this.enemyGroup.add(slime);
     }
   }
