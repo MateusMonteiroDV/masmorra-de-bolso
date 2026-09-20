@@ -2,12 +2,12 @@ import { CONSTANTS } from './Constants';
 import { EventBus } from './EventBus';
 
 export interface PermanentUpgrades {
-  maxHpLevel: number;       // +1 coração por nível (máx 3)
-  damageLevel: number;      // +25% de dano base por nível (máx 4)
-  quiverLevel: number;      // +5 flechas iniciais por nível (máx 3)
-  shieldLevel: number;      // +25% de repulsão e firmeza do escudo (máx 3)
-  dashCooldownLevel: number;// -15% de recarga do dash por nível (máx 3)
-  greedLevel: number;       // +20% de ouro por nível (máx 4)
+  maxHpLevel: number;       // +1 HP inicial por nível (máx 5)
+  damageLevel: number;      // +10% de dano base por nível (máx 5)
+  quiverLevel: number;      // +3 flechas iniciais por nível (máx 5)
+  shieldLevel: number;      // +15% de repulsão do escudo por nível (máx 5)
+  dashCooldownLevel: number;// -8% de recarga do dash por nível (máx 5)
+  greedLevel: number;       // +10% de ouro por nível (máx 5)
 }
 
 export interface ActiveRelic {
@@ -56,18 +56,18 @@ class GameStateManager {
   }
 
   public getComputedPlayerStats(): PlayerStats {
-    // Cálculo balanceado com progressão justa por melhoria
-    let maxHp = CONSTANTS.PLAYER.BASE_MAX_HP + (this.upgrades.maxHpLevel ?? 0) * 2;
+    // Cálculo balanceado com progressão justa por melhoria (5 níveis no total)
+    let maxHp = CONSTANTS.PLAYER.BASE_MAX_HP + (this.upgrades.maxHpLevel ?? 0);
     
-    // Dano escalado proporcionalmente em vez de somar flat que quebrava o jogo
-    const dmgMultiplier = 1 + (this.upgrades.damageLevel ?? 0) * 0.25;
+    // Dano escalado em +10% por nível (até +50% no nível 5)
+    const dmgMultiplier = 1 + (this.upgrades.damageLevel ?? 0) * 0.10;
     let baseDamage = CONSTANTS.PLAYER.BASE_ATTACK_DAMAGE * dmgMultiplier;
     let arrowDamage = CONSTANTS.PLAYER.ARROW_DAMAGE * dmgMultiplier;
     
     let moveSpeed = CONSTANTS.PLAYER.DEFAULT_SPEED;
-    let dashCooldown = CONSTANTS.PLAYER.DASH_COOLDOWN * (1 - (this.upgrades.dashCooldownLevel ?? 0) * 0.15);
-    let goldMultiplier = 1 + (this.upgrades.greedLevel ?? 0) * 0.20;
-    let shieldRepulsionMultiplier = 1 + (this.upgrades.shieldLevel ?? 0) * 0.25;
+    let dashCooldown = CONSTANTS.PLAYER.DASH_COOLDOWN * (1 - (this.upgrades.dashCooldownLevel ?? 0) * 0.08);
+    let goldMultiplier = 1 + (this.upgrades.greedLevel ?? 0) * 0.10;
+    let shieldRepulsionMultiplier = 1 + (this.upgrades.shieldLevel ?? 0) * 0.15;
 
     let burnOnAttack = false;
     let vampireChance = 0;
@@ -107,7 +107,7 @@ class GameStateManager {
     this.activeRelics = [];
     this.runEnemiesKilled = 0;
     this.currentFloor = 1;
-    this.arrows = 15 + (this.upgrades.quiverLevel ?? 0) * 5;
+    this.arrows = 15 + (this.upgrades.quiverLevel ?? 0) * 3;
     this.saveToStorage();
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, this.runGold);
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);
@@ -142,6 +142,7 @@ class GameStateManager {
   public endRun(victory: boolean = false) {
     // Na morte ou vitória, transfere o ouro da run para o ouro guardado na base!
     this.bankedGold += this.runGold;
+    this.runGold = 0; // Limpa o ouro temporário para evitar transferências duplicadas
     if (victory) {
       this.totalBossKills++;
     }

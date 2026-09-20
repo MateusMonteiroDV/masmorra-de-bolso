@@ -98,7 +98,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
 
     UPGRADE_DEFINITIONS.forEach((def, index) => {
       const iy = startY + index * itemHeight;
-      const currentLevel = GameState.upgrades[def.key] ?? 0;
+      const currentLevel = Math.min(def.maxLevel, GameState.upgrades[def.key] ?? 0);
       const cost = UpgradeSystem.getUpgradeCost(def.key);
       const isMax = currentLevel >= def.maxLevel;
       const canAfford = !isMax && cost !== null && GameState.bankedGold >= cost;
@@ -109,8 +109,8 @@ export class ShopModal extends Phaser.GameObjects.Container {
       itemBg.fillRoundedRect(mx + 8, iy, modalWidth - 16, 26, 3);
       this.contentContainer.add(itemBg);
 
-      // Nome do Upgrade e Nível
-      const levelDots = '● '.repeat(currentLevel) + '○ '.repeat(def.maxLevel - currentLevel);
+      // Nome do Upgrade e Nível (pontos visuais)
+      const levelDots = '● '.repeat(currentLevel) + '○ '.repeat(Math.max(0, def.maxLevel - currentLevel));
       const nameText = this.scene.add.text(mx + 13, iy + 3, `${def.name} [${levelDots.trim()}]`, {
         fontFamily: 'monospace',
         fontSize: '8px',
@@ -128,10 +128,10 @@ export class ShopModal extends Phaser.GameObjects.Container {
       this.contentContainer.add(descText);
 
       // Botão de Compra
-      const btnX = mx + modalWidth - 56;
-      const btnY = iy + 3;
-      const btnW = 46;
+      const btnW = 50;
       const btnH = 20;
+      const btnX = mx + modalWidth - btnW - 10;
+      const btnY = iy + 3;
 
       const btnBg = this.scene.add.graphics();
       const btnColor = isMax ? 0x475569 : (canAfford ? 0x059669 : 0x7f1d1d);
@@ -160,13 +160,29 @@ export class ShopModal extends Phaser.GameObjects.Container {
       }
     });
 
-    // Botão Fechar
-    const closeBtnY = my + modalHeight - 14;
-    const closeBtn = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, closeBtnY, '[ X FECHAR ]', {
+    // Rodapé de Ações: Redefinir Pontos e Fechar
+    const footerY = my + modalHeight - 14;
+
+    const resetBtn = this.scene.add.text(mx + 14, footerY, '[ ↺ REDEFINIR PONTOS ]', {
       fontFamily: 'monospace',
-      fontSize: '8.5px',
+      fontSize: '7.5px',
+      color: '#f59e0b'
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+    resetBtn.on('pointerover', () => resetBtn.setColor('#fde68a'));
+    resetBtn.on('pointerout', () => resetBtn.setColor('#f59e0b'));
+    resetBtn.on('pointerdown', () => {
+      UpgradeSystem.refundAllUpgrades();
+      AudioService.playBuyUpgrade();
+      this.refreshUI();
+    });
+    this.contentContainer.add(resetBtn);
+
+    const closeBtn = this.scene.add.text(mx + modalWidth - 14, footerY, '[ X FECHAR ]', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
       color: '#94a3b8'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     closeBtn.on('pointerover', () => closeBtn.setColor('#f87171'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#94a3b8'));
