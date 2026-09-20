@@ -49,7 +49,7 @@ class GameStateManager {
   public currentFloor: number = 1;
   public activeRelics: ActiveRelic[] = [];
   public runEnemiesKilled: number = 0;
-  public arrows: number = 15;
+  public arrows: number = 30;
 
   constructor() {
     this.loadFromStorage();
@@ -107,7 +107,7 @@ class GameStateManager {
     this.activeRelics = [];
     this.runEnemiesKilled = 0;
     this.currentFloor = 1;
-    this.arrows = 15 + (this.upgrades.quiverLevel ?? 0) * 3;
+    this.arrows = 30 + (this.upgrades.quiverLevel ?? 0) * 3;
     this.saveToStorage();
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, this.runGold);
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);
