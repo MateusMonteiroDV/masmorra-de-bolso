@@ -15,24 +15,24 @@ export class TitleScene extends Phaser.Scene {
     const width = CONSTANTS.GAME_WIDTH;
     const height = CONSTANTS.GAME_HEIGHT;
 
-    // Fundo escuro com tonalidade roxa combinando com a arte
-    this.cameras.main.setBackgroundColor('#0b0714');
+    // Fundo roxo exatamente na mesma tonalidade da arte (#770f9a) para integração perfeita
+    this.cameras.main.setBackgroundColor('#770f9a');
 
-    // Partículas mágicas sutis no fundo (roxo e verde slime)
+    // Partículas mágicas sutis no fundo (verde slime e brilho dourado)
     const particles = this.add.graphics();
     particles.setDepth(1);
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 25; i++) {
       const px = Math.random() * width;
       const py = Math.random() * height;
-      const pColor = Math.random() > 0.4 ? 0x770f9a : 0x22c55e;
+      const pColor = Math.random() > 0.5 ? 0x22c55e : 0xfacc15;
       particles.fillStyle(pColor, Math.random() * 0.35 + 0.15);
       particles.fillCircle(px, py, Math.random() * 1.5 + 0.5);
     }
 
-    // Imagem da Capa / Página Inicial com o logotipo e botão PLAY verde embutido
-    const titleScale = 0.58;
+    // Imagem da Capa / Página Inicial 100% centralizada na tela
+    const titleScale = 0.54;
     const imgX = width / 2;
-    const imgY = height / 2 - 6;
+    const imgY = height / 2 - 4;
 
     const titleImage = this.add.image(imgX, imgY, 'pagina_inicial');
     titleImage.setScale(titleScale);
@@ -48,14 +48,13 @@ export class TitleScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    // Posição do botão oval verde "PLAY" contido na arte (500x500)
-    // No asset original: centro x=295, y=363 (offset de +45, +113 em relação ao centro 250,250)
-    const playX = imgX + 45 * titleScale;
-    const playY = imgY + 113 * titleScale;
-    const playW = 112 * (titleScale / 0.58);
-    const playH = 68 * (titleScale / 0.58);
+    // Posição do botão oval verde "PLAY" perfeitamente alinhado no centro (x = width / 2)
+    const playX = imgX;
+    const playY = imgY + 131 * titleScale;
+    const playW = 110;
+    const playH = 50;
 
-    // Zona interativa posicionada sobre o botão verde "PLAY" da arte com cursor de mão
+    // Zona interativa posicionada exatamente sobre o botão verde "PLAY" centralizado
     const playZone = this.add.zone(playX, playY, playW, playH);
     playZone.setDepth(25);
     playZone.setInteractive({ useHandCursor: true });
