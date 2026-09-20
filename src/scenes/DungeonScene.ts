@@ -164,7 +164,11 @@ export class DungeonScene extends Phaser.Scene {
       this.gameOverTimer.destroy();
       this.gameOverTimer = undefined;
     }
-    this.cameras.main.stopFollow();
+    try {
+      if (this.cameras && this.cameras.main) {
+        this.cameras.main.stopFollow();
+      }
+    } catch (e) {}
     this.isSpectating = false;
     this.isTransitioningToGameOver = true;
     GameState.endRun(false);
@@ -176,7 +180,11 @@ export class DungeonScene extends Phaser.Scene {
   private triggerGameOverLocally() {
     if (this.isTransitioningToGameOver) return;
     this.isTransitioningToGameOver = true;
-    this.cameras.main.stopFollow();
+    try {
+      if (this.cameras && this.cameras.main) {
+        this.cameras.main.stopFollow();
+      }
+    } catch (e) {}
 
     this.gameOverTimer = this.time.delayedCall(1000, () => {
       this.scene.stop('UIScene');
@@ -321,7 +329,11 @@ export class DungeonScene extends Phaser.Scene {
         this.gameOverTimer.destroy();
         this.gameOverTimer = undefined;
       }
-      this.cameras.main.stopFollow();
+      try {
+        if (this.cameras && this.cameras.main) {
+          this.cameras.main.stopFollow();
+        }
+      } catch (e) {}
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
       EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);

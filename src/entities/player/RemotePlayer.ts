@@ -83,52 +83,61 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
   }
 
   public applyNetworkState(state: PlayerNetworkState) {
-    this.targetX = state.x;
-    this.targetY = state.y;
-    this.facing = state.facing;
-    this.isAttacking = state.isAttacking;
-    this.isShooting = state.isShooting;
-    this.isDefending = state.isDefending;
-    this.currentHp = state.currentHp;
-    this.maxHp = state.maxHp;
-    this.currentScene = state.scene;
+    if (!this.active || !this.scene || !this.anims) return;
+    try {
+      this.targetX = state.x;
+      this.targetY = state.y;
+      this.facing = state.facing;
+      this.isAttacking = state.isAttacking;
+      this.isShooting = state.isShooting;
+      this.isDefending = state.isDefending;
+      this.currentHp = state.currentHp;
+      this.maxHp = state.maxHp;
+      this.currentScene = state.scene;
 
-    const isDungeon = this.scene && this.scene.scene && this.scene.scene.key === 'DungeonScene';
+      const isDungeon = this.scene && this.scene.scene && this.scene.scene.key === 'DungeonScene';
 
-    if (isDungeon) {
-      if (state.currentHp <= 0) {
-        this._isDead = true;
+      if (isDungeon) {
+        if (state.currentHp <= 0) {
+          this._isDead = true;
+        }
+        if (this.isDead()) {
+          this.currentHp = 0;
+          this.setFlipX(false);
+          try {
+            if (this.anims) {
+              this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
+            }
+          } catch (e) {}
+          this.renderHpBar();
+          return;
+        }
+      } else {
+        this._isDead = false;
       }
-      if (this.isDead()) {
-        this.currentHp = 0;
-        this.setFlipX(false);
-        try {
-          this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
-        } catch (e) {}
-        this.renderHpBar();
+
+      this.setFlipX(false);
+
+      if (this.isDefending) {
+        this.setTexture(this.facing === 'd' ? 'roberto_d_08' : 'roberto_e_08');
         return;
       }
-    } else {
-      this._isDead = false;
-    }
 
-    this.setFlipX(false);
-
-    if (this.isDefending) {
-      this.setTexture(this.facing === 'd' ? 'roberto_d_08' : 'roberto_e_08');
-      return;
-    }
-
-    if (state.anim && this.anims && this.scene) {
-      if (this.anims.currentAnim?.key !== state.anim) {
-        this.play(state.anim, true);
+      if (state.anim && this.anims && this.scene) {
+        if (this.anims.currentAnim?.key !== state.anim) {
+          this.play(state.anim, true);
+        }
+      } else {
+        if (this.anims && typeof this.anims.stop === 'function') {
+          this.anims.stop();
+        }
+        this.setTexture(this.facing === 'd' ? 'roberto_d_00' : 'roberto_e_00');
       }
-    } else {
-      this.stop();
-      this.setTexture(this.facing === 'd' ? 'roberto_d_00' : 'roberto_e_00');
-    }
 
-    this.renderHpBar();
+      this.renderHpBar();
+    } catch (e) {
+      // Ignora silenciosamente se o sprite estiver sendo destruído durante transição de cena
+    }
   }
 
   public remoteMeleeAttack(enemyGroup?: Phaser.GameObjects.Group) {
