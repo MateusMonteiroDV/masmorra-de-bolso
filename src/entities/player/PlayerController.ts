@@ -18,6 +18,7 @@ export class PlayerController {
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
   public wasMouseShoot: boolean = false;
+  public lastMouseShootScreenPos: { x: number; y: number } | null = null;
   private keyShootTriggered: boolean = false;
 
   private capturedKeys: Set<string> = new Set();
@@ -100,6 +101,7 @@ export class PlayerController {
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.button === 0 || pointer.leftButtonDown()) {
         this.mouseShootTriggered = true;
+        this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
       }
       if (pointer.button === 2 || pointer.rightButtonDown()) {
         this.mouseDefendDown = true;
@@ -201,8 +203,9 @@ export class PlayerController {
   public getAimAngle(playerX: number, playerY: number, facingDirX: number, facingDirY: number): number {
     const pointer = this.scene.input.activePointer;
 
-    if (pointer && (pointer.worldX !== 0 || pointer.worldY !== 0)) {
-      const rad = Phaser.Math.Angle.Between(playerX, playerY, pointer.worldX, pointer.worldY);
+    if (pointer && this.scene.cameras?.main) {
+      const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const rad = Phaser.Math.Angle.Between(playerX, playerY, worldPoint.x, worldPoint.y);
       return Phaser.Math.RadToDeg(rad);
     }
 

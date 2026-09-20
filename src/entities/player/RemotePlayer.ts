@@ -174,7 +174,13 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.isShooting = true;
     this.setFlipX(false);
 
-    const isAimingUp = targetY < this.y - 45 && Math.abs(targetX - this.x) < 50;
+    if (targetX < this.x - 5) {
+      this.facing = 'e';
+    } else if (targetX > this.x + 5) {
+      this.facing = 'd';
+    }
+
+    const isAimingUp = targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {
       shootAnim = this.facing === 'd' ? 'roberto_shoot_up_d' : 'roberto_shoot_up_e';
@@ -182,8 +188,8 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.play(shootAnim, true);
     AudioService.playAttackSwing();
 
-    const arrowX = this.x + (this.facing === 'd' ? 14 : -14);
-    const arrowY = this.y - 2;
+    const arrowX = isAimingUp ? this.x : (this.facing === 'd' ? this.x + 14 : this.x - 14);
+    const arrowY = isAimingUp ? this.y - 14 : this.y - 2;
 
     const arrow = new ArrowProjectile(
       this.scene,

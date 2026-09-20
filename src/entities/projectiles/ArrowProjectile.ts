@@ -35,8 +35,7 @@ export class ArrowProjectile extends Phaser.Physics.Arcade.Sprite {
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
-      body.setSize(16, 8);
-      body.setOffset(8, 12);
+      body.setCircle(6, 10, 10);
     }
   }
 

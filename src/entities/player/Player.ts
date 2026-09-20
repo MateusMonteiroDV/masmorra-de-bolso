@@ -271,20 +271,37 @@ export class Player extends Entity {
     this.setVelocity(0, 0);
 
     const pointer = this.scene.input.activePointer;
-    const isMouse = this.controller.wasMouseShoot && pointer && (pointer.worldX !== 0 || pointer.worldY !== 0);
+    const screenPos = this.controller.lastMouseShootScreenPos || (pointer ? { x: pointer.x, y: pointer.y } : null);
+    this.controller.lastMouseShootScreenPos = null;
 
-    // Ajusta a direção da mira se foi disparado pelo clique do mouse
-    if (isMouse) {
-      if (pointer.worldX < this.x - 10) {
+    let targetX = this.facing === 'd' ? this.x + 180 : this.x - 180;
+    let targetY = this.y;
+
+    const isMouse = this.controller.wasMouseShoot && screenPos !== null;
+
+    if (isMouse && screenPos) {
+      const worldPoint = this.scene.cameras.main.getWorldPoint(screenPos.x, screenPos.y);
+      targetX = worldPoint.x;
+      targetY = worldPoint.y;
+
+      // Ajusta a direção da mira se foi disparado pelo clique do mouse
+      if (targetX < this.x - 5) {
         this.facing = 'e';
-      } else if (pointer.worldX > this.x + 10) {
+      } else if (targetX > this.x + 5) {
         this.facing = 'd';
+      }
+    } else {
+      // Disparo via teclado (F ou J): considera movimento atual se houver
+      const moveInput = this.controller.getMovementVector();
+      if (moveInput.x !== 0 || moveInput.y !== 0) {
+        targetX = this.x + moveInput.x * 180;
+        targetY = this.y + moveInput.y * 180;
       }
     }
 
     this.setFlipX(false);
 
-    const isAimingUp = isMouse && pointer.worldY < this.y - 45 && Math.abs(pointer.worldX - this.x) < 50;
+    const isAimingUp = isMouse && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {
@@ -294,16 +311,8 @@ export class Player extends Entity {
     this.play(shootAnim, true);
     AudioService.playAttackSwing();
 
-    // Mira: se disparado pelo mouse, segue o ponteiro; se disparado pelo teclado (F ou J), segue para frente
-    const targetX = isMouse
-      ? pointer.worldX
-      : (this.facing === 'd' ? this.x + 180 : this.x - 180);
-    const targetY = isMouse
-      ? pointer.worldY
-      : this.y;
-
-    const arrowX = this.x + (this.facing === 'd' ? 14 : -14);
-    const arrowY = this.y - 2;
+    const arrowX = isAimingUp ? this.x : (this.facing === 'd' ? this.x + 14 : this.x - 14);
+    const arrowY = isAimingUp ? this.y - 14 : this.y - 2;
 
     const arrow = new ArrowProjectile(
       this.scene,
