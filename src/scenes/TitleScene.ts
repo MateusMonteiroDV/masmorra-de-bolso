@@ -55,25 +55,10 @@ export class TitleScene extends Phaser.Scene {
     const playW = 112 * (titleScale / 0.58);
     const playH = 68 * (titleScale / 0.58);
 
-    // Zona interativa posicionada exatamente sobre o botão verde "PLAY" da arte
+    // Zona interativa posicionada sobre o botão verde "PLAY" da arte com cursor de mão
     const playZone = this.add.zone(playX, playY, playW, playH);
     playZone.setDepth(25);
     playZone.setInteractive({ useHandCursor: true });
-
-    // Efeito de destaque ao passar o mouse sobre o botão PLAY
-    const playHighlight = this.add.graphics();
-    playHighlight.setDepth(15);
-    playHighlight.lineStyle(2, 0xdcfce7, 0.9);
-    playHighlight.strokeEllipse(playX, playY, playW / 2 + 3, playH / 2 + 2);
-    playHighlight.setVisible(false);
-
-    playZone.on('pointerover', () => {
-      playHighlight.setVisible(true);
-    });
-
-    playZone.on('pointerout', () => {
-      playHighlight.setVisible(false);
-    });
 
     // Subtítulo elegante com as opções de controle solicitadas
     const promptKeyText = this.add.text(
