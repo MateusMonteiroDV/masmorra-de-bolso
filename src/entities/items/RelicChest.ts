@@ -21,19 +21,27 @@ export class RelicChest extends Phaser.Physics.Arcade.Sprite {
   }
 
   public checkPlayerNear(player: Phaser.GameObjects.Sprite): boolean {
-    if (this.isOpen) return false;
+    if (this.isOpen || !this.active || !this.scene || !this.scene.add || !player || !player.active) {
+      if (this.promptText) {
+        this.promptText.destroy();
+        this.promptText = undefined;
+      }
+      return false;
+    }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     const isNear = dist < 24;
 
     if (isNear && !this.promptText) {
-      this.promptText = this.scene.add.text(this.x, this.y - 14, '[E] Abrir', {
-        fontSize: '9px',
-        color: '#fde047',
-        fontFamily: 'monospace',
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+      try {
+        this.promptText = this.scene.add.text(this.x, this.y - 14, '[E] Abrir', {
+          fontSize: '9px',
+          color: '#fde047',
+          fontFamily: 'monospace',
+          stroke: '#000000',
+          strokeThickness: 2
+        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+      } catch (e) {}
     } else if (!isNear && this.promptText) {
       this.promptText.destroy();
       this.promptText = undefined;

@@ -326,6 +326,10 @@ export class DungeonScene extends Phaser.Scene {
         this.gameOverTimer = undefined;
       }
       this.safeStopFollow();
+      this.chests.forEach(chest => {
+        if (chest && chest.active) chest.destroy();
+      });
+      this.chests = [];
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
       EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);
@@ -428,7 +432,7 @@ export class DungeonScene extends Phaser.Scene {
     });
 
     // 5. Atualizar Atração Magnética de Drops (Moedas e Flechas)
-    if (!this.player.health.isDead()) {
+    if (!this.player.health.isDead() && !this.isTransitioningToGameOver) {
       const drops = this.dropGroup.getChildren() as any[];
       drops.forEach(drop => {
         if (drop.active && typeof drop.updateMagnet === 'function') {
@@ -438,10 +442,12 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     // 6. Interação com Baús
-    this.chests.forEach(chest => {
-      if (chest.checkPlayerNear(this.player) && this.player.controller.isInteractPressed()) {
-        chest.open();
-      }
-    });
+    if (!this.player.health.isDead() && !this.isTransitioningToGameOver) {
+      this.chests.forEach(chest => {
+        if (chest && chest.active && chest.checkPlayerNear(this.player) && this.player.controller.isInteractPressed()) {
+          chest.open();
+        }
+      });
+    }
   }
 }
