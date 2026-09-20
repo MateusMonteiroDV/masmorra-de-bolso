@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { CONSTANTS } from './core/Constants';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
+import { TitleScene } from './scenes/TitleScene';
 import { HubScene } from './scenes/HubScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { DungeonScene } from './scenes/DungeonScene';
@@ -30,6 +31,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [
     BootScene,
     PreloadScene,
+    TitleScene,
     HubScene,
     LobbyScene,
     DungeonScene,

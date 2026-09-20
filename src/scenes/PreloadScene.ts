@@ -9,7 +9,10 @@ export class PreloadScene extends Phaser.Scene {
     // 1. Mapa do Jogo (1140x977)
     this.load.image('mapa_dungeon', '/assets/mapa/sprite_0.png');
 
-    // 2. Projétil da Flecha
+    // 2. Tela Inicial / Capa
+    this.load.image('pagina_inicial', '/assets/pagina_inicial/pagina_inicial.png');
+
+    // 3. Projétil da Flecha
     this.load.image('arrow_sprite', '/assets/flexa/flexaaa4.png');
 
     // 3. Moeda de Ouro (9 frames)
@@ -50,7 +53,7 @@ export class PreloadScene extends Phaser.Scene {
 
   public create() {
     this.createAnimations();
-    this.scene.start('HubScene');
+    this.scene.start('TitleScene');
   }
 
   private createAnimations() {
