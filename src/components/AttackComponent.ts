@@ -38,39 +38,55 @@ export class AttackComponent {
 
     // Calcular posição do arco do golpe na frente do personagem
     const angleRad = Phaser.Math.DegToRad(angleDeg);
-    const slashX = this.owner.x + Math.cos(angleRad) * this.attackRange;
-    const slashY = this.owner.y + Math.sin(angleRad) * this.attackRange;
+    const slashDist = 24;
+    const slashX = this.owner.x + Math.cos(angleRad) * slashDist;
+    const slashY = this.owner.y + Math.sin(angleRad) * slashDist;
 
-    // Criar sprite visual do corte de espada
+    // Criar sprite visual do corte de espada amplo
     const slash = this.owner.scene.add.sprite(slashX, slashY, ASSET_KEYS.ITEMS.SLASH_FX);
     slash.setDepth(CONSTANTS.DEPTH.EFFECTS);
     slash.setRotation(angleRad);
-    slash.setScale(1.2);
+    slash.setScale(1.4);
 
     if (burnOnAttack) {
       slash.setTint(0xf97316); // Laranja para fogo
     }
 
-    // Animação de fade/scale do golpe
+    // Animação dinâmica de corte com fade out
     this.owner.scene.tweens.add({
       targets: slash,
-      scaleX: 1.5,
-      scaleY: 1.5,
+      scaleX: 1.8,
+      scaleY: 1.8,
       alpha: 0,
-      duration: 150,
+      duration: 160,
       onComplete: () => slash.destroy()
     });
 
-    // Detecção de impacto em inimigos no raio do golpe
+    // Detecção de impacto em Área (AoE):
+    // 1. Inimigos em contato direto / corpo-a-corpo imediato (raio de 36px em 360° ao redor do jogador)
+    // 2. Inimigos no cone/semicírculo frontal amplo (alcance de até 60px com arco de ±75°)
     const targets = targetGroup.getChildren() as Phaser.Physics.Arcade.Sprite[];
-    let hitAny = false;
+    const halfArcRad = Phaser.Math.DegToRad(75);
 
     targets.forEach(target => {
       if (!target.active) return;
 
-      const dist = Phaser.Math.Distance.Between(slashX, slashY, target.x, target.y);
-      if (dist <= 26) {
-        hitAny = true;
+      const dist = Phaser.Math.Distance.Between(this.owner.x, this.owner.y, target.x, target.y);
+      let isHit = false;
+
+      if (dist <= 36) {
+        // Área imediata de contato 360° (evita errar inimigos grudados no jogador)
+        isHit = true;
+      } else if (dist <= 60) {
+        // Semicírculo frontal abrangente na direção do golpe
+        const enemyAngleRad = Phaser.Math.Angle.Between(this.owner.x, this.owner.y, target.x, target.y);
+        const diffAngle = Phaser.Math.Angle.Wrap(enemyAngleRad - angleRad);
+        if (Math.abs(diffAngle) <= halfArcRad) {
+          isHit = true;
+        }
+      }
+
+      if (isHit) {
         let finalDamage = this.baseDamage;
         if (burnOnAttack) {
           finalDamage += 6; // Dano de queimadura

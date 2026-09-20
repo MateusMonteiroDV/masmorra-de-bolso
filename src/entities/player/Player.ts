@@ -337,13 +337,41 @@ export class Player extends Entity {
     this.setVelocity(0, 0);
     this.setFlipX(false);
 
+    // Determina a direção do golpe (suporta Mouse, Movimento WASD e Direção Atual)
+    let attackAngle = this.facing === 'd' ? 0 : 180;
+
+    const pointer = this.scene.input.activePointer;
+    const moveInput = this.controller.getMovementVector();
+
+    if (pointer && this.scene.cameras?.main) {
+      const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const distToPointer = Phaser.Math.Distance.Between(this.x, this.y, worldPoint.x, worldPoint.y);
+      if (distToPointer > 14) {
+        const rad = Phaser.Math.Angle.Between(this.x, this.y, worldPoint.x, worldPoint.y);
+        attackAngle = Phaser.Math.RadToDeg(rad);
+
+        if (worldPoint.x < this.x - 4) {
+          this.facing = 'e';
+        } else if (worldPoint.x > this.x + 4) {
+          this.facing = 'd';
+        }
+      } else if (moveInput.x !== 0 || moveInput.y !== 0) {
+        attackAngle = Phaser.Math.RadToDeg(Math.atan2(moveInput.y, moveInput.x));
+        if (moveInput.x < 0) this.facing = 'e';
+        else if (moveInput.x > 0) this.facing = 'd';
+      }
+    } else if (moveInput.x !== 0 || moveInput.y !== 0) {
+      attackAngle = Phaser.Math.RadToDeg(Math.atan2(moveInput.y, moveInput.x));
+      if (moveInput.x < 0) this.facing = 'e';
+      else if (moveInput.x > 0) this.facing = 'd';
+    }
+
     const attackAnim = this.facing === 'd' ? 'roberto_attack_d' : 'roberto_attack_e';
     this.play(attackAnim, true);
 
-    const angle = this.facing === 'd' ? 0 : 180;
     this.attackComponent.attack(
       enemyGroup,
-      angle,
+      attackAngle,
       this.stats.burnOnAttack,
       (hitEnemy, damage) => {
         const enemyEntity = hitEnemy as unknown as Entity;
@@ -351,7 +379,7 @@ export class Player extends Entity {
           enemyEntity.health.takeDamage(damage);
         }
         if (enemyEntity.movement) {
-          enemyEntity.movement.applyKnockback(this.x, this.y, 130, 120);
+          enemyEntity.movement.applyKnockback(this.x, this.y, 140, 130);
         }
 
         const enemyId = (hitEnemy as any).getData?.('networkId');

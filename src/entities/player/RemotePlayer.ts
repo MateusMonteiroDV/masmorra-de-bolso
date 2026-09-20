@@ -147,10 +147,10 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.play(attackAnim, true);
     AudioService.playAttackSwing();
 
-    // Dano de espada do aliado em inimigos próximos
+    // Dano de espada do aliado em área em inimigos próximos
     if (enemyGroup) {
       const enemies = enemyGroup.getChildren();
-      const attackRange = 40;
+      const attackRange = 52;
       enemies.forEach(enemyObj => {
         const enemy = enemyObj as unknown as Entity;
         if (enemy.active && enemy.health && !enemy.health.isDead()) {
