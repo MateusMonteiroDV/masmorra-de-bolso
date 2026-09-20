@@ -49,6 +49,16 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(`slime_d_${idx}`, `/assets/movimentacao/direita/slime/sprite_${idx}.png`);
       this.load.image(`slime_e_${idx}`, `/assets/movimentacao/esquerda/slime/sprite_${idx}.png`);
     }
+
+    // 9. Esqueleto Mago e Magia de Fogo (novo asset do artista)
+    this.load.image('mago_d_00', '/assets/esqueleto_mago/mago_d_00.png');
+    this.load.image('mago_d_01', '/assets/esqueleto_mago/mago_d_01.png');
+    this.load.image('mago_cast_d', '/assets/esqueleto_mago/mago_cast_d.png');
+    this.load.image('mago_e_00', '/assets/esqueleto_mago/mago_e_00.png');
+    this.load.image('mago_e_01', '/assets/esqueleto_mago/mago_e_01.png');
+    this.load.image('mago_cast_e', '/assets/esqueleto_mago/mago_cast_e.png');
+    this.load.image('fireball_0', '/assets/esqueleto_mago/fireball_0.png');
+    this.load.image('fireball_1', '/assets/esqueleto_mago/fireball_1.png');
   }
 
   public create() {
@@ -260,6 +270,43 @@ export class PreloadScene extends Phaser.Scene {
       ],
       frameRate: 8,
       repeat: 0
+    });
+
+    // 11. Esqueleto Mago - Movimentação e Conjuração
+    anims.create({
+      key: 'mago_walk_d',
+      frames: [{ key: 'mago_d_00' }, { key: 'mago_d_01' }],
+      frameRate: 4,
+      repeat: -1
+    });
+
+    anims.create({
+      key: 'mago_walk_e',
+      frames: [{ key: 'mago_e_00' }, { key: 'mago_e_01' }],
+      frameRate: 4,
+      repeat: -1
+    });
+
+    anims.create({
+      key: 'mago_cast_d',
+      frames: [{ key: 'mago_d_01' }, { key: 'mago_cast_d' }, { key: 'mago_d_01' }],
+      frameRate: 6,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'mago_cast_e',
+      frames: [{ key: 'mago_e_01' }, { key: 'mago_cast_e' }, { key: 'mago_e_01' }],
+      frameRate: 6,
+      repeat: 0
+    });
+
+    // 12. Magia de Fogo / Projétil
+    anims.create({
+      key: 'fireball_fly',
+      frames: [{ key: 'fireball_0' }, { key: 'fireball_1' }],
+      frameRate: 8,
+      repeat: -1
     });
   }
 }
