@@ -29,68 +29,62 @@ export class TitleScene extends Phaser.Scene {
       particles.fillCircle(px, py, Math.random() * 1.5 + 0.5);
     }
 
-    // Imagem da Capa / Página Inicial desenhada pelo artista (500x500)
-    const titleImage = this.add.image(width / 2, height / 2 - 14, 'pagina_inicial');
-    titleImage.setScale(0.53);
+    // Imagem da Capa / Página Inicial com o logotipo e botão PLAY verde embutido
+    const titleScale = 0.58;
+    const imgX = width / 2;
+    const imgY = height / 2 - 6;
+
+    const titleImage = this.add.image(imgX, imgY, 'pagina_inicial');
+    titleImage.setScale(titleScale);
     titleImage.setDepth(10);
 
-    // Efeito suave de flutuação no logotipo
+    // Efeito suave de flutuação no conjunto da arte
     this.tweens.add({
       targets: titleImage,
-      y: titleImage.y - 4,
-      duration: 1600,
+      y: imgY - 3,
+      duration: 1800,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
 
-    // Botão de Iniciar Jogo
-    const btnW = 180;
-    const btnH = 25;
-    const btnY = height - 30;
+    // Posição do botão oval verde "PLAY" contido na arte (500x500)
+    // No asset original: centro x=295, y=363 (offset de +45, +113 em relação ao centro 250,250)
+    const playX = imgX + 45 * titleScale;
+    const playY = imgY + 113 * titleScale;
+    const playW = 112 * (titleScale / 0.58);
+    const playH = 68 * (titleScale / 0.58);
 
-    const btnBg = this.add.graphics();
-    btnBg.fillStyle(0x770f9a, 0.95);
-    btnBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 5);
-    btnBg.lineStyle(1.5, 0x4ade80, 0.95);
-    btnBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 5);
+    // Zona interativa posicionada exatamente sobre o botão verde "PLAY" da arte
+    const playZone = this.add.zone(playX, playY, playW, playH);
+    playZone.setDepth(25);
+    playZone.setInteractive({ useHandCursor: true });
 
-    const btnText = this.add.text(0, 0, '⚔️ INICIAR JOGO', {
-      fontFamily: 'monospace',
-      fontSize: '8.5px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    // Efeito de destaque ao passar o mouse sobre o botão PLAY
+    const playHighlight = this.add.graphics();
+    playHighlight.setDepth(15);
+    playHighlight.lineStyle(2, 0xdcfce7, 0.9);
+    playHighlight.strokeEllipse(playX, playY, playW / 2 + 3, playH / 2 + 2);
+    playHighlight.setVisible(false);
 
-    const startBtn = this.add.container(width / 2, btnY, [btnBg, btnText]);
-    startBtn.setSize(btnW, btnH);
-    startBtn.setDepth(20);
-    startBtn.setInteractive(
-      new Phaser.Geom.Rectangle(-btnW / 2, -btnH / 2, btnW, btnH),
-      Phaser.Geom.Rectangle.Contains
-    );
-
-    // Efeito de pulso no botão
-    this.tweens.add({
-      targets: startBtn,
-      scaleX: 1.04,
-      scaleY: 1.04,
-      duration: 750,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
+    playZone.on('pointerover', () => {
+      playHighlight.setVisible(true);
     });
 
-    // Subtítulo de atalho de teclado
+    playZone.on('pointerout', () => {
+      playHighlight.setVisible(false);
+    });
+
+    // Subtítulo elegante com as opções de controle solicitadas
     const promptKeyText = this.add.text(
       width / 2,
-      height - 10,
-      '[ Pressione ESPAÇO, ENTER ou CLIQUE para jogar ]',
+      height - 12,
+      '[ Pressione ESPAÇO, ENTER ou clique em PLAY ]',
       {
         fontFamily: 'monospace',
-        fontSize: '7px',
-        color: '#94a3b8',
-        stroke: '#000000',
+        fontSize: '7.5px',
+        color: '#4ade80',
+        stroke: '#052e16',
         strokeThickness: 2
       }
     ).setOrigin(0.5).setDepth(20);
@@ -98,13 +92,13 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({
       targets: promptKeyText,
       alpha: 0.35,
-      duration: 700,
+      duration: 750,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
 
-    // Versão e Crédito discreto no topo
+    // Versão discreta no canto superior
     this.add.text(8, 8, 'Masmorra de Bolso v1.0', {
       fontFamily: 'monospace',
       fontSize: '6.5px',
@@ -132,11 +126,11 @@ export class TitleScene extends Phaser.Scene {
       });
     };
 
-    // Clique no botão ou em qualquer lugar da tela
-    startBtn.on('pointerdown', triggerStart);
+    // Clique direto no PLAY ou em qualquer parte da tela
+    playZone.on('pointerdown', triggerStart);
     this.input.on('pointerdown', triggerStart);
 
-    // Teclado (qualquer tecla)
+    // Teclas ESPAÇO e ENTER (ou qualquer tecla do teclado)
     if (this.input.keyboard) {
       this.input.keyboard.on('keydown', triggerStart);
     }
