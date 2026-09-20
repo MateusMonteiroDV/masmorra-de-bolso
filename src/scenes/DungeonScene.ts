@@ -354,10 +354,12 @@ export class DungeonScene extends Phaser.Scene {
       this.wallGroup.add(zone);
     };
 
+    // Paredes delimitadoras sem sobreposição nos cantos para evitar que corpos fiquem presos
     createWall(w / 2, thickness / 2, w, thickness);
     createWall(w / 2, h - thickness / 2, w, thickness);
-    createWall(thickness / 2, h / 2, thickness, h);
-    createWall(w - thickness / 2, h / 2, thickness, h);
+    const sideHeight = Math.max(0, h - thickness * 2);
+    createWall(thickness / 2, h / 2, thickness, sideHeight);
+    createWall(w - thickness / 2, h / 2, thickness, sideHeight);
   }
 
   private spawnExplorationCoins() {

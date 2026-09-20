@@ -81,7 +81,7 @@ export class UIScene extends Phaser.Scene {
     this.add.text(
       CONSTANTS.GAME_WIDTH / 2,
       CONSTANTS.GAME_HEIGHT - 8,
-      '[WASD] Mover | [Espaço/K] Espada | [Clique/F/J] Besta | [Shift/Q/Botão Direito] Escudo',
+      '[WASD / Setas] Mover | [Espaço/K] Espada | [Clique/F/J] Besta | [Shift/Q/Botão Direito] Escudo',
       {
         fontFamily: 'monospace',
         fontSize: '7px',

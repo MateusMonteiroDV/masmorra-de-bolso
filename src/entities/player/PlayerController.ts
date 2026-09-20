@@ -20,6 +20,11 @@ export class PlayerController {
   public wasMouseShoot: boolean = false;
   private keyShootTriggered: boolean = false;
 
+  private capturedKeys: Set<string> = new Set();
+  private onKeyDownCapture?: (e: KeyboardEvent) => void;
+  private onKeyUpCapture?: (e: KeyboardEvent) => void;
+  private onBlur?: () => void;
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     const keyboard = scene.input.keyboard;
@@ -47,6 +52,49 @@ export class PlayerController {
       });
     }
 
+    // Ouvinte em fase de captura global (capture: true) para garantir leitura de WASD
+    // mesmo se extensões do navegador (ex: Video Speed Controller) interceptarem o keydown
+    if (typeof window !== 'undefined') {
+      this.onKeyDownCapture = (e: KeyboardEvent) => {
+        const code = e.code;
+        if (
+          code === 'KeyD' || code === 'KeyA' || code === 'KeyW' || code === 'KeyS' ||
+          code === 'ArrowRight' || code === 'ArrowLeft' || code === 'ArrowUp' || code === 'ArrowDown' ||
+          e.key === 'd' || e.key === 'D' || e.key === 'a' || e.key === 'A' ||
+          e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S'
+        ) {
+          if (code === 'KeyD' || e.key === 'd' || e.key === 'D') this.capturedKeys.add('KeyD');
+          if (code === 'KeyA' || e.key === 'a' || e.key === 'A') this.capturedKeys.add('KeyA');
+          if (code === 'KeyW' || e.key === 'w' || e.key === 'W') this.capturedKeys.add('KeyW');
+          if (code === 'KeyS' || e.key === 's' || e.key === 'S') this.capturedKeys.add('KeyS');
+          if (code === 'ArrowRight') this.capturedKeys.add('ArrowRight');
+          if (code === 'ArrowLeft') this.capturedKeys.add('ArrowLeft');
+          if (code === 'ArrowUp') this.capturedKeys.add('ArrowUp');
+          if (code === 'ArrowDown') this.capturedKeys.add('ArrowDown');
+        }
+      };
+
+      this.onKeyUpCapture = (e: KeyboardEvent) => {
+        const code = e.code;
+        if (code === 'KeyD' || e.key === 'd' || e.key === 'D') this.capturedKeys.delete('KeyD');
+        if (code === 'KeyA' || e.key === 'a' || e.key === 'A') this.capturedKeys.delete('KeyA');
+        if (code === 'KeyW' || e.key === 'w' || e.key === 'W') this.capturedKeys.delete('KeyW');
+        if (code === 'KeyS' || e.key === 's' || e.key === 'S') this.capturedKeys.delete('KeyS');
+        if (code === 'ArrowRight') this.capturedKeys.delete('ArrowRight');
+        if (code === 'ArrowLeft') this.capturedKeys.delete('ArrowLeft');
+        if (code === 'ArrowUp') this.capturedKeys.delete('ArrowUp');
+        if (code === 'ArrowDown') this.capturedKeys.delete('ArrowDown');
+      };
+
+      this.onBlur = () => {
+        this.capturedKeys.clear();
+      };
+
+      window.addEventListener('keydown', this.onKeyDownCapture, true);
+      window.addEventListener('keyup', this.onKeyUpCapture, true);
+      window.addEventListener('blur', this.onBlur);
+    }
+
     this.scene.input.mouse?.disableContextMenu();
 
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -70,24 +118,43 @@ export class PlayerController {
     let y = 0;
 
     // A ou Seta Esquerda -> Direção negativa (-1)
-    if (this.keyA?.isDown || this.cursors?.left.isDown) {
+    const leftDown = this.keyA?.isDown || this.cursors?.left.isDown || this.capturedKeys.has('KeyA') || this.capturedKeys.has('ArrowLeft');
+    if (leftDown) {
       x -= 1;
     }
     // D ou Seta Direita -> Direção positiva (+1)
-    if (this.keyD?.isDown || this.cursors?.right.isDown) {
+    const rightDown = this.keyD?.isDown || this.cursors?.right.isDown || this.capturedKeys.has('KeyD') || this.capturedKeys.has('ArrowRight');
+    if (rightDown) {
       x += 1;
     }
 
     // W ou Seta Cima -> (-1)
-    if (this.keyW?.isDown || this.cursors?.up.isDown) {
+    const upDown = this.keyW?.isDown || this.cursors?.up.isDown || this.capturedKeys.has('KeyW') || this.capturedKeys.has('ArrowUp');
+    if (upDown) {
       y -= 1;
     }
     // S ou Seta Baixo -> (+1)
-    if (this.keyS?.isDown || this.cursors?.down.isDown) {
+    const downDown = this.keyS?.isDown || this.cursors?.down.isDown || this.capturedKeys.has('KeyS') || this.capturedKeys.has('ArrowDown');
+    if (downDown) {
       y += 1;
     }
 
     return { x, y };
+  }
+
+  public destroy() {
+    if (typeof window !== 'undefined') {
+      if (this.onKeyDownCapture) {
+        window.removeEventListener('keydown', this.onKeyDownCapture, true);
+      }
+      if (this.onKeyUpCapture) {
+        window.removeEventListener('keyup', this.onKeyUpCapture, true);
+      }
+      if (this.onBlur) {
+        window.removeEventListener('blur', this.onBlur);
+      }
+    }
+    this.capturedKeys.clear();
   }
 
   // Golpe com Espada (Espaço ou K)

@@ -41,6 +41,7 @@ export class Player extends Entity {
     if (body) {
       body.setSize(20, 32);
       body.setOffset(22, 28);
+      body.setCollideWorldBounds(true);
     }
 
     this.stats = GameState.getComputedPlayerStats();
@@ -385,6 +386,9 @@ export class Player extends Entity {
   }
 
   public override destroy(fromScene?: boolean) {
+    if (this.controller) {
+      this.controller.destroy();
+    }
     if (this.indicatorArrow) {
       this.indicatorArrow.destroy();
     }
