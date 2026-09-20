@@ -13,7 +13,9 @@ export class LobbyScene extends Phaser.Scene {
   private player!: Player;
   private remotePlayers: Map<string, RemotePlayer> = new Map();
   private arrowGroup!: Phaser.Physics.Arcade.Group;
+  private dummyEnemyGroup!: Phaser.Physics.Arcade.Group;
   private networkSyncTimer: number = 0;
+  private lobbyHeartbeatTimer: number = 0;
   private networkUnsubs: Array<() => void> = [];
 
   // Estados de confirmação dos jogadores (Estilo Among Us / Impostor)
@@ -43,8 +45,8 @@ export class LobbyScene extends Phaser.Scene {
     this.peersInLobby.clear();
     this.peerSceneMap.clear();
 
-    // Se estiver sozinho na sala, assume liderança da sala como Host
-    if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
+    // Se não estiver em sala P2P multiplayer, assume liderança da sala como Host
+    if (!NetworkManager.isConnected()) {
       NetworkManager.isHost = true;
     }
 
@@ -53,6 +55,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // Grupo de projéteis de flechas para treino na sala de espera
     this.arrowGroup = this.physics.add.group();
+    this.dummyEnemyGroup = this.physics.add.group();
 
     // 1. Cenário da Sala de Espera (Antecâmara medieval com fogueira)
     const tileSize = CONSTANTS.TILE_SIZE;
@@ -345,8 +348,13 @@ export class LobbyScene extends Phaser.Scene {
 
     const unsubState = NetworkManager.onState((state: PlayerNetworkState, peerId: string) => {
       const prevScene = this.peerSceneMap.get(peerId);
+      const isLobby = !state.scene || state.scene === 'LobbyScene';
       this.peerSceneMap.set(peerId, state.scene || 'LobbyScene');
-      if (this.peersInLobby.has(peerId) && (!state.scene || state.scene === 'LobbyScene')) {
+
+      if (isLobby) {
+        if (!this.peersInLobby.has(peerId)) {
+          this.peersInLobby.add(peerId);
+        }
         let remote = this.remotePlayers.get(peerId);
         if (!remote) {
           remote = this.createRemotePlayer(peerId);
@@ -418,8 +426,8 @@ export class LobbyScene extends Phaser.Scene {
   private refreshLobbyStateUI() {
     if (this.isCountingDown) return;
 
-    // Se o jogador estiver sozinho na sala e era convidado, é promovido a Host imediatamente
-    if (!NetworkManager.isHost && NetworkManager.connectedPeers.size === 0) {
+    // Se o jogador não estiver em sala P2P (modo solo), assume liderança como Host
+    if (!NetworkManager.isHost && !NetworkManager.isConnected()) {
       NetworkManager.isHost = true;
       this.isSelfReady = true;
     }
@@ -578,19 +586,31 @@ export class LobbyScene extends Phaser.Scene {
 
   public override update(time: number, delta: number) {
     this.player.update(time, delta);
-    this.player.handleActions(this.physics.add.group(), this.arrowGroup);
+    this.player.handleActions(this.dummyEnemyGroup, this.arrowGroup);
 
     // Atualiza interpolação e animações dos jogadores remotos
     this.remotePlayers.forEach(remote => {
       remote.update(time, delta);
     });
 
-    // Sincronização P2P das posições na sala de espera
+    // Sincronização P2P das posições na sala de espera (25Hz)
     this.networkSyncTimer += delta;
     if (this.networkSyncTimer >= 40) {
       this.networkSyncTimer = 0;
       if (NetworkManager.isConnected()) {
         NetworkManager.sendState(this.player.getNetworkState('LobbyScene'));
+      }
+    }
+
+    // Presença periódica no Lobby (heartbeat a cada 1s para garantir sincronização mútua)
+    this.lobbyHeartbeatTimer += delta;
+    if (this.lobbyHeartbeatTimer >= 1000) {
+      this.lobbyHeartbeatTimer = 0;
+      if (NetworkManager.isConnected()) {
+        NetworkManager.sendAction({
+          type: 'lobby_presence',
+          payload: { inLobby: true, ready: this.isSelfReady }
+        });
       }
     }
   }

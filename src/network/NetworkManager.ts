@@ -102,6 +102,9 @@ class NetworkManagerClass {
 
       this.stateAction.onMessage = (data: PlayerNetworkState, { peerId }: { peerId: string }) => {
         this.peerLastSeen.set(peerId, Date.now());
+        if (!this.connectedPeers.has(peerId)) {
+          this.handlePeerJoin(peerId);
+        }
         this.stateListeners.forEach(listener => listener(data, peerId));
       };
 
@@ -111,6 +114,9 @@ class NetworkManagerClass {
         if (data.type === 'peer_bye') {
           this.handlePeerLeave(peerId);
           return;
+        }
+        if (!this.connectedPeers.has(peerId)) {
+          this.handlePeerJoin(peerId);
         }
         this.actionListeners.forEach(listener => listener(data, peerId));
       };
@@ -128,6 +134,9 @@ class NetworkManagerClass {
           if (!msg || msg.senderId === this.selfId) return;
 
           this.peerLastSeen.set(msg.senderId, Date.now());
+          if (msg.type !== 'peer_bye' && !this.connectedPeers.has(msg.senderId)) {
+            this.handlePeerJoin(msg.senderId);
+          }
 
           if (msg.type === 'peer_hello') {
             this.handlePeerJoin(msg.senderId);
@@ -168,17 +177,17 @@ class NetworkManagerClass {
         if (this.localChannel) {
           this.localChannel.postMessage({ type: 'peer_ping', senderId: this.selfId });
         }
-        if (this.actionAction && this.connectedPeers.size > 0) {
+        if (this.actionAction) {
           this.actionAction.send({ type: 'peer_ping' }).catch(() => {});
         }
 
-        // Liveness check: remove peers inativos há mais de 3000ms
+        // Liveness check: remove peers inativos há mais de 8000ms (tolerante a troca de cenas)
         const now = Date.now();
         const timedOutPeers: string[] = [];
         for (const peerId of this.connectedPeers) {
           const last = this.peerLastSeen.get(peerId);
-          if (!last || now - last > 3000) {
-            console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >3s)`);
+          if (!last || now - last > 8000) {
+            console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >8s)`);
             timedOutPeers.push(peerId);
           }
         }
