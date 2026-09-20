@@ -71,26 +71,4 @@ export class UpgradeSystem {
     if (cost === null) return false;
     return GameState.bankedGold >= cost;
   }
-
-  public static calculateTotalInvested(): number {
-    let total = 0;
-    UPGRADE_DEFINITIONS.forEach(def => {
-      const currentLevel = Math.min(def.maxLevel, GameState.upgrades[def.key] ?? 0);
-      for (let i = 0; i < currentLevel; i++) {
-        total += def.costs[i] ?? 100;
-      }
-    });
-    return total;
-  }
-
-  public static refundAllUpgrades(): number {
-    const refunded = this.calculateTotalInvested();
-    UPGRADE_DEFINITIONS.forEach(def => {
-      GameState.upgrades[def.key] = 0;
-    });
-
-    GameState.bankedGold += refunded;
-    GameState.saveToStorage();
-    return refunded;
-  }
 }

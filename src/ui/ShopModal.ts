@@ -160,29 +160,13 @@ export class ShopModal extends Phaser.GameObjects.Container {
       }
     });
 
-    // Rodapé de Ações: Redefinir Pontos e Fechar
-    const footerY = my + modalHeight - 14;
-
-    const resetBtn = this.scene.add.text(mx + 14, footerY, '[ ↺ REDEFINIR PONTOS ]', {
+    // Botão Fechar Centralizado
+    const closeBtnY = my + modalHeight - 14;
+    const closeBtn = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, closeBtnY, '[ X FECHAR ]', {
       fontFamily: 'monospace',
-      fontSize: '7.5px',
-      color: '#f59e0b'
-    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
-
-    resetBtn.on('pointerover', () => resetBtn.setColor('#fde68a'));
-    resetBtn.on('pointerout', () => resetBtn.setColor('#f59e0b'));
-    resetBtn.on('pointerdown', () => {
-      UpgradeSystem.refundAllUpgrades();
-      AudioService.playBuyUpgrade();
-      this.refreshUI();
-    });
-    this.contentContainer.add(resetBtn);
-
-    const closeBtn = this.scene.add.text(mx + modalWidth - 14, footerY, '[ X FECHAR ]', {
-      fontFamily: 'monospace',
-      fontSize: '8px',
+      fontSize: '8.5px',
       color: '#94a3b8'
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     closeBtn.on('pointerover', () => closeBtn.setColor('#f87171'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#94a3b8'));
