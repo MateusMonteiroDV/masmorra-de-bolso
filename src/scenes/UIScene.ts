@@ -16,6 +16,9 @@ export class UIScene extends Phaser.Scene {
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
   private notificationText!: Phaser.GameObjects.Text;
+  private spectatorContainer?: Phaser.GameObjects.Container;
+  private spectatorKeyEnter?: Phaser.Input.Keyboard.Key;
+  private spectatorKeySpace?: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -211,6 +214,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.events.on('shutdown', () => {
+      this.cleanupSpectatorMode();
       EventBus.off(CONSTANTS.EVENTS.PLAYER_HEALTH_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED);
@@ -218,6 +222,111 @@ export class UIScene extends Phaser.Scene {
       EventBus.off(CONSTANTS.EVENTS.RELIC_ACQUIRED);
       EventBus.off(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE);
     });
+  }
+
+  public showSpectatorMode(onReturnToLobby: () => void) {
+    if (this.spectatorContainer) return;
+
+    this.spectatorContainer = this.add.container(0, 0);
+    this.spectatorContainer.setDepth(CONSTANTS.DEPTH.UI + 80);
+
+    // Banner piscante no topo anunciando observação de aliado
+    const banner = this.add.text(
+      CONSTANTS.GAME_WIDTH / 2,
+      36,
+      'VOCÊ CAIU! OBSERVANDO SEU ALIADO...',
+      {
+        fontFamily: 'monospace',
+        fontSize: '8.5px',
+        color: '#f43f5e',
+        stroke: '#000000',
+        strokeThickness: 2
+      }
+    ).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: banner,
+      alpha: 0.4,
+      duration: 600,
+      yoyo: true,
+      repeat: -1
+    });
+    this.spectatorContainer.add(banner);
+
+    // Botão de retorno ao Lobby no rodapé com clique amplo e feedback
+    const btnW = 220;
+    const btnH = 22;
+    const btnX = CONSTANTS.GAME_WIDTH / 2;
+    const btnY = CONSTANTS.GAME_HEIGHT - 22;
+
+    const btnBg = this.add.rectangle(0, 0, btnW, btnH, 0x0f172a, 0.95);
+    btnBg.setStrokeStyle(1.5, 0x38bdf8);
+    btnBg.setInteractive({ useHandCursor: true });
+
+    const btnLabel = this.add.text(0, 0, '⚔️ RETORNAR AO LOBBY [ENTER]', {
+      fontFamily: 'monospace',
+      fontSize: '7.5px',
+      color: '#38bdf8',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    btnLabel.setInteractive({ useHandCursor: true });
+
+    const btnContainer = this.add.container(btnX, btnY, [btnBg, btnLabel]);
+    btnContainer.setSize(btnW, btnH);
+    btnContainer.setInteractive(
+      new Phaser.Geom.Rectangle(-btnW / 2, -btnH / 2, btnW, btnH),
+      Phaser.Geom.Rectangle.Contains
+    );
+
+    const setHover = (hover: boolean) => {
+      btnBg.fillColor = hover ? 0x1e293b : 0x0f172a;
+      btnBg.setStrokeStyle(1.5, hover ? 0xfacc15 : 0x38bdf8);
+      btnLabel.setColor(hover ? '#facc15' : '#38bdf8');
+    };
+
+    btnContainer.on('pointerover', () => setHover(true));
+    btnContainer.on('pointerout', () => setHover(false));
+    btnBg.on('pointerover', () => setHover(true));
+    btnBg.on('pointerout', () => setHover(false));
+    btnLabel.on('pointerover', () => setHover(true));
+    btnLabel.on('pointerout', () => setHover(false));
+
+    let triggered = false;
+    const handleReturn = () => {
+      if (triggered) return;
+      triggered = true;
+      this.cleanupSpectatorMode();
+      onReturnToLobby();
+    };
+
+    btnContainer.on('pointerdown', handleReturn);
+    btnBg.on('pointerdown', handleReturn);
+    btnLabel.on('pointerdown', handleReturn);
+
+    // Atalhos de teclado para retorno imediato (ENTER ou ESPAÇO)
+    if (this.input.keyboard) {
+      this.spectatorKeyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      this.spectatorKeySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.spectatorKeyEnter.once('down', handleReturn);
+      this.spectatorKeySpace.once('down', handleReturn);
+    }
+
+    this.spectatorContainer.add(btnContainer);
+  }
+
+  public cleanupSpectatorMode() {
+    if (this.spectatorKeyEnter) {
+      this.spectatorKeyEnter.removeAllListeners();
+      this.spectatorKeyEnter = undefined;
+    }
+    if (this.spectatorKeySpace) {
+      this.spectatorKeySpace.removeAllListeners();
+      this.spectatorKeySpace = undefined;
+    }
+    if (this.spectatorContainer) {
+      this.spectatorContainer.destroy();
+      this.spectatorContainer = undefined;
+    }
   }
 
   private refreshRelicsBar() {

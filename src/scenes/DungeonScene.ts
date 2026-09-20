@@ -11,6 +11,7 @@ import { NetworkManager } from '../network/NetworkManager';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
 import { WaveManager } from '../dungeon/WaveManager';
 import { GameState } from '../core/GameState';
+import { UIScene } from './UIScene';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -136,63 +137,15 @@ export class DungeonScene extends Phaser.Scene {
         this.isSpectating = true;
         this.cameras.main.startFollow(aliveAlly, true, 0.1, 0.1);
 
-        const banner = this.add.text(
-          CONSTANTS.GAME_WIDTH / 2,
-          36,
-          'VOCÊ CAIU! OBSERVANDO SEU ALIADO...',
-          {
-            fontFamily: 'monospace',
-            fontSize: '8px',
-            color: '#f43f5e',
-            stroke: '#000000',
-            strokeThickness: 2
-          }
-        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 50);
-
-        this.tweens.add({
-          targets: banner,
-          alpha: 0.4,
-          duration: 600,
-          yoyo: true,
-          repeat: -1
-        });
-
-        // Botão para retornar imediatamente ao Lobby no modo espectador
-        const exitBtn = this.add.text(
-          CONSTANTS.GAME_WIDTH / 2,
-          CONSTANTS.GAME_HEIGHT - 20,
-          '[ ⚔️ RETORNAR AO LOBBY ]',
-          {
-            fontFamily: 'monospace',
-            fontSize: '8px',
-            color: '#38bdf8',
-            backgroundColor: '#0f172a',
-            padding: { x: 8, y: 4 },
-            stroke: '#000000',
-            strokeThickness: 2
-          }
-        ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 100).setInteractive({ useHandCursor: true });
-
-        exitBtn.on('pointerover', () => {
-          exitBtn.setColor('#facc15');
-        });
-        exitBtn.on('pointerout', () => {
-          exitBtn.setColor('#38bdf8');
-        });
-
-        exitBtn.on('pointerdown', () => {
-          if (this.gameOverTimer) {
-            this.gameOverTimer.destroy();
-            this.gameOverTimer = undefined;
-          }
-          this.cameras.main.stopFollow();
-          this.isSpectating = false;
-          this.isTransitioningToGameOver = true;
-          GameState.endRun(false);
-          NetworkManager.sendAction({ type: 'lobby_peer_waiting' });
-          this.scene.stop('UIScene');
-          this.scene.start('LobbyScene');
-        });
+        const uiScene = this.scene.get('UIScene') as UIScene;
+        if (uiScene && this.scene.isActive('UIScene')) {
+          uiScene.showSpectatorMode(() => {
+            this.returnToLobbyFromSpectator();
+          });
+        } else {
+          // Fallback seguro se UIScene não estiver ativa
+          this.returnToLobbyFromSpectator();
+        }
 
         return;
       }
@@ -204,6 +157,20 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     this.triggerGameOverLocally();
+  }
+
+  private returnToLobbyFromSpectator() {
+    if (this.gameOverTimer) {
+      this.gameOverTimer.destroy();
+      this.gameOverTimer = undefined;
+    }
+    this.cameras.main.stopFollow();
+    this.isSpectating = false;
+    this.isTransitioningToGameOver = true;
+    GameState.endRun(false);
+    NetworkManager.sendAction({ type: 'lobby_peer_waiting' });
+    this.scene.stop('UIScene');
+    this.scene.start('LobbyScene');
   }
 
   private triggerGameOverLocally() {
