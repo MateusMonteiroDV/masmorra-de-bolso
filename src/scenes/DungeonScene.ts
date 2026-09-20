@@ -159,16 +159,22 @@ export class DungeonScene extends Phaser.Scene {
     this.triggerGameOverLocally();
   }
 
+  private safeStopFollow(target?: any) {
+    try {
+      if (this.cameras && this.cameras.main) {
+        if (!target || (this.cameras.main as any)._follow === target) {
+          this.cameras.main.stopFollow();
+        }
+      }
+    } catch (e) {}
+  }
+
   private returnToLobbyFromSpectator() {
     if (this.gameOverTimer) {
       this.gameOverTimer.destroy();
       this.gameOverTimer = undefined;
     }
-    try {
-      if (this.cameras && this.cameras.main) {
-        this.cameras.main.stopFollow();
-      }
-    } catch (e) {}
+    this.safeStopFollow();
     this.isSpectating = false;
     this.isTransitioningToGameOver = true;
     GameState.endRun(false);
@@ -180,11 +186,7 @@ export class DungeonScene extends Phaser.Scene {
   private triggerGameOverLocally() {
     if (this.isTransitioningToGameOver) return;
     this.isTransitioningToGameOver = true;
-    try {
-      if (this.cameras && this.cameras.main) {
-        this.cameras.main.stopFollow();
-      }
-    } catch (e) {}
+    this.safeStopFollow();
 
     this.gameOverTimer = this.time.delayedCall(1000, () => {
       this.scene.stop('UIScene');
@@ -205,9 +207,7 @@ export class DungeonScene extends Phaser.Scene {
     const unsubLeave = NetworkManager.onPeerLeave((peerId: string) => {
       const remote = this.remotePlayers.get(peerId);
       if (remote) {
-        if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
-          this.cameras.main.stopFollow();
-        }
+        this.safeStopFollow(remote);
         remote.destroy();
         this.remotePlayers.delete(peerId);
       }
@@ -225,9 +225,7 @@ export class DungeonScene extends Phaser.Scene {
       if (state.scene && state.scene !== 'DungeonScene') {
         const remote = this.remotePlayers.get(peerId);
         if (remote) {
-          if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
-            this.cameras.main.stopFollow();
-          }
+          this.safeStopFollow(remote);
           remote.destroy();
           this.remotePlayers.delete(peerId);
         }
@@ -261,9 +259,7 @@ export class DungeonScene extends Phaser.Scene {
       if (action.type === 'lobby_presence' || action.type === 'lobby_peer_waiting') {
         // Aliado já foi para o Lobby! Não está mais na masmorra
         if (remote) {
-          if (this.cameras.main && (this.cameras.main as any)._follow === remote) {
-            this.cameras.main.stopFollow();
-          }
+          this.safeStopFollow(remote);
           remote.destroy();
           this.remotePlayers.delete(peerId);
         }
@@ -329,11 +325,7 @@ export class DungeonScene extends Phaser.Scene {
         this.gameOverTimer.destroy();
         this.gameOverTimer = undefined;
       }
-      try {
-        if (this.cameras && this.cameras.main) {
-          this.cameras.main.stopFollow();
-        }
-      } catch (e) {}
+      this.safeStopFollow();
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
       EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);
