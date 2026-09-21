@@ -2,7 +2,6 @@
 
 Um jogo de ação roguelite top-down rápido e direto ao ponto, desenvolvido para Web com foco em sessões dinâmicas (10-15 minutos), pixel art 16x16 e progressão contínua.
 
-Projeto acadêmico baseado no [GDD de Masmorra de Bolso](./GDD_Masmorra_de_Bolso.md) e no documento de apresentação [Masmorra_de_Bolso_Apresentacao.md](./Masmorra_de_Bolso_Apresentacao.md).
 
 ---
 
