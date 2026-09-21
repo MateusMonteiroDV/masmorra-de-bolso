@@ -17,6 +17,7 @@ export interface PlayerNetworkAction {
   type:
     | 'shoot_arrow'
     | 'melee_attack'
+    | 'player_dash'
     | 'scene_sync'
     | 'enemy_hit'
     | 'enemy_damage'

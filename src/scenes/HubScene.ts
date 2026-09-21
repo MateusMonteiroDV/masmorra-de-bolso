@@ -227,6 +227,8 @@ export class HubScene extends Phaser.Scene {
         remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
       } else if (action.type === 'melee_attack' && remote) {
         remote.remoteMeleeAttack();
+      } else if (action.type === 'player_dash' && remote) {
+        remote.remoteDash(action.payload?.dirX ?? 0, action.payload?.dirY ?? 0);
       } else if (action.type === 'scene_sync') {
         if (action.payload?.scene === 'DungeonScene') {
           this.startDungeonRun(false);

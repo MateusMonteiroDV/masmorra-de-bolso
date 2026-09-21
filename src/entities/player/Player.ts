@@ -219,9 +219,17 @@ export class Player extends Entity {
   }
 
   public handleActions(enemyGroup: Phaser.GameObjects.Group, arrowGroup: Phaser.GameObjects.Group) {
-    if (this.health.isDead() || this.isDefending || this.actionLockTimer > 0) return;
+    if (this.health.isDead()) return;
 
-    // 1. Disparo de Besta com Flecha (Clique Esquerdo, F ou J)
+    // 1. Esquiva / Dash ("Esquivar" com Shift ou C)
+    if (this.controller.isDashPressed() && this.movement.canDash && !this.movement.isDashing) {
+      this.performDash();
+      return;
+    }
+
+    if (this.isDefending || this.actionLockTimer > 0) return;
+
+    // 2. Disparo de Besta com Flecha (Clique Esquerdo, F ou J)
     if (this.controller.isShootCrossbowPressed() && this.bowCooldownTimer <= 0) {
       if (this.scene.scene.key === 'DungeonScene' && GameState.arrows <= 0) {
         this.showNoArrowsPopup();
@@ -231,9 +239,35 @@ export class Player extends Entity {
       return;
     }
 
-    // 2. Golpe Melee com Espada (Espaço ou K)
+    // 3. Golpe Melee com Espada (Espaço ou K)
     if (this.controller.isMeleeAttackPressed() && this.attackComponent.canAttack) {
       this.meleeAttack(enemyGroup);
+    }
+  }
+
+  public performDash() {
+    const moveInput = this.controller.getMovementVector();
+    let dx = moveInput.x;
+    let dy = moveInput.y;
+
+    // Se estiver parado, esquiva para a direção que está olhando
+    if (dx === 0 && dy === 0) {
+      dx = this.facing === 'd' ? 1 : -1;
+      dy = 0;
+    } else {
+      if (dx < 0) this.facing = 'e';
+      else if (dx > 0) this.facing = 'd';
+    }
+
+    this.isDefending = false;
+    this.hideShieldAura();
+
+    const success = this.movement.dash(dx, dy);
+    if (success && NetworkManager.isConnected()) {
+      NetworkManager.sendAction({
+        type: 'player_dash',
+        payload: { dirX: dx, dirY: dy, x: this.x, y: this.y }
+      });
     }
   }
 

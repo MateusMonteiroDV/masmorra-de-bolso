@@ -253,7 +253,7 @@ export class LobbyScene extends Phaser.Scene {
     this.uiContainer.add(this.guestStatusText);
 
     // Dica de treino / controles no rodapé
-    const controlsTip = this.add.text(width / 2, 208, 'Teste seus ataques aqui: [ESPAÇO] Espada | [J ou F] Besta | [C ou K] Escudo', {
+    const controlsTip = this.add.text(width / 2, 208, 'Controles: [WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta', {
       fontFamily: 'monospace',
       fontSize: '6.5px',
       color: '#64748b'
@@ -402,6 +402,8 @@ export class LobbyScene extends Phaser.Scene {
         remote.remoteShootArrow(this.arrowGroup, action.payload.targetX, action.payload.targetY);
       } else if (action.type === 'melee_attack' && remote) {
         remote.remoteMeleeAttack();
+      } else if (action.type === 'player_dash' && remote) {
+        remote.remoteDash(action.payload?.dirX ?? 0, action.payload?.dirY ?? 0);
       } else if (action.type === 'lobby_start_countdown') {
         this.startCountdownSequence();
       } else if (action.type === 'scene_sync' && action.payload?.scene === 'DungeonScene') {

@@ -14,6 +14,7 @@ export class PlayerController {
   private keyJ!: Phaser.Input.Keyboard.Key;
   private keyK!: Phaser.Input.Keyboard.Key;
   private keyE!: Phaser.Input.Keyboard.Key;
+  private keyC!: Phaser.Input.Keyboard.Key;
 
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
@@ -43,6 +44,7 @@ export class PlayerController {
       this.keyJ = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
       this.keyK = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
       this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+      this.keyC = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
 
       // Ouvintes de evento direto para garantir detecção instantânea das teclas F e J
       keyboard.on('keydown-F', () => {
@@ -189,11 +191,17 @@ export class PlayerController {
     return false;
   }
 
-  // Defesa com Escudo (Shift, Q ou Botão Direito do Mouse)
+  // Esquiva / Dash (Shift ou C)
+  public isDashPressed(): boolean {
+    const shiftDown = this.keyShift ? Phaser.Input.Keyboard.JustDown(this.keyShift) : false;
+    const cDown = this.keyC ? Phaser.Input.Keyboard.JustDown(this.keyC) : false;
+    return shiftDown || cDown;
+  }
+
+  // Defesa com Escudo (Q ou Botão Direito do Mouse)
   public isDefending(): boolean {
-    const shiftDown = this.keyShift?.isDown ?? false;
     const qDown = this.keyQ?.isDown ?? false;
-    return shiftDown || qDown || this.mouseDefendDown;
+    return qDown || this.mouseDefendDown;
   }
 
   public isInteractPressed(): boolean {

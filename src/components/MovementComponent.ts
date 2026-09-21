@@ -55,11 +55,18 @@ export class MovementComponent {
       return false;
     }
 
-    // Se estiver parado ao dar dash, dá o dash na direção que o sprite está virado
+    // Se estiver parado ao dar dash, dá o dash na direção que o jogador está virado
     let vx = dirX;
     let vy = dirY;
     if (vx === 0 && vy === 0) {
-      vx = this.owner.flipX ? -1 : 1;
+      const ownerAny = this.owner as any;
+      if (ownerAny.facing === 'e') {
+        vx = -1;
+      } else if (ownerAny.facing === 'd') {
+        vx = 1;
+      } else {
+        vx = this.owner.flipX ? -1 : 1;
+      }
     }
 
     const vector = new Phaser.Math.Vector2(vx, vy).normalize();
@@ -74,24 +81,41 @@ export class MovementComponent {
 
     // Invulnerabilidade temporária durante os quadros de dash (i-frames)
     if (this.healthComponent) {
-      this.healthComponent.isInvulnerable = true;
+      this.healthComponent.setInvulnerable(this.dashDuration + 60);
     }
 
     AudioService.playDash();
 
-    // Rastro fantasma visual durante o dash
-    const ghost = this.owner.scene.add.sprite(this.owner.x, this.owner.y, this.owner.texture.key);
-    ghost.setTint(0x60a5fa);
-    ghost.setAlpha(0.6);
-    ghost.setFlipX(this.owner.flipX);
-    this.owner.scene.tweens.add({
-      targets: ghost,
-      alpha: 0,
-      duration: 160,
-      onComplete: () => ghost.destroy()
+    // Rastro fantasma visual suave (múltiplas silhuetas após o início)
+    this.spawnGhostTrail(0x60a5fa, 0.65);
+    this.owner.scene.time.delayedCall(50, () => {
+      if (this.isDashing && this.owner.active) {
+        this.spawnGhostTrail(0x93c5fd, 0.5);
+      }
+    });
+    this.owner.scene.time.delayedCall(100, () => {
+      if (this.isDashing && this.owner.active) {
+        this.spawnGhostTrail(0xbfdbfe, 0.35);
+      }
     });
 
     return true;
+  }
+
+  private spawnGhostTrail(tintColor: number = 0x60a5fa, initialAlpha: number = 0.6) {
+    if (!this.owner.scene) return;
+    const ghost = this.owner.scene.add.sprite(this.owner.x, this.owner.y, this.owner.texture.key);
+    ghost.setTint(tintColor);
+    ghost.setAlpha(initialAlpha);
+    ghost.setFlipX(this.owner.flipX);
+    ghost.setDepth(this.owner.depth - 1);
+    this.owner.scene.tweens.add({
+      targets: ghost,
+      alpha: 0,
+      duration: 180,
+      ease: 'Quad.easeOut',
+      onComplete: () => ghost.destroy()
+    });
   }
 
   public applyKnockback(fromX: number, fromY: number, force: number = 160, durationMs: number = 140) {

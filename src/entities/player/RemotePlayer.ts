@@ -170,6 +170,30 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  public remoteDash(dirX: number, dirY: number) {
+    AudioService.playDash();
+
+    if (dirX < 0) {
+      this.facing = 'e';
+    } else if (dirX > 0) {
+      this.facing = 'd';
+    }
+
+    // Efeito de rastro fantasma no aliado remoto
+    const ghost = this.scene.add.sprite(this.x, this.y, this.texture.key);
+    ghost.setTint(0x38bdf8);
+    ghost.setAlpha(0.65);
+    ghost.setFlipX(this.flipX);
+    ghost.setDepth(this.depth - 1);
+    this.scene.tweens.add({
+      targets: ghost,
+      alpha: 0,
+      duration: 180,
+      ease: 'Quad.easeOut',
+      onComplete: () => ghost.destroy()
+    });
+  }
+
   public remoteShootArrow(arrowGroup: Phaser.GameObjects.Group, targetX: number, targetY: number) {
     this.isShooting = true;
     this.setFlipX(false);
