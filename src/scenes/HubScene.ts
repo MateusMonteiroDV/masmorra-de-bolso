@@ -11,7 +11,7 @@ import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes
 
 export class HubScene extends Phaser.Scene {
   private player!: Player;
-  private shopNpc!: Phaser.GameObjects.Sprite;
+  private shopNpc!: Phaser.Physics.Arcade.Sprite;
   private portal!: Phaser.Physics.Arcade.Sprite;
   private p2pTotem!: Phaser.Physics.Arcade.Sprite;
 
@@ -81,12 +81,17 @@ export class HubScene extends Phaser.Scene {
       duration: 350
     });
 
-    // 3. NPC Mercador da Loja à Esquerda
-    this.shopNpc = this.add.sprite(width / 2 - 90, height / 2 - 20, ASSET_KEYS.CHARACTERS.NPC_SHOP);
+    // 3. NPC Mercador da Loja / Barraco de Itens à Esquerda (64x64)
+    this.shopNpc = this.physics.add.staticSprite(width / 2 - 90, height / 2 - 20, 'vendedor_0');
     this.shopNpc.setDepth(CONSTANTS.DEPTH.CHARACTERS);
-    this.shopNpc.setScale(1.3);
+    const shopBody = this.shopNpc.body as Phaser.Physics.Arcade.StaticBody;
+    if (shopBody) {
+      shopBody.setSize(56, 32);
+      shopBody.setOffset(4, 8);
+    }
+    this.shopNpc.play('vendedor_idle');
 
-    const npcLabel = this.add.text(this.shopNpc.x, this.shopNpc.y - 18, 'Ferreiro da Base', {
+    const npcLabel = this.add.text(this.shopNpc.x, this.shopNpc.y - 36, 'Ferreiro da Base', {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#f59e0b',
@@ -138,6 +143,7 @@ export class HubScene extends Phaser.Scene {
     // 6. Jogador na Base
     this.player = new Player(this, width / 2, height / 2 + 35);
     this.physics.add.collider(this.player, walls);
+    this.physics.add.collider(this.player, this.shopNpc);
 
     // 7. Textos de HUD do Hub
     this.goldDisplayText = this.add.text(12, 10, `Ouro: ${GameState.bankedGold} G`, {
@@ -292,11 +298,11 @@ export class HubScene extends Phaser.Scene {
       }
     }
 
-    // 1. Proximidade com o NPC Ferreiro / Loja
+    // 1. Proximidade com o NPC Ferreiro / Barraco da Loja
     const distNpc = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.shopNpc.x, this.shopNpc.y);
-    if (distNpc < 30) {
+    if (distNpc < 48) {
       if (!this.npcPromptText) {
-        this.npcPromptText = this.add.text(this.shopNpc.x, this.shopNpc.y + 16, '[E] Melhorias', {
+        this.npcPromptText = this.add.text(this.shopNpc.x, this.shopNpc.y + 36, '[E] Melhorias', {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#38bdf8',
@@ -364,9 +370,11 @@ export class HubScene extends Phaser.Scene {
   private openShop() {
     this.isModalOpen = true;
     this.player.setVelocity(0, 0);
+    this.shopNpc.play('vendedor_trade');
     this.shopModal.show(() => {
       this.isModalOpen = false;
       this.goldDisplayText.setText(`Ouro: ${GameState.bankedGold} G`);
+      this.shopNpc.play('vendedor_idle');
     });
   }
 

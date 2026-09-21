@@ -59,6 +59,17 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('mago_cast_e', '/assets/esqueleto_mago/mago_cast_e.png');
     this.load.image('fireball_0', '/assets/esqueleto_mago/fireball_0.png');
     this.load.image('fireball_1', '/assets/esqueleto_mago/fireball_1.png');
+
+    // 10. Rei Slime (Chefe) (12 frames: 00 a 11)
+    for (let i = 0; i <= 11; i++) {
+      const idx = i.toString().padStart(2, '0');
+      this.load.image(`king_slime_${idx}`, `/assets/king_slime/sprite_${idx}.png`);
+    }
+
+    // 11. Vendedor / Barraco da Loja (5 frames: 0 a 4)
+    for (let i = 0; i <= 4; i++) {
+      this.load.image(`vendedor_${i}`, `/assets/vendedor/sprite_${i}.png`);
+    }
   }
 
   public create() {
@@ -307,6 +318,83 @@ export class PreloadScene extends Phaser.Scene {
       frames: [{ key: 'fireball_0' }, { key: 'fireball_1' }],
       frameRate: 8,
       repeat: -1
+    });
+
+    // 13. Rei Slime - Movimentação / Salto e Rastejo (Frames 00 a 02 com bounce orgânico contínuo)
+    anims.create({
+      key: 'king_slime_walk',
+      frames: [
+        { key: 'king_slime_00' },
+        { key: 'king_slime_01' },
+        { key: 'king_slime_02' },
+        { key: 'king_slime_01' }
+      ],
+      frameRate: 6,
+      repeat: -1
+    });
+
+    // 14. Rei Slime - Ataque com Investida de Garra para a Esquerda (Frames 04 a 07)
+    anims.create({
+      key: 'king_slime_attack_e',
+      frames: [
+        { key: 'king_slime_04' },
+        { key: 'king_slime_05' },
+        { key: 'king_slime_06' },
+        { key: 'king_slime_07' }
+      ],
+      frameRate: 8,
+      repeat: 0
+    });
+
+    // 15. Rei Slime - Ataque com Investida de Garra para a Direita (Frames 08 a 11)
+    anims.create({
+      key: 'king_slime_attack_d',
+      frames: [
+        { key: 'king_slime_08' },
+        { key: 'king_slime_09' },
+        { key: 'king_slime_10' },
+        { key: 'king_slime_11' }
+      ],
+      frameRate: 8,
+      repeat: 0
+    });
+
+    // 16. Vendedor / Barraco da Loja - Rotina do Mercador Atendendo no Balcão (5 frames: 0 a 4)
+    // 0 (parado) -> 1 (braços abertos) -> 0 -> 2 (abaixa pegando estoque) -> 3 (pote no balcão) -> 0
+    anims.create({
+      key: 'vendedor_idle',
+      frames: [
+        { key: 'vendedor_0' },
+        { key: 'vendedor_1' },
+        { key: 'vendedor_0' },
+        { key: 'vendedor_2' },
+        { key: 'vendedor_3' },
+        { key: 'vendedor_0' }
+      ],
+      frameRate: 2,
+      repeat: -1
+    });
+
+    // Vendedor - Boas-vindas (ao se aproximar da barraca)
+    anims.create({
+      key: 'vendedor_welcome',
+      frames: [
+        { key: 'vendedor_0' },
+        { key: 'vendedor_1' }
+      ],
+      frameRate: 3,
+      repeat: 0
+    });
+
+    // Vendedor - Negociação / Balcão (ao abrir o menu de melhorias)
+    anims.create({
+      key: 'vendedor_trade',
+      frames: [
+        { key: 'vendedor_2' },
+        { key: 'vendedor_3' }
+      ],
+      frameRate: 4,
+      repeat: 0
     });
   }
 }
