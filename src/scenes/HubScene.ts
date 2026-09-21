@@ -8,12 +8,14 @@ import { Player } from '../entities/player/Player';
 import { RemotePlayer } from '../entities/player/RemotePlayer';
 import { NetworkManager } from '../network/NetworkManager';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
+import { TouchControls, isTouchDevice } from '../ui/TouchControls';
 
 export class HubScene extends Phaser.Scene {
   private player!: Player;
   private shopNpc!: Phaser.Physics.Arcade.Sprite;
   private portal!: Phaser.Physics.Arcade.Sprite;
   private p2pTotem!: Phaser.Physics.Arcade.Sprite;
+  private touchControls?: TouchControls;
 
   private shopModal!: ShopModal;
   private multiplayerModal!: MultiplayerModal;
@@ -174,7 +176,12 @@ export class HubScene extends Phaser.Scene {
     // Câmera do Hub
     this.cameras.main.setBackgroundColor('#0d0e15');
 
-    // 9. Configuração de Rede P2P
+    // 9. Controles Touch Virtuais para Dispositivos Móveis
+    if (isTouchDevice(this.game)) {
+      this.touchControls = new TouchControls(this, this.player.controller, { isHub: true, showInteract: true });
+    }
+
+    // 10. Configuração de Rede P2P
     this.setupNetwork();
 
     // Auto-join se a URL possuir ?room=XXXX
@@ -370,21 +377,25 @@ export class HubScene extends Phaser.Scene {
   private openShop() {
     this.isModalOpen = true;
     this.player.setVelocity(0, 0);
+    this.touchControls?.setVisible(false);
     this.shopNpc.play('vendedor_trade');
     this.shopModal.show(() => {
       this.isModalOpen = false;
       this.goldDisplayText.setText(`Ouro: ${GameState.bankedGold} G`);
       this.shopNpc.play('vendedor_idle');
+      this.touchControls?.setVisible(true);
     });
   }
 
   private openMultiplayerModal() {
     this.isModalOpen = true;
     this.player.setVelocity(0, 0);
+    this.touchControls?.setVisible(false);
     this.multiplayerModal.show(
       () => {
         this.isModalOpen = false;
         this.updateP2PStatusText();
+        this.touchControls?.setVisible(true);
       },
       () => {
         this.isModalOpen = false;

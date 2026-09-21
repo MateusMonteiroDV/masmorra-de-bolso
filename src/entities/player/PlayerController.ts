@@ -22,6 +22,14 @@ export class PlayerController {
   public lastMouseShootScreenPos: { x: number; y: number } | null = null;
   private keyShootTriggered: boolean = false;
 
+  // Estados dos Controles Touch Virtuais (Mobile)
+  public virtualMoveVector: { x: number; y: number } = { x: 0, y: 0 };
+  public virtualAttackTriggered: boolean = false;
+  public virtualShootTriggered: boolean = false;
+  public virtualDashTriggered: boolean = false;
+  public virtualDefendDown: boolean = false;
+  public virtualInteractTriggered: boolean = false;
+
   private capturedKeys: Set<string> = new Set();
   private onKeyDownCapture?: (e: KeyboardEvent) => void;
   private onKeyUpCapture?: (e: KeyboardEvent) => void;
@@ -101,6 +109,9 @@ export class PlayerController {
     this.scene.input.mouse?.disableContextMenu();
 
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      // Ignora toques em botões virtuais ou joystick touch para não disparar flechas acidentais
+      if ((pointer as any).isVirtualControl) return;
+
       if (pointer.button === 0 || pointer.leftButtonDown()) {
         this.mouseShootTriggered = true;
         this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
@@ -111,6 +122,8 @@ export class PlayerController {
     });
 
     this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if ((pointer as any).isVirtualControl) return;
+
       if (pointer.button === 2 || !pointer.rightButtonDown()) {
         this.mouseDefendDown = false;
       }
@@ -143,6 +156,12 @@ export class PlayerController {
       y += 1;
     }
 
+    // Suporte a Joystick Virtual Mobile
+    if (this.virtualMoveVector.x !== 0 || this.virtualMoveVector.y !== 0) {
+      x += this.virtualMoveVector.x;
+      y += this.virtualMoveVector.y;
+    }
+
     return { x, y };
   }
 
@@ -161,14 +180,17 @@ export class PlayerController {
     this.capturedKeys.clear();
   }
 
-  // Golpe com Espada (Espaço ou K)
+  // Golpe com Espada (Espaço, K ou Botão Virtual Touch)
   public isMeleeAttackPressed(): boolean {
     const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
     const kDown = this.keyK ? Phaser.Input.Keyboard.JustDown(this.keyK) : false;
-    return spaceDown || kDown;
+    const virtualAttack = this.virtualAttackTriggered;
+    this.virtualAttackTriggered = false;
+
+    return spaceDown || kDown || virtualAttack;
   }
 
-  // Tiro com Besta / Flecha (Clique do Mouse, F ou J)
+  // Tiro com Besta / Flecha (Clique do Mouse, F, J ou Botão Virtual Touch)
   public isShootCrossbowPressed(): boolean {
     const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
     const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
@@ -177,6 +199,14 @@ export class PlayerController {
 
     const mouseShoot = this.mouseShootTriggered;
     this.mouseShootTriggered = false;
+
+    const virtualShoot = this.virtualShootTriggered;
+    this.virtualShootTriggered = false;
+
+    if (virtualShoot) {
+      this.wasMouseShoot = false;
+      return true;
+    }
 
     if (mouseShoot) {
       this.wasMouseShoot = true;
@@ -191,21 +221,28 @@ export class PlayerController {
     return false;
   }
 
-  // Esquiva / Dash (Shift ou C)
+  // Esquiva / Dash (Shift, C ou Botão Virtual Touch)
   public isDashPressed(): boolean {
     const shiftDown = this.keyShift ? Phaser.Input.Keyboard.JustDown(this.keyShift) : false;
     const cDown = this.keyC ? Phaser.Input.Keyboard.JustDown(this.keyC) : false;
-    return shiftDown || cDown;
+    const virtualDash = this.virtualDashTriggered;
+    this.virtualDashTriggered = false;
+
+    return shiftDown || cDown || virtualDash;
   }
 
-  // Defesa com Escudo (Q ou Botão Direito do Mouse)
+  // Defesa com Escudo (Q, Botão Direito do Mouse ou Botão Virtual Touch)
   public isDefending(): boolean {
     const qDown = this.keyQ?.isDown ?? false;
-    return qDown || this.mouseDefendDown;
+    return qDown || this.mouseDefendDown || this.virtualDefendDown;
   }
 
   public isInteractPressed(): boolean {
-    return this.keyE ? Phaser.Input.Keyboard.JustDown(this.keyE) : false;
+    const eDown = this.keyE ? Phaser.Input.Keyboard.JustDown(this.keyE) : false;
+    const virtualInteract = this.virtualInteractTriggered;
+    this.virtualInteractTriggered = false;
+
+    return eDown || virtualInteract;
   }
 
   public getAimAngle(playerX: number, playerY: number, facingDirX: number, facingDirY: number): number {

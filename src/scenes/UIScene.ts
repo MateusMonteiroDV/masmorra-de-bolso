@@ -5,6 +5,7 @@ import { EventBus } from '../core/EventBus';
 import { GameState } from '../core/GameState';
 import { RelicSelectModal } from '../ui/RelicSelectModal';
 import { NetworkManager } from '../network/NetworkManager';
+import { TouchControls, isTouchDevice } from '../ui/TouchControls';
 
 export class UIScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
@@ -16,6 +17,7 @@ export class UIScene extends Phaser.Scene {
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
   private notificationText!: Phaser.GameObjects.Text;
+  private touchControls?: TouchControls;
   private spectatorContainer?: Phaser.GameObjects.Container;
   private spectatorKeyEnter?: Phaser.Input.Keyboard.Key;
   private spectatorKeySpace?: Phaser.Input.Keyboard.Key;
@@ -82,19 +84,33 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    // 6. Guia de Teclas no Rodapé da Tela
-    this.add.text(
-      CONSTANTS.GAME_WIDTH / 2,
-      CONSTANTS.GAME_HEIGHT - 8,
-      '[WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta',
-      {
-        fontFamily: 'monospace',
-        fontSize: '6.5px',
-        color: '#94a3b8',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5);
+    // 6. Guia de Teclas no Rodapé (apenas para desktop) ou Controles Touch Virtuais (mobile)
+    if (isTouchDevice(this.game)) {
+      this.touchControls = new TouchControls(this);
+      const linkController = () => {
+        const dungeonScene = this.scene.get('DungeonScene') as any;
+        if (dungeonScene?.player?.controller) {
+          this.touchControls?.setController(dungeonScene.player.controller);
+        }
+      };
+
+      linkController();
+      this.time.delayedCall(50, linkController);
+      this.time.delayedCall(200, linkController);
+    } else {
+      this.add.text(
+        CONSTANTS.GAME_WIDTH / 2,
+        CONSTANTS.GAME_HEIGHT - 8,
+        '[WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta',
+        {
+          fontFamily: 'monospace',
+          fontSize: '6.5px',
+          color: '#94a3b8',
+          stroke: '#000000',
+          strokeThickness: 2
+        }
+      ).setOrigin(0.5);
+    }
 
     // 7. Barra Central: Ícones de Relíquias Ativas
     this.relicIconsContainer = this.add.container(CONSTANTS.GAME_WIDTH / 2, CONSTANTS.GAME_HEIGHT - 22);
@@ -193,9 +209,11 @@ export class UIScene extends Phaser.Scene {
 
     EventBus.on(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE, () => {
       this.scene.pause('DungeonScene');
+      this.touchControls?.setVisible(false);
       this.relicModal.show(() => {
         this.scene.resume('DungeonScene');
         this.refreshRelicsBar();
+        this.touchControls?.setVisible(true);
       });
     });
 
