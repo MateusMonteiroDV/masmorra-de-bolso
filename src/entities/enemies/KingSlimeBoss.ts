@@ -1,18 +1,15 @@
 import * as Phaser from 'phaser';
 import { Enemy } from './Enemy';
 import { CONSTANTS } from '../../core/Constants';
-import { ASSET_KEYS } from '../../assets/AssetManifest';
 import { SlimeEnemy } from './SlimeEnemy';
 import { AudioService } from '../../systems/AudioService';
 import { RelicChest } from '../items/RelicChest';
 
 export class KingSlimeBoss extends Enemy {
   private slamTimer: number = CONSTANTS.ENEMIES.BOSS.SLAM_COOLDOWN;
-  private attackCooldownTimer: number = 0;
-  private attackTimer: number = 0;
+  private clawCooldownTimer: number = 0;
   private isSlamming: boolean = false;
-  private isAttacking: boolean = false;
-  private facing: 'd' | 'e' = 'd';
+  private isClawing: boolean = false;
   private enemyGroup?: Phaser.GameObjects.Group;
 
   constructor(
@@ -45,53 +42,40 @@ export class KingSlimeBoss extends Enemy {
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
-    if (!this.active || this.health.isDead() || this.isSlamming || !player || !player.active) return;
+    if (!this.active || this.health.isDead() || !player || !player.active) return;
 
-    if (this.attackCooldownTimer > 0) {
-      this.attackCooldownTimer -= delta;
-    }
+    // Se estiver no meio do salto aéreo do Slam, aguarda o pouso
+    if (this.isSlamming) return;
 
-    // Se estiver executando golpe corpo a corpo, decrementa o temporizador seguro
-    if (this.isAttacking) {
-      this.attackTimer -= delta;
-      if (this.attackTimer <= 0) {
-        this.isAttacking = false;
-        if (this.active && !this.health.isDead()) {
-          this.setFlipX(this.facing === 'e');
-          this.play('king_slime_walk', true);
-        }
-      }
-      return;
+    if (this.clawCooldownTimer > 0) {
+      this.clawCooldownTimer -= delta;
     }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+    const facingLeft = player.x < this.x;
 
-    if (player.x < this.x) {
-      this.facing = 'e';
-    } else {
-      this.facing = 'd';
-    }
-
-    // 1. Ataque de garra corpo a corpo se estiver no alcance (dist <= 38px)
-    if (dist <= 38 && this.attackCooldownTimer <= 0) {
-      this.performMeleeAttack(player);
-      return;
-    }
-
-    // 2. Perseguição contínua com caminhada/rastejo
+    // 1. Perseguição constante: a velocidade SEMPRE é atualizada em direção ao jogador
+    // Isso garante que o chefe NUNCA trave ou congele, mesmo recebendo golpes de espada/flechas
     const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
     this.setVelocity(
       Math.cos(angle) * this.movement.baseSpeed,
       Math.sin(angle) * this.movement.baseSpeed
     );
 
-    this.setFlipX(this.facing === 'e');
-
-    if (this.anims.currentAnim?.key !== 'king_slime_walk') {
-      this.play('king_slime_walk', true);
+    // 2. Ataque visual com as garras ao se aproximar (dist <= 38px)
+    if (dist <= 38 && this.clawCooldownTimer <= 0 && !this.isClawing) {
+      this.triggerClawAttack(player, facingLeft);
     }
 
-    // 3. Cooldown do Salto Esmagador (Slam)
+    // 3. Atualiza animação de caminhada se não estiver executando corte
+    if (!this.isClawing) {
+      this.setFlipX(facingLeft);
+      if (this.anims.currentAnim?.key !== 'king_slime_walk') {
+        this.play('king_slime_walk', true);
+      }
+    }
+
+    // 4. Cooldown do Salto Esmagador (Slam)
     this.slamTimer -= delta;
     if (this.slamTimer <= 0) {
       this.slamTimer = CONSTANTS.ENEMIES.BOSS.SLAM_COOLDOWN;
@@ -99,26 +83,40 @@ export class KingSlimeBoss extends Enemy {
     }
   }
 
-  private performMeleeAttack(player: Phaser.GameObjects.Sprite) {
-    this.isAttacking = true;
-    this.attackTimer = 500; // Duração exata da animação de 4 frames a 8 FPS (500ms)
-    this.attackCooldownTimer = 1600; // 1.6s entre golpes de garra
+  private triggerClawAttack(player: Phaser.GameObjects.Sprite, facingLeft: boolean) {
+    this.isClawing = true;
+    this.clawCooldownTimer = 1500; // 1.5s entre golpes
 
-    // Pequeno avanço/investida em direção ao jogador
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
-    const lungeSpeed = this.movement.baseSpeed * 1.35;
-    this.setVelocity(Math.cos(angle) * lungeSpeed, Math.sin(angle) * lungeSpeed);
-
-    // Os sprites de ataque possuem garras desenhadas: 04-07 para esquerda e 08-11 para direita
     this.setFlipX(false);
-    const attackAnim = this.facing === 'e' ? 'king_slime_attack_e' : 'king_slime_attack_d';
-    this.play(attackAnim, true);
+    const animKey = facingLeft ? 'king_slime_attack_e' : 'king_slime_attack_d';
+    this.play(animKey, true);
 
-    // Aplica o dano no ápice do corte (~280ms)
-    this.scene.time.delayedCall(280, () => {
+    // Ao terminar a animação de ataque, volta à caminhada
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.isClawing = false;
+      if (this.active && !this.health.isDead()) {
+        this.setFlipX(player && player.x < this.x);
+        this.play('king_slime_walk', true);
+      }
+    });
+
+    // Timeout de segurança: garante que a caminhada seja retomada em 500ms
+    // mesmo se a animação for interrompida por dano/knockback/flash
+    this.scene.time.delayedCall(500, () => {
+      if (this.isClawing) {
+        this.isClawing = false;
+        if (this.active && !this.health.isDead()) {
+          this.setFlipX(player && player.x < this.x);
+          this.play('king_slime_walk', true);
+        }
+      }
+    });
+
+    // Dano de corte no momento de impacto da garra (~250ms)
+    this.scene.time.delayedCall(250, () => {
       if (this.active && !this.health.isDead() && player && player.active) {
         const hitDist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-        if (hitDist <= 44) {
+        if (hitDist <= 42) {
           const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
           playerEntity.health?.takeDamage(CONSTANTS.ENEMIES.BOSS.DAMAGE);
           AudioService.playEnemyHit();
@@ -131,8 +129,7 @@ export class KingSlimeBoss extends Enemy {
     if (!this.active || !this.scene || this.health.isDead()) return;
 
     this.isSlamming = true;
-    this.isAttacking = false;
-    this.attackTimer = 0;
+    this.isClawing = false;
     this.setVelocity(0, 0);
 
     const targetX = player.x;
@@ -190,7 +187,7 @@ export class KingSlimeBoss extends Enemy {
             // Invocação de 1 a 2 slimes menores
             this.spawnMinions();
 
-            // 4. Retorna ao tamanho normal e retoma a movimentação de forma segura
+            // 4. Retorna ao tamanho normal e retoma a perseguição
             this.scene.tweens.add({
               targets: this,
               scaleX: 1,
@@ -199,12 +196,10 @@ export class KingSlimeBoss extends Enemy {
               onComplete: () => {
                 this.health.isInvulnerable = false;
                 this.isSlamming = false;
-                this.isAttacking = false;
-                this.attackTimer = 0;
-                this.attackCooldownTimer = 1000;
+                this.clawCooldownTimer = 800;
 
                 if (this.active && !this.health.isDead()) {
-                  this.setFlipX(this.facing === 'e');
+                  this.setFlipX(player && player.x < this.x);
                   this.play('king_slime_walk', true);
                 }
               }
@@ -228,8 +223,7 @@ export class KingSlimeBoss extends Enemy {
 
   public override die() {
     this.isSlamming = false;
-    this.isAttacking = false;
-    this.attackTimer = 0;
+    this.isClawing = false;
     if (this.scene && this.scene.tweens) {
       this.scene.tweens.killTweensOf(this);
     }
