@@ -51,6 +51,7 @@ export class DungeonScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBackgroundColor('#090a0f');
+    this.cameras.main.setZoom(0.85); // Zoom equilibrado para visão tática ampla sem aspecto claustrofóbico no mobile
 
     // 2. Imagem de Fundo do Mapa (1140x977)
     const mapBg = this.add.image(mapW / 2, mapH / 2, 'mapa_dungeon');
