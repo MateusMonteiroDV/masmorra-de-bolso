@@ -2,9 +2,11 @@ import * as Phaser from 'phaser';
 import { CONSTANTS } from '../core/Constants';
 import { AudioService } from '../systems/AudioService';
 import { NetworkManager } from '../network/NetworkManager';
+import { isTouchDevice, isFullscreenActive, toggleFullscreen } from '../ui/TouchControls';
 
 export class TitleScene extends Phaser.Scene {
   private hasStarted: boolean = false;
+  private onFsChange?: () => void;
 
   constructor() {
     super({ key: 'TitleScene' });
@@ -63,7 +65,7 @@ export class TitleScene extends Phaser.Scene {
     const promptKeyText = this.add.text(
       width / 2,
       height - 12,
-      '[ Pressione ESPAÇO, ENTER ou clique em PLAY ]',
+      '[ Pressione ESPAÇO, ENTER ou toque em PLAY ]',
       {
         fontFamily: 'monospace',
         fontSize: '7.5px',
@@ -89,8 +91,59 @@ export class TitleScene extends Phaser.Scene {
       color: '#64748b'
     }).setDepth(20);
 
-    const triggerStart = () => {
+    // Botão de Tela Cheia no topo direito
+    const fsBtn = this.add.container(width - 24, 16);
+    fsBtn.setDepth(30);
+
+    const fsBg = this.add.graphics();
+    const updateFsVisual = (isFs: boolean) => {
+      fsBg.clear();
+      fsBg.fillStyle(0x0f172a, 0.7);
+      fsBg.fillRoundedRect(-14, -11, 28, 22, 5);
+      fsBg.lineStyle(1.5, isFs ? 0x22c55e : 0x38bdf8, 0.85);
+      fsBg.strokeRoundedRect(-14, -11, 28, 22, 5);
+    };
+    updateFsVisual(isFullscreenActive());
+
+    const fsIcon = this.add.text(0, -3, isFullscreenActive() ? '🗗' : '⛶', {
+      fontSize: '11px',
+      color: isFullscreenActive() ? '#22c55e' : '#38bdf8'
+    }).setOrigin(0.5);
+
+    const fsLabel = this.add.text(0, 6, isFullscreenActive() ? 'SAIR' : 'TELA', {
+      fontFamily: 'monospace',
+      fontSize: '5px',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+
+    fsBtn.add([fsBg, fsIcon, fsLabel]);
+    fsBtn.setSize(28, 22);
+    fsBtn.setInteractive({ useHandCursor: true });
+
+    fsBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
+      toggleFullscreen(this);
+    });
+
+    this.onFsChange = () => {
+      const active = isFullscreenActive();
+      fsIcon.setText(active ? '🗗' : '⛶');
+      fsIcon.setColor(active ? '#22c55e' : '#38bdf8');
+      fsLabel.setText(active ? 'SAIR' : 'TELA');
+      updateFsVisual(active);
+    };
+    document.addEventListener('fullscreenchange', this.onFsChange);
+    document.addEventListener('webkitfullscreenchange', this.onFsChange);
+
+    const triggerStart = (pointerOrEvent?: any) => {
       if (this.hasStarted) return;
+      if (pointerOrEvent && (pointerOrEvent as any).isVirtualControl) return;
+
+      // Ativa tela cheia no mobile se ainda não estiver ativa
+      if (isTouchDevice(this.game) && !isFullscreenActive()) {
+        toggleFullscreen(this);
+      }
+
       this.hasStarted = true;
 
       AudioService.playRoomCleared();
@@ -98,6 +151,11 @@ export class TitleScene extends Phaser.Scene {
       // Transição suave de fade out
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
+        if (this.onFsChange) {
+          document.removeEventListener('fullscreenchange', this.onFsChange);
+          document.removeEventListener('webkitfullscreenchange', this.onFsChange);
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const roomParam = urlParams.get('room');
         if (roomParam && !NetworkManager.currentRoomId) {

@@ -16,7 +16,9 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: CONSTANTS.GAME_WIDTH,
-    height: CONSTANTS.GAME_HEIGHT
+    height: CONSTANTS.GAME_HEIGHT,
+    parent: 'game-container',
+    expandParent: true
   },
   pixelArt: true,
   roundPixels: true,
