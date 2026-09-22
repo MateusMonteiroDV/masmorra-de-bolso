@@ -172,14 +172,8 @@ export class Player extends Entity {
     const moveInput = this.controller.getMovementVector();
     this.movement.moveInDirection(moveInput.x, moveInput.y);
 
-    // Ajuste explícito de direção (Esquerda vs Direita, suporta mira virtual touch)
-    if (this.controller.isVirtualAiming) {
-      if (Math.cos(this.controller.virtualAimAngleRad) < 0) {
-        this.facing = 'e';
-      } else {
-        this.facing = 'd';
-      }
-    } else if (moveInput.x < 0) {
+    // Ajuste explícito de direção (Esquerda vs Direita)
+    if (moveInput.x < 0) {
       this.facing = 'e';
     } else if (moveInput.x > 0) {
       this.facing = 'd';
@@ -318,31 +312,8 @@ export class Player extends Entity {
     let targetY = this.y;
 
     const isMouse = this.controller.wasMouseShoot && screenPos !== null;
-    const isVirtualAimed = this.controller.isVirtualShootAimed;
-    this.controller.isVirtualShootAimed = false;
 
-    if (isVirtualAimed) {
-      const angle = this.controller.virtualAimAngleRad;
-      const shootDist = 300;
-      targetX = this.x + Math.cos(angle) * shootDist;
-      targetY = this.y + Math.sin(angle) * shootDist;
-
-      if (Math.cos(angle) < -0.1) {
-        this.facing = 'e';
-      } else if (Math.cos(angle) > 0.1) {
-        this.facing = 'd';
-      }
-    } else if (this.controller.virtualShootTarget) {
-      targetX = this.controller.virtualShootTarget.x;
-      targetY = this.controller.virtualShootTarget.y;
-      this.controller.virtualShootTarget = null;
-
-      if (targetX < this.x - 5) {
-        this.facing = 'e';
-      } else if (targetX > this.x + 5) {
-        this.facing = 'd';
-      }
-    } else if (isMouse && screenPos) {
+    if (isMouse && screenPos) {
       const worldPoint = this.scene.cameras.main.getWorldPoint(screenPos.x, screenPos.y);
       targetX = worldPoint.x;
       targetY = worldPoint.y;
@@ -354,7 +325,7 @@ export class Player extends Entity {
         this.facing = 'd';
       }
     } else {
-      // Disparo via teclado (F ou J) ou toque rápido mobile sem arrastar
+      // Disparo via teclado (F ou J): considera movimento atual se houver
       const moveInput = this.controller.getMovementVector();
       if (moveInput.x !== 0 || moveInput.y !== 0) {
         targetX = this.x + moveInput.x * 180;
@@ -364,7 +335,7 @@ export class Player extends Entity {
 
     this.setFlipX(false);
 
-    const isAimingUp = (isMouse || isVirtualAimed) && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
+    const isAimingUp = isMouse && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {

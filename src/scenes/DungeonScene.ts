@@ -453,44 +453,5 @@ export class DungeonScene extends Phaser.Scene {
         }
       });
     }
-
-    // 7. Trajetória tática de mira da flecha no mobile
-    if (this.player && this.player.active && !this.player.health.isDead() && this.player.controller?.isVirtualAiming) {
-      this.drawAimGuide(this.player.x, this.player.y, this.player.controller.virtualAimAngleRad);
-    } else if (this.aimGuideGraphics) {
-      this.aimGuideGraphics.clear();
-    }
-  }
-
-  private aimGuideGraphics?: Phaser.GameObjects.Graphics;
-
-  private drawAimGuide(fromX: number, fromY: number, angleRad: number) {
-    if (!this.aimGuideGraphics) {
-      this.aimGuideGraphics = this.add.graphics();
-      this.aimGuideGraphics.setDepth(CONSTANTS.DEPTH.PROJECTILES + 5);
-    }
-    this.aimGuideGraphics.clear();
-
-    const maxDist = 140;
-    const numDots = 7;
-
-    for (let i = 1; i <= numDots; i++) {
-      const step = (maxDist / numDots) * i;
-      const dotX = fromX + Math.cos(angleRad) * step;
-      const dotY = fromY + Math.sin(angleRad) * step;
-      const alpha = 0.3 + (i / numDots) * 0.6;
-      const radius = i === numDots ? 3.5 : 2;
-
-      this.aimGuideGraphics.fillStyle(0x38bdf8, alpha);
-      this.aimGuideGraphics.fillCircle(dotX, dotY, radius);
-    }
-
-    // Retículo luminoso na ponta da mira
-    const endX = fromX + Math.cos(angleRad) * maxDist;
-    const endY = fromY + Math.sin(angleRad) * maxDist;
-    this.aimGuideGraphics.lineStyle(1.5, 0x22c55e, 0.9);
-    this.aimGuideGraphics.strokeCircle(endX, endY, 6);
-    this.aimGuideGraphics.fillStyle(0x22c55e, 0.4);
-    this.aimGuideGraphics.fillCircle(endX, endY, 2.5);
   }
 }

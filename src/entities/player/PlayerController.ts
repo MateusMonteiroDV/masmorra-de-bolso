@@ -30,12 +30,6 @@ export class PlayerController {
   public virtualDefendDown: boolean = false;
   public virtualInteractTriggered: boolean = false;
 
-  // Sistema de Mira e Disparo Segurado no Mobile (Hold & Aim)
-  public isVirtualAiming: boolean = false;
-  public virtualAimAngleRad: number = 0;
-  public isVirtualShootAimed: boolean = false;
-  public virtualShootTarget: { x: number; y: number } | null = null;
-
   private capturedKeys: Set<string> = new Set();
   private onKeyDownCapture?: (e: KeyboardEvent) => void;
   private onKeyUpCapture?: (e: KeyboardEvent) => void;
