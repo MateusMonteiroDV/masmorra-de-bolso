@@ -1,0 +1,10 @@
+{
+  "name": "Masmorra de Bolso",
+  "short_name": "Masmorra",
+  "description": "Roguelite 2D em Pixel Art",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#090a0f",
+  "theme_color": "#090a0f"
+}

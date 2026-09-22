@@ -27,6 +27,87 @@ export function isFullscreenActive(): boolean {
 }
 
 /**
+ * Detecta se o dispositivo é iOS (iPhone/iPad)
+ */
+export function isIOSSafari(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return isIOS;
+}
+
+/**
+ * Detecta se a aplicação está rodando instalada como PWA (tela cheia standalone no iOS)
+ */
+export function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+/**
+ * Exibe modal explicativo amigável para usuários do Safari / iPhone
+ */
+export function showSafariFullscreenPrompt(scene: Phaser.Scene) {
+  const existing = scene.children.getByName('safari_fs_modal');
+  if (existing) return;
+
+  const modal = scene.add.container(CONSTANTS.GAME_WIDTH / 2, CONSTANTS.GAME_HEIGHT / 2);
+  modal.setName('safari_fs_modal');
+  modal.setDepth(CONSTANTS.DEPTH.MODAL + 100);
+
+  const bg = scene.add.graphics();
+  bg.fillStyle(0x0f172a, 0.95);
+  bg.fillRoundedRect(-140, -65, 280, 130, 8);
+  bg.lineStyle(2, 0x38bdf8, 1);
+  bg.strokeRoundedRect(-140, -65, 280, 130, 8);
+
+  const title = scene.add.text(0, -48, '📱 TELA CHEIA NO SAFARI / IPHONE', {
+    fontFamily: 'monospace',
+    fontSize: '8px',
+    color: '#38bdf8',
+    stroke: '#000000',
+    strokeThickness: 2
+  }).setOrigin(0.5);
+
+  const text1 = scene.add.text(0, -22, 'A Apple bloqueia o botão de tela cheia no iPhone.', {
+    fontFamily: 'monospace',
+    fontSize: '6.5px',
+    color: '#e2e8f0'
+  }).setOrigin(0.5);
+
+  const text2 = scene.add.text(0, -4, '★ Opção 1: Toque em Compartilhar ⎋ e escolha\n   "Adicionar à Tela de Início" (100% cheia)', {
+    fontFamily: 'monospace',
+    fontSize: '6.5px',
+    color: '#4ade80',
+    align: 'center'
+  }).setOrigin(0.5);
+
+  const text3 = scene.add.text(0, 22, '★ Opção 2: Toque em "aA" na barra do Safari\n   e selecione "Ocultar Barra de Ferramentas"', {
+    fontFamily: 'monospace',
+    fontSize: '6.5px',
+    color: '#facc15',
+    align: 'center'
+  }).setOrigin(0.5);
+
+  const closeBtn = scene.add.text(0, 48, '[ TOQUE PARA FECHAR ]', {
+    fontFamily: 'monospace',
+    fontSize: '7px',
+    color: '#94a3b8'
+  }).setOrigin(0.5);
+
+  modal.add([bg, title, text1, text2, text3, closeBtn]);
+  modal.setSize(280, 130);
+  modal.setInteractive({ useHandCursor: true });
+
+  const dismiss = () => {
+    modal.destroy();
+  };
+
+  modal.on('pointerdown', dismiss);
+  scene.time.delayedCall(8000, dismiss);
+}
+
+/**
  * Alterna tela cheia no mobile com bloqueio de orientação em paisagem
  */
 export function toggleFullscreen(scene: Phaser.Scene) {
@@ -49,6 +130,8 @@ export function toggleFullscreen(scene: Phaser.Scene) {
           scene.scale.startFullscreen();
         } catch (e) {}
       });
+    } else if (isIOSSafari() && !isStandalone()) {
+      showSafariFullscreenPrompt(scene);
     } else {
       try {
         scene.scale.startFullscreen();
