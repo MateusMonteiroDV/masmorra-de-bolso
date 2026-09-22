@@ -14,8 +14,8 @@ export class TitleScene extends Phaser.Scene {
 
   public create() {
     this.hasStarted = false;
-    const width = CONSTANTS.GAME_WIDTH;
-    const height = CONSTANTS.GAME_HEIGHT;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
     // Fundo roxo exatamente na mesma tonalidade da arte (#770f9a) para integração perfeita
     this.cameras.main.setBackgroundColor('#770f9a');
@@ -120,7 +120,7 @@ export class TitleScene extends Phaser.Scene {
     fsBtn.setSize(28, 22);
     fsBtn.setInteractive({ useHandCursor: true });
 
-    fsBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    fsBtn.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       (pointer as any).isVirtualControl = true;
       toggleFullscreen(this);
     });
@@ -139,7 +139,7 @@ export class TitleScene extends Phaser.Scene {
       if (this.hasStarted) return;
       if (pointerOrEvent && (pointerOrEvent as any).isVirtualControl) return;
 
-      // Ativa tela cheia no mobile se ainda não estiver ativa
+      // Ativa tela cheia no mobile se ainda não estiver ativa (em pointerup para compatibilidade com Chrome)
       if (isTouchDevice(this.game) && !isFullscreenActive()) {
         toggleFullscreen(this);
       }
@@ -168,9 +168,9 @@ export class TitleScene extends Phaser.Scene {
       });
     };
 
-    // Clique direto no PLAY ou em qualquer parte da tela
-    playZone.on('pointerdown', triggerStart);
-    this.input.on('pointerdown', triggerStart);
+    // Toque liberado (pointerup) no PLAY ou na tela para autorização segura de tela cheia
+    playZone.on('pointerup', triggerStart);
+    this.input.on('pointerup', triggerStart);
 
     // Teclas ESPAÇO e ENTER (ou qualquer tecla do teclado)
     if (this.input.keyboard) {

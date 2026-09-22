@@ -318,9 +318,21 @@ export class Player extends Entity {
     let targetY = this.y;
 
     const isMouse = this.controller.wasMouseShoot && screenPos !== null;
-    const wasVirtualShoot = this.controller.virtualShootTarget !== null;
+    const isVirtualAimed = this.controller.isVirtualShootAimed;
+    this.controller.isVirtualShootAimed = false;
 
-    if (this.controller.virtualShootTarget) {
+    if (isVirtualAimed) {
+      const angle = this.controller.virtualAimAngleRad;
+      const shootDist = 300;
+      targetX = this.x + Math.cos(angle) * shootDist;
+      targetY = this.y + Math.sin(angle) * shootDist;
+
+      if (Math.cos(angle) < -0.1) {
+        this.facing = 'e';
+      } else if (Math.cos(angle) > 0.1) {
+        this.facing = 'd';
+      }
+    } else if (this.controller.virtualShootTarget) {
       targetX = this.controller.virtualShootTarget.x;
       targetY = this.controller.virtualShootTarget.y;
       this.controller.virtualShootTarget = null;
@@ -342,7 +354,7 @@ export class Player extends Entity {
         this.facing = 'd';
       }
     } else {
-      // Disparo via teclado (F ou J): considera movimento atual se houver
+      // Disparo via teclado (F ou J) ou toque rápido mobile sem arrastar
       const moveInput = this.controller.getMovementVector();
       if (moveInput.x !== 0 || moveInput.y !== 0) {
         targetX = this.x + moveInput.x * 180;
@@ -352,7 +364,7 @@ export class Player extends Entity {
 
     this.setFlipX(false);
 
-    const isAimingUp = (isMouse || wasVirtualShoot) && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
+    const isAimingUp = (isMouse || isVirtualAimed) && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {

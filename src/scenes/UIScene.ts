@@ -39,6 +39,9 @@ export class UIScene extends Phaser.Scene {
     const initialTotal = dungeonScene?.waveManager?.totalWaves || 4;
     const initialRemaining = dungeonScene?.waveManager?.remainingEnemies || 5;
 
+    const width = this.scale.width;
+    const height = this.scale.height;
+
     this.waveText = this.add.text(14, 25, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
       fontFamily: 'monospace',
       fontSize: '8px',
@@ -48,11 +51,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 3. HUD Superior Direito: Contador de Flechas (Quiver)
-    const arrowIcon = this.add.image(CONSTANTS.GAME_WIDTH - 142, 14, 'arrow_sprite');
+    const arrowIcon = this.add.image(width - 142, 14, 'arrow_sprite');
     arrowIcon.setScale(0.75);
     arrowIcon.setRotation(-Math.PI / 4);
 
-    this.arrowText = this.add.text(CONSTANTS.GAME_WIDTH - 132, 9, `${GameState.arrows}`, {
+    this.arrowText = this.add.text(width - 132, 9, `${GameState.arrows}`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#38bdf8',
@@ -61,11 +64,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 4. HUD Superior Direito: Contador de Ouro
-    const coinIcon = this.add.sprite(CONSTANTS.GAME_WIDTH - 85, 14, 'moeda_0');
+    const coinIcon = this.add.sprite(width - 85, 14, 'moeda_0');
     coinIcon.setScale(0.55);
     coinIcon.play('anim_moeda');
 
-    this.goldText = this.add.text(CONSTANTS.GAME_WIDTH - 72, 9, `${GameState.runGold} G`, {
+    this.goldText = this.add.text(width - 72, 9, `${GameState.runGold} G`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#fbbf24',
@@ -75,7 +78,7 @@ export class UIScene extends Phaser.Scene {
 
     // 5. Indicador P2P no topo central da tela
     if (NetworkManager.isConnected()) {
-      this.p2pBadgeText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
+      this.p2pBadgeText = this.add.text(width / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
         fontFamily: 'monospace',
         fontSize: '8px',
         color: '#22c55e',
@@ -99,8 +102,8 @@ export class UIScene extends Phaser.Scene {
       this.time.delayedCall(200, linkController);
     } else {
       this.add.text(
-        CONSTANTS.GAME_WIDTH / 2,
-        CONSTANTS.GAME_HEIGHT - 8,
+        width / 2,
+        height - 8,
         '[WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta',
         {
           fontFamily: 'monospace',
@@ -113,10 +116,10 @@ export class UIScene extends Phaser.Scene {
     }
 
     // 7. Barra Central: Ícones de Relíquias Ativas
-    this.relicIconsContainer = this.add.container(CONSTANTS.GAME_WIDTH / 2, CONSTANTS.GAME_HEIGHT - 22);
+    this.relicIconsContainer = this.add.container(width / 2, height - 22);
 
     // 8. Banner de Notificação
-    this.notificationText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 60, '', {
+    this.notificationText = this.add.text(width / 2, 60, '', {
       fontFamily: 'monospace',
       fontSize: '11px',
       color: '#ef4444',

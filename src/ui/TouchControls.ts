@@ -123,22 +123,24 @@ export function toggleFullscreen(scene: Phaser.Scene) {
       exitFs.call(doc).catch(() => {});
     }
   } else {
-    const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
-    if (reqFs) {
-      reqFs.call(docEl, { navigationUI: 'hide' }).catch(() => {
-        try {
-          scene.scale.startFullscreen();
-        } catch (e) {}
-      });
-    } else if (isIOSSafari() && !isStandalone()) {
-      showSafariFullscreenPrompt(scene);
-    } else {
-      try {
-        scene.scale.startFullscreen();
-      } catch (e) {}
+    // 1. Aciona tela cheia nativa pelo Phaser ScaleManager (gerencia o canvas e resize automaticamente)
+    try {
+      if (scene.scale.fullscreen && scene.scale.fullscreen.available) {
+        scene.scale.startFullscreen({ navigationUI: 'hide' });
+      }
+    } catch (e) {}
+
+    // 2. Se o documento ainda não estiver em fullscreen, aciona via documentElement
+    if (!isFullscreenActive()) {
+      const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+      if (reqFs) {
+        reqFs.call(docEl, { navigationUI: 'hide' }).catch(() => {});
+      } else if (isIOSSafari() && !isStandalone()) {
+        showSafariFullscreenPrompt(scene);
+      }
     }
 
-    // Travar orientação em paisagem (landscape) para celulares
+    // 3. Travar orientação em paisagem (landscape) para celulares
     try {
       const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
       if (orientation && orientation.lock) {
@@ -218,6 +220,10 @@ export class TouchControls {
   }
 
   private createVirtualJoystick() {
+    const width = this.scene.scale.width;
+    const height = this.scene.scale.height;
+    this.joyCenterY = height - 54;
+
     // 1. Base do Joystick (Círculo externo com cruz direcional sutil)
     this.joyBase = this.scene.add.graphics();
     this.drawJoyBase(false);
@@ -229,10 +235,10 @@ export class TouchControls {
     this.container.add([this.joyBase, this.joyKnob]);
 
     // 3. Zona interativa ampla no canto inferior esquerdo para captura flexível do toque
-    const zoneW = CONSTANTS.GAME_WIDTH * 0.42;
-    const zoneH = CONSTANTS.GAME_HEIGHT * 0.58;
+    const zoneW = width * 0.42;
+    const zoneH = height * 0.58;
     const zoneX = zoneW / 2;
-    const zoneY = CONSTANTS.GAME_HEIGHT - zoneH / 2;
+    const zoneY = height - zoneH / 2;
 
     const hitZone = this.scene.add.zone(zoneX, zoneY, zoneW, zoneH);
     hitZone.setOrigin(0.5);
@@ -329,11 +335,13 @@ export class TouchControls {
 
   private createActionButtons() {
     const isHub = this.options.isHub;
+    const width = this.scene.scale.width;
+    const height = this.scene.scale.height;
 
     // 1. Botão de Espada / Ataque Melee (Botão Principal no canto inferior direito)
     this.attackBtn = this.createButton({
-      x: CONSTANTS.GAME_WIDTH - 44,
-      y: CONSTANTS.GAME_HEIGHT - 44,
+      x: width - 44,
+      y: height - 44,
       radius: 23,
       bgColor: 0xef4444,
       borderColor: 0xf87171,
@@ -348,8 +356,8 @@ export class TouchControls {
 
     // 2. Botão de Esquiva / Dash (Ágil ao lado da espada)
     this.dashBtn = this.createButton({
-      x: CONSTANTS.GAME_WIDTH - 96,
-      y: CONSTANTS.GAME_HEIGHT - 34,
+      x: width - 96,
+      y: height - 34,
       radius: 17,
       bgColor: 0x3b82f6,
       borderColor: 0x60a5fa,
@@ -364,8 +372,8 @@ export class TouchControls {
 
     // 3. Botão de Interação [E] (Abrir baús, loja, portal)
     this.interactBtn = this.createButton({
-      x: isHub ? CONSTANTS.GAME_WIDTH - 44 : CONSTANTS.GAME_WIDTH - 142,
-      y: isHub ? CONSTANTS.GAME_HEIGHT - 100 : CONSTANTS.GAME_HEIGHT - 40,
+      x: isHub ? width - 44 : width - 142,
+      y: isHub ? height - 100 : height - 40,
       radius: isHub ? 21 : 16,
       bgColor: 0xf59e0b,
       borderColor: 0xfbbf24,
@@ -382,15 +390,15 @@ export class TouchControls {
     if (!isHub) {
       // 4. Botão de Mira e Disparo de Flechas (Segure para Mirar, Arraste 360°, Solte para Disparar)
       this.shootBtn = this.createAimShootButton({
-        x: CONSTANTS.GAME_WIDTH - 44,
-        y: CONSTANTS.GAME_HEIGHT - 98,
+        x: width - 44,
+        y: height - 98,
         radius: 20
       });
 
       // 5. Botão de Defesa com Escudo (Pressionar e segurar)
       this.shieldBtn = this.createButton({
-        x: CONSTANTS.GAME_WIDTH - 96,
-        y: CONSTANTS.GAME_HEIGHT - 82,
+        x: width - 96,
+        y: height - 82,
         radius: 17,
         bgColor: 0x8b5cf6,
         borderColor: 0xa78bfa,
@@ -604,21 +612,12 @@ export class TouchControls {
             const dist = Math.hypot(dx, dy);
 
             if (dist > 8) {
-              // Disparo direcionado com precisão 360°
-              const player = (this.scene as any).player;
-              const pX = player?.x ?? (CONSTANTS.GAME_WIDTH / 2);
-              const pY = player?.y ?? (CONSTANTS.GAME_HEIGHT / 2);
-              const shootDist = 280;
-              const angle = this.controller.virtualAimAngleRad;
-
-              this.controller.virtualShootTarget = {
-                x: pX + Math.cos(angle) * shootDist,
-                y: pY + Math.sin(angle) * shootDist
-              };
+              // Disparo direcionado com precisão 360° baseado no ângulo que o jogador mirou
+              this.controller.isVirtualShootAimed = true;
               this.controller.virtualShootTriggered = true;
             } else {
-              // Toque rápido: dispara imediatamente para a frente
-              this.controller.virtualShootTarget = null;
+              // Toque rápido: dispara imediatamente para a direção que Roberto estiver olhando
+              this.controller.isVirtualShootAimed = false;
               this.controller.virtualShootTriggered = true;
             }
           }
@@ -705,7 +704,8 @@ export class TouchControls {
 
   private createFullscreenButton() {
     // Botão de tela cheia elegante no topo direito com status visual ativo
-    this.fullscreenBtn = this.scene.add.container(CONSTANTS.GAME_WIDTH - 22, 16);
+    const width = this.scene.scale.width;
+    this.fullscreenBtn = this.scene.add.container(width - 22, 16);
 
     const bg = this.scene.add.graphics();
     const updateVisual = (isFs: boolean) => {
@@ -732,7 +732,7 @@ export class TouchControls {
     this.fullscreenBtn.setSize(28, 22);
     this.fullscreenBtn.setInteractive({ useHandCursor: true });
 
-    this.fullscreenBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    this.fullscreenBtn.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       (pointer as any).isVirtualControl = true;
       toggleFullscreen(this.scene);
     });

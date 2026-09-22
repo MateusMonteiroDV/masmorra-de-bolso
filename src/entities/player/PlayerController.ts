@@ -33,6 +33,7 @@ export class PlayerController {
   // Sistema de Mira e Disparo Segurado no Mobile (Hold & Aim)
   public isVirtualAiming: boolean = false;
   public virtualAimAngleRad: number = 0;
+  public isVirtualShootAimed: boolean = false;
   public virtualShootTarget: { x: number; y: number } | null = null;
 
   private capturedKeys: Set<string> = new Set();
