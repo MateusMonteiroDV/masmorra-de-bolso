@@ -32,6 +32,9 @@ export class DungeonScene extends Phaser.Scene {
   private isTransitioningToGameOver: boolean = false;
   private gameOverTimer?: Phaser.Time.TimerEvent;
   private networkUnsubs: Array<() => void> = [];
+  private revivePrompt?: Phaser.GameObjects.Text;
+
+  private static readonly REVIVE_RANGE = 58;
 
   constructor() {
     super({ key: 'DungeonScene' });
@@ -117,7 +120,7 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     // 10. Ouvinte de Morte do Roberto com Suporte Cooperativo (Espectador)
-    EventBus.once(CONSTANTS.EVENTS.PLAYER_DIED, () => {
+    EventBus.on(CONSTANTS.EVENTS.PLAYER_DIED, () => {
       this.handlePlayerDeathCoop();
     });
 
@@ -301,6 +304,13 @@ export class DungeonScene extends Phaser.Scene {
             this.triggerGameOverLocally();
           }
         }
+      } else if (action.type === 'player_revive') {
+        const targetPeerId = action.payload?.targetPeerId;
+        if (targetPeerId === NetworkManager.selfId) {
+          this.reviveLocalPlayer();
+        } else if (typeof targetPeerId === 'string') {
+          this.remotePlayers.get(targetPeerId)?.markRevived();
+        }
       } else if (action.type === 'scene_sync') {
         if (action.payload?.scene === 'GameOverScene') {
           // Jogador vivo NUNCA é puxado para GameOverScene por terceiros
@@ -333,6 +343,10 @@ export class DungeonScene extends Phaser.Scene {
         if (chest && chest.active) chest.destroy();
       });
       this.chests = [];
+      if (this.revivePrompt) {
+        this.revivePrompt.destroy();
+        this.revivePrompt = undefined;
+      }
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
       EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);
@@ -347,6 +361,86 @@ export class DungeonScene extends Phaser.Scene {
     const remote = new RemotePlayer(this, this.player.x + 25, this.player.y, peerId);
     this.remotePlayers.set(peerId, remote);
     return remote;
+  }
+
+  private getNearbyFallenAlly(): RemotePlayer | undefined {
+    let closest: RemotePlayer | undefined;
+    let closestDistance = DungeonScene.REVIVE_RANGE;
+
+    this.remotePlayers.forEach(remote => {
+      if (!remote.active || !remote.isDead() || remote.currentScene && remote.currentScene !== 'DungeonScene') return;
+
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, remote.x, remote.y);
+      if (distance <= closestDistance) {
+        closest = remote;
+        closestDistance = distance;
+      }
+    });
+
+    return closest;
+  }
+
+  private updateRevivePrompt(target?: RemotePlayer) {
+    if (!target) {
+      this.revivePrompt?.setVisible(false);
+      return;
+    }
+
+    if (!this.revivePrompt) {
+      this.revivePrompt = this.add.text(0, 0, '[E] REVIVER ALIADO', {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#4ade80',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI + 10);
+    }
+
+    this.revivePrompt.setPosition(target.x, target.y - 47).setVisible(true);
+  }
+
+  private reviveRemotePlayer(target: RemotePlayer) {
+    if (!target.isDead()) return;
+
+    target.markRevived();
+    NetworkManager.sendAction({
+      type: 'player_revive',
+      payload: { targetPeerId: target.peerId }
+    });
+
+    const feedback = this.add.text(target.x, target.y - 25, 'ALIADO REVIVIDO!', {
+      fontFamily: 'monospace',
+      fontSize: '9px',
+      color: '#4ade80',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI + 10);
+
+    this.tweens.add({
+      targets: feedback,
+      y: feedback.y - 18,
+      alpha: 0,
+      duration: 900,
+      onComplete: () => feedback.destroy()
+    });
+  }
+
+  private reviveLocalPlayer() {
+    if (!this.player.reviveAtHalfHealth()) return;
+
+    this.isSpectating = false;
+    this.isTransitioningToGameOver = false;
+    this.safeStopFollow();
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    if (uiScene && this.scene.isActive('UIScene')) {
+      uiScene.cleanupSpectatorMode();
+    }
+
+    NetworkManager.sendState(this.player.getNetworkState('DungeonScene'));
   }
 
   private createWorldBoundaries(w: number, h: number) {
@@ -446,13 +540,22 @@ export class DungeonScene extends Phaser.Scene {
       });
     }
 
-    // 6. Interação com Baús
+    // 6. Interação: reviver aliados tem prioridade sobre abrir baús
     if (!this.player.health.isDead() && !this.isTransitioningToGameOver) {
-      this.chests.forEach(chest => {
-        if (chest && chest.active && chest.checkPlayerNear(this.player) && this.player.controller.isInteractPressed()) {
-          chest.open();
-        }
-      });
+      const fallenAlly = this.getNearbyFallenAlly();
+      this.updateRevivePrompt(fallenAlly);
+      const interacted = this.player.controller.isInteractPressed();
+
+      if (interacted && fallenAlly) {
+        this.reviveRemotePlayer(fallenAlly);
+      } else if (interacted) {
+        const nearbyChest = this.chests.find(
+          chest => chest && chest.active && chest.checkPlayerNear(this.player)
+        );
+        nearbyChest?.open();
+      }
+    } else {
+      this.updateRevivePrompt();
     }
 
     // 7. Trajetória tática de mira da flecha no mobile e retículo tático no mouse

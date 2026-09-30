@@ -270,7 +270,7 @@ export class UIScene extends Phaser.Scene {
     const banner = this.add.text(
       CONSTANTS.GAME_WIDTH / 2,
       36,
-      'VOCÊ CAIU! OBSERVANDO SEU ALIADO...',
+      'VOCÊ CAIU! AGUARDE UM ALIADO REVIVER VOCÊ...',
       {
         fontFamily: 'monospace',
         fontSize: '8.5px',

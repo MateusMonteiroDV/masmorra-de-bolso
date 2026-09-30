@@ -87,6 +87,21 @@ export class HealthComponent {
     this.currentHp = Math.min(this.maxHp, this.currentHp + amount);
   }
 
+  public revive(amount: number, invulnerabilityDuration: number = 1200): boolean {
+    if (this.currentHp > 0) return false;
+
+    this.currentHp = Phaser.Math.Clamp(Math.ceil(amount), 1, this.maxHp);
+    this.isInvulnerable = false;
+    this.invulnerableTimer = 0;
+    this.owner.setAlpha(1);
+
+    if (invulnerabilityDuration > 0) {
+      this.setInvulnerable(invulnerabilityDuration);
+    }
+
+    return true;
+  }
+
   public update(delta: number) {
     if (this.isInvulnerable) {
       this.invulnerableTimer -= delta;

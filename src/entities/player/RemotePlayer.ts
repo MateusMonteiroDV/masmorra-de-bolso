@@ -44,6 +44,16 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     this.renderHpBar();
   }
 
+  public markRevived(): void {
+    this._isDead = false;
+    this.currentHp = Math.max(1, Math.ceil(this.maxHp / 2));
+    this.stop();
+    this.setAlpha(1);
+    this.setFlipX(false);
+    this.setTexture(this.facing === 'd' ? 'roberto_d_00' : 'roberto_e_00');
+    this.renderHpBar();
+  }
+
   constructor(scene: Phaser.Scene, x: number, y: number, peerId: string) {
     super(scene, x, y, 'roberto_d_00');
 
@@ -100,6 +110,9 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
       if (isDungeon) {
         if (state.currentHp <= 0) {
           this._isDead = true;
+        } else if (this._isDead) {
+          // Um estado positivo após a morte confirma um reviver pela rede.
+          this._isDead = false;
         }
         if (this.isDead()) {
           this.currentHp = 0;

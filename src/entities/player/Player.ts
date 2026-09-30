@@ -113,6 +113,27 @@ export class Player extends Entity {
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_DIED);
   }
 
+  public reviveAtHalfHealth(): boolean {
+    const revived = this.health.revive(this.health.maxHp / 2);
+    if (!revived) return false;
+
+    this.stop();
+    this.setVelocity(0, 0);
+    this.setAlpha(1);
+    this.setFlipX(false);
+    this.isAttackingAnim = false;
+    this.isShootingAnim = false;
+    this.isDefending = false;
+    this.actionLockTimer = 0;
+    this.setTexture(this.facing === 'd' ? 'roberto_d_00' : 'roberto_e_00');
+
+    if (this.indicatorArrow) this.indicatorArrow.setVisible(true);
+    if (this.indicatorText) this.indicatorText.setVisible(true);
+
+    this.syncHealthUI();
+    return true;
+  }
+
   public override update(time: number, delta: number) {
     if (this.health.isDead()) {
       if (this.indicatorArrow) this.indicatorArrow.setVisible(false);
@@ -138,13 +159,16 @@ export class Player extends Entity {
       this.bowCooldownTimer -= delta;
     }
 
-    // Trava temporária durante golpe ou disparo
+    // Golpes e disparos preservam a animação, mas não bloqueiam a movimentação.
     if (this.actionLockTimer > 0) {
       this.actionLockTimer -= delta;
       if (this.actionLockTimer <= 0) {
         this.isAttackingAnim = false;
         this.isShootingAnim = false;
       }
+
+      const moveInput = this.controller.getMovementVector();
+      this.movement.moveInDirection(moveInput.x, moveInput.y);
       return;
     }
 
@@ -313,7 +337,6 @@ export class Player extends Entity {
     this.isShootingAnim = true;
     this.actionLockTimer = 200; // 200ms de animação de disparo
     this.bowCooldownTimer = CONSTANTS.PLAYER.BOW_COOLDOWN;
-    this.setVelocity(0, 0);
 
     const pointer = this.scene.input.activePointer;
     const isVirtualAimed = this.controller.isVirtualShootAimed;
@@ -397,7 +420,6 @@ export class Player extends Entity {
   private meleeAttack(enemyGroup: Phaser.GameObjects.Group) {
     this.isAttackingAnim = true;
     this.actionLockTimer = 250;
-    this.setVelocity(0, 0);
     this.setFlipX(false);
 
     // O golpe com espada segue a direção que o Roberto está olhando ou se movendo (não fica preso à direita pelo mouse!)

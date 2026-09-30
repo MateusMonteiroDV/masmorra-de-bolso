@@ -24,6 +24,7 @@ export interface PlayerNetworkAction {
     | 'chest_open'
     | 'dungeon_victory'
     | 'player_death'
+    | 'player_revive'
     | 'all_players_dead'
     | 'lobby_ready_toggle'
     | 'lobby_start_countdown'
