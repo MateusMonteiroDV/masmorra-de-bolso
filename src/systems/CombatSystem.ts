@@ -159,6 +159,9 @@ export class CombatSystem {
     // 5. Coleta de Drops (Moedas e Flechas)
     this.scene.physics.add.overlap(player, dropGroup, (pObj, dropObj) => {
       const drop = dropObj as any;
+      if (typeof drop.canCollect === 'function' && !drop.canCollect()) {
+        return;
+      }
       if (typeof drop.collect === 'function') {
         drop.collect();
       }

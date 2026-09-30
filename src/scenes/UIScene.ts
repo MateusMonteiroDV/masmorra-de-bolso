@@ -65,7 +65,7 @@ export class UIScene extends Phaser.Scene {
 
     // 4. HUD Superior Direito: Contador de Ouro
     const coinIcon = this.add.sprite(width - 92, 16, 'moeda_0');
-    coinIcon.setScale(0.55);
+    coinIcon.setScale(0.8);
     coinIcon.play('anim_moeda');
 
     this.goldText = this.add.text(width - 78, 11, `${GameState.runGold} G`, {
@@ -190,7 +190,17 @@ export class UIScene extends Phaser.Scene {
     });
 
     EventBus.on(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, (gold: number) => {
-      this.goldText.setText(`${gold} G`);
+      if (this.goldText && this.goldText.active) {
+        this.goldText.setText(`${gold} G`);
+        this.tweens.add({
+          targets: this.goldText,
+          scaleX: 1.25,
+          scaleY: 1.25,
+          duration: 90,
+          yoyo: true,
+          ease: 'Quad.easeInOut'
+        });
+      }
     });
 
     EventBus.on(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, (count: number) => {

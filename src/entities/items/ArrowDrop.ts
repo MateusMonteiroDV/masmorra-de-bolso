@@ -7,6 +7,7 @@ import { AudioService } from '../../systems/AudioService';
 export class ArrowDrop extends Phaser.Physics.Arcade.Sprite {
   private magnetRadius: number = 48;
   private magnetSpeed: number = 170;
+  private isReadyToCollect: boolean = false;
   private isCollected: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -24,21 +25,35 @@ export class ArrowDrop extends Phaser.Physics.Arcade.Sprite {
       body.setSize(16, 16);
       body.setOffset(4, 4);
       body.setAllowGravity(false);
+      body.setDrag(200, 200);
+
+      // Pequena dispersão física ao dropar
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 30;
+      this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     }
 
     // Leve flutuação visual
     scene.tweens.add({
       targets: this,
-      y: y - 4,
+      y: y - 5,
       duration: 550,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+
+    scene.time.delayedCall(250, () => {
+      this.isReadyToCollect = true;
+    });
+  }
+
+  public canCollect(): boolean {
+    return this.isReadyToCollect && !this.isCollected && this.active;
   }
 
   public updateMagnet(player: Player) {
-    if (this.isCollected || !this.active || !player.active || player.health.isDead()) return;
+    if (!this.canCollect() || !player.active || player.health.isDead()) return;
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     if (dist <= this.magnetRadius) {
@@ -55,6 +70,12 @@ export class ArrowDrop extends Phaser.Physics.Arcade.Sprite {
   public collect() {
     if (this.isCollected || !this.active) return;
     this.isCollected = true;
+
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.enable = false;
+      this.setVelocity(0, 0);
+    }
 
     GameState.addArrows(1);
     AudioService.playCoin();

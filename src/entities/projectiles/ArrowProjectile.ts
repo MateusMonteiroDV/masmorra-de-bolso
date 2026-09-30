@@ -65,7 +65,7 @@ export class ArrowProjectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     // 4. Efeito visual de nuvem de impacto (nuvem-monstro)
-    const cloud = this.scene.add.sprite(this.x, this.y, 'nuvem_impacto');
+    const cloud = this.scene.add.sprite(this.x, this.y, 'nuvem_0');
     cloud.setDepth(CONSTANTS.DEPTH.EFFECTS);
     cloud.setScale(0.8);
     cloud.play('anim_nuvem');
