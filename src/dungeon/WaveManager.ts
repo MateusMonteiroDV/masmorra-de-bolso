@@ -309,7 +309,8 @@ export class WaveManager {
 
         const bat = new BatEnemy(this.scene, pos.x, pos.y, this.dropGroup);
         bat.setData('networkId', id);
-        bat.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
+        // O morcego continua sendo derrotado em um golpe mesmo nas ondas avançadas.
+        bat.applyDifficultyScale(1, speedMult, damageMult, goldMult);
         this.enemyGroup.add(bat);
         this.enemyMap.set(id, bat);
         spawnedCount++;

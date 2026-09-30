@@ -50,7 +50,7 @@ export const CONSTANTS = {
       XP_OR_GOLD: 1            // Chance de drop de 1 moeda
     },
     BAT: {
-      HP: 6,                   // Médio ágil (3 tiros de flecha)
+      HP: 1,                   // Morre com um único golpe
       SPEED: 80,
       DAMAGE: 2,
       XP_OR_GOLD: 1            // 1 moeda
