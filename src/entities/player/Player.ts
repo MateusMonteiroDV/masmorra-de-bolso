@@ -185,6 +185,11 @@ export class Player extends Entity {
       this.facing = 'd';
     }
 
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setOffset(this.facing === 'd' ? 22 : 16, 28);
+    }
+
     this.setFlipX(false);
 
     // 3. Atualizar Animação de Caminhada / Espera
@@ -311,15 +316,11 @@ export class Player extends Entity {
     this.setVelocity(0, 0);
 
     const pointer = this.scene.input.activePointer;
-    const screenPos = this.controller.lastMouseShootScreenPos || (pointer ? { x: pointer.x, y: pointer.y } : null);
-    this.controller.lastMouseShootScreenPos = null;
+    const isVirtualAimed = this.controller.isVirtualShootAimed;
+    this.controller.isVirtualShootAimed = false;
 
     let targetX = this.facing === 'd' ? this.x + 180 : this.x - 180;
     let targetY = this.y;
-
-    const isMouse = this.controller.wasMouseShoot && screenPos !== null;
-    const isVirtualAimed = this.controller.isVirtualShootAimed;
-    this.controller.isVirtualShootAimed = false;
 
     if (isVirtualAimed) {
       const angle = this.controller.virtualAimAngleRad;
@@ -332,19 +333,24 @@ export class Player extends Entity {
       } else if (Math.cos(angle) > 0.1) {
         this.facing = 'd';
       }
-    } else if (isMouse && screenPos) {
-      const worldPoint = this.scene.cameras.main.getWorldPoint(screenPos.x, screenPos.y);
+    } else if (pointer && this.scene.cameras?.main) {
+      // Disparo via mouse ou teclas F/J: a mira segue rigorosamente a posição do cursor do mouse no mundo
+      const screenX = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.x : pointer.x;
+      const screenY = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.y : pointer.y;
+      this.controller.lastMouseShootScreenPos = null;
+
+      const worldPoint = this.scene.cameras.main.getWorldPoint(screenX, screenY);
       targetX = worldPoint.x;
       targetY = worldPoint.y;
 
-      // Ajusta a direção da mira se foi disparado pelo clique do mouse
-      if (targetX < this.x - 5) {
+      // Roberto vira para o lado da mira do disparo
+      if (targetX < this.x - 4) {
         this.facing = 'e';
-      } else if (targetX > this.x + 5) {
+      } else if (targetX > this.x + 4) {
         this.facing = 'd';
       }
     } else {
-      // Disparo via teclado (F ou J) ou toque rápido mobile sem arrastar
+      // Fallback para movimentação sem ponteiro ativo
       const moveInput = this.controller.getMovementVector();
       if (moveInput.x !== 0 || moveInput.y !== 0) {
         targetX = this.x + moveInput.x * 180;
@@ -352,9 +358,13 @@ export class Player extends Entity {
       }
     }
 
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setOffset(this.facing === 'd' ? 22 : 16, 28);
+    }
     this.setFlipX(false);
 
-    const isAimingUp = (isMouse || isVirtualAimed) && targetY < this.y - 35 && Math.abs(targetX - this.x) < 40;
+    const isAimingUp = targetY < this.y - 30 && Math.abs(targetX - this.x) < 45;
 
     let shootAnim = this.facing === 'd' ? 'roberto_shoot_d' : 'roberto_shoot_e';
     if (isAimingUp) {
@@ -390,33 +400,30 @@ export class Player extends Entity {
     this.setVelocity(0, 0);
     this.setFlipX(false);
 
-    // Determina a direção do golpe (suporta Mouse, Movimento WASD e Direção Atual)
-    let attackAngle = this.facing === 'd' ? 0 : 180;
-
-    const pointer = this.scene.input.activePointer;
+    // O golpe com espada segue a direção que o Roberto está olhando ou se movendo (não fica preso à direita pelo mouse!)
     const moveInput = this.controller.getMovementVector();
+    if (moveInput.x < 0) {
+      this.facing = 'e';
+    } else if (moveInput.x > 0) {
+      this.facing = 'd';
+    }
 
-    if (pointer && this.scene.cameras?.main) {
-      const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-      const distToPointer = Phaser.Math.Distance.Between(this.x, this.y, worldPoint.x, worldPoint.y);
-      if (distToPointer > 14) {
-        const rad = Phaser.Math.Angle.Between(this.x, this.y, worldPoint.x, worldPoint.y);
-        attackAngle = Phaser.Math.RadToDeg(rad);
-
-        if (worldPoint.x < this.x - 4) {
-          this.facing = 'e';
-        } else if (worldPoint.x > this.x + 4) {
-          this.facing = 'd';
-        }
-      } else if (moveInput.x !== 0 || moveInput.y !== 0) {
-        attackAngle = Phaser.Math.RadToDeg(Math.atan2(moveInput.y, moveInput.x));
-        if (moveInput.x < 0) this.facing = 'e';
-        else if (moveInput.x > 0) this.facing = 'd';
+    let attackAngle = this.facing === 'd' ? 0 : 180;
+    if (moveInput.x === 0) {
+      if (moveInput.y < 0) {
+        attackAngle = -90; // Golpe para cima
+      } else if (moveInput.y > 0) {
+        attackAngle = 90;  // Golpe para baixo
       }
-    } else if (moveInput.x !== 0 || moveInput.y !== 0) {
-      attackAngle = Phaser.Math.RadToDeg(Math.atan2(moveInput.y, moveInput.x));
-      if (moveInput.x < 0) this.facing = 'e';
-      else if (moveInput.x > 0) this.facing = 'd';
+    } else if (moveInput.y < 0) {
+      attackAngle = this.facing === 'd' ? -40 : -140;
+    } else if (moveInput.y > 0) {
+      attackAngle = this.facing === 'd' ? 40 : 140;
+    }
+
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setOffset(this.facing === 'd' ? 22 : 16, 28);
     }
 
     const attackAnim = this.facing === 'd' ? 'roberto_attack_d' : 'roberto_attack_e';

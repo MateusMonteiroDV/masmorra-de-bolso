@@ -4,6 +4,7 @@ import { EventBus } from '../core/EventBus';
 import { Enemy } from '../entities/enemies/Enemy';
 import { SlimeEnemy } from '../entities/enemies/SlimeEnemy';
 import { SkeletonMage } from '../entities/enemies/SkeletonMage';
+import { BatEnemy } from '../entities/enemies/BatEnemy';
 import { KingSlimeBoss } from '../entities/enemies/KingSlimeBoss';
 import { NetworkManager } from '../network/NetworkManager';
 
@@ -11,9 +12,14 @@ export interface WaveConfig {
   waveNumber: number;
   title: string;
   slimes: { x: number; y: number }[];
+  bats?: { x: number; y: number }[];
   mages: { x: number; y: number }[];
   hasBoss?: boolean;
   bossPos?: { x: number; y: number };
+  hpMult?: number;
+  speedMult?: number;
+  damageMult?: number;
+  goldMult?: number;
 }
 
 export class WaveManager {
@@ -24,14 +30,14 @@ export class WaveManager {
   private enemyMap: Map<string, Enemy>;
 
   public currentWave: number = 0;
-  public totalWaves: number = 4;
+  public totalWaves: number = 8;
   public remainingEnemies: number = 0;
   private isTransitioning: boolean = false;
 
   private waveConfigs: WaveConfig[] = [
     {
       waveNumber: 1,
-      title: 'ONDA 1/4: OS PRIMEIROS HABITANTES',
+      title: 'ONDA 1/8: O DESPERTAR DOS SLIMES',
       slimes: [
         { x: 570, y: 320 },
         { x: 440, y: 488 },
@@ -39,11 +45,36 @@ export class WaveManager {
         { x: 570, y: 680 },
         { x: 380, y: 380 }
       ],
-      mages: []
+      mages: [],
+      hpMult: 1.0,
+      speedMult: 1.0,
+      damageMult: 1.0,
+      goldMult: 1.0
     },
     {
       waveNumber: 2,
-      title: 'ONDA 2/4: A CONJURAÇÃO DAS RUÍNAS',
+      title: 'ONDA 2/8: A REVOADA DAS SOMBRAS',
+      slimes: [
+        { x: 400, y: 340 },
+        { x: 740, y: 340 },
+        { x: 400, y: 640 },
+        { x: 740, y: 640 },
+        { x: 570, y: 720 }
+      ],
+      bats: [
+        { x: 320, y: 260 },
+        { x: 820, y: 260 },
+        { x: 570, y: 250 }
+      ],
+      mages: [],
+      hpMult: 1.15,
+      speedMult: 1.1,
+      damageMult: 1.2,
+      goldMult: 1.2
+    },
+    {
+      waveNumber: 3,
+      title: 'ONDA 3/8: A CONJURAÇÃO DAS RUÍNAS',
       slimes: [
         { x: 320, y: 300 },
         { x: 820, y: 300 },
@@ -52,43 +83,179 @@ export class WaveManager {
         { x: 570, y: 300 },
         { x: 570, y: 700 }
       ],
+      bats: [
+        { x: 260, y: 488 },
+        { x: 880, y: 488 },
+        { x: 570, y: 220 }
+      ],
       mages: [
         { x: 760, y: 240 },
         { x: 380, y: 740 }
-      ]
+      ],
+      hpMult: 1.3,
+      speedMult: 1.18,
+      damageMult: 1.35,
+      goldMult: 1.3
     },
     {
-      waveNumber: 3,
-      title: 'ONDA 3/4: FRENESI DOS MONSTROS',
+      waveNumber: 4,
+      title: 'ONDA 4/8: O CERCO DAS CATACUMBAS',
+      slimes: [
+        { x: 280, y: 320 },
+        { x: 860, y: 320 },
+        { x: 280, y: 680 },
+        { x: 860, y: 680 },
+        { x: 440, y: 400 },
+        { x: 700, y: 400 },
+        { x: 570, y: 760 }
+      ],
+      bats: [
+        { x: 350, y: 250 },
+        { x: 790, y: 250 },
+        { x: 350, y: 750 },
+        { x: 790, y: 750 }
+      ],
+      mages: [
+        { x: 840, y: 230 },
+        { x: 300, y: 750 },
+        { x: 570, y: 220 }
+      ],
+      hpMult: 1.5,
+      speedMult: 1.25,
+      damageMult: 1.5,
+      goldMult: 1.5
+    },
+    {
+      waveNumber: 5,
+      title: 'ONDA 5/8: FRENESI DOS MONSTROS',
       slimes: [
         { x: 260, y: 280 },
         { x: 880, y: 280 },
         { x: 260, y: 800 },
         { x: 880, y: 800 },
-        { x: 570, y: 240 },
-        { x: 570, y: 750 },
-        { x: 400, y: 488 }
+        { x: 400, y: 488 },
+        { x: 740, y: 488 },
+        { x: 570, y: 280 },
+        { x: 570, y: 720 }
+      ],
+      bats: [
+        { x: 300, y: 350 },
+        { x: 840, y: 350 },
+        { x: 300, y: 650 },
+        { x: 840, y: 650 },
+        { x: 570, y: 190 }
       ],
       mages: [
         { x: 820, y: 220 },
         { x: 280, y: 760 },
-        { x: 860, y: 700 }
-      ]
+        { x: 860, y: 700 },
+        { x: 570, y: 810 }
+      ],
+      hpMult: 1.7,
+      speedMult: 1.35,
+      damageMult: 1.7,
+      goldMult: 1.7
     },
     {
-      waveNumber: 4,
-      title: 'ONDA 4/4 (CHEFE): O DESPERTAR DO REI SLIME',
+      waveNumber: 6,
+      title: 'ONDA 6/8: TEMPESTADE DE FOGO E GARRAS',
       slimes: [
-        { x: 480, y: 420 },
-        { x: 660, y: 420 },
-        { x: 480, y: 560 },
-        { x: 660, y: 560 }
+        { x: 240, y: 260 },
+        { x: 900, y: 260 },
+        { x: 240, y: 820 },
+        { x: 900, y: 820 },
+        { x: 360, y: 420 },
+        { x: 780, y: 420 },
+        { x: 360, y: 580 },
+        { x: 780, y: 580 },
+        { x: 570, y: 320 }
+      ],
+      bats: [
+        { x: 250, y: 380 },
+        { x: 890, y: 380 },
+        { x: 250, y: 620 },
+        { x: 890, y: 620 },
+        { x: 570, y: 230 },
+        { x: 570, y: 770 }
       ],
       mages: [
-        { x: 780, y: 240 }
+        { x: 840, y: 200 },
+        { x: 300, y: 800 },
+        { x: 880, y: 740 },
+        { x: 260, y: 220 },
+        { x: 570, y: 180 }
+      ],
+      hpMult: 1.9,
+      speedMult: 1.45,
+      damageMult: 1.9,
+      goldMult: 2.0
+    },
+    {
+      waveNumber: 7,
+      title: 'ONDA 7/8: A GUARDA DE ELITE DO REI',
+      slimes: [
+        { x: 220, y: 240 },
+        { x: 920, y: 240 },
+        { x: 220, y: 840 },
+        { x: 920, y: 840 },
+        { x: 340, y: 360 },
+        { x: 800, y: 360 },
+        { x: 340, y: 640 },
+        { x: 800, y: 640 },
+        { x: 480, y: 488 },
+        { x: 660, y: 488 },
+        { x: 570, y: 260 }
+      ],
+      bats: [
+        { x: 200, y: 488 },
+        { x: 940, y: 488 },
+        { x: 380, y: 200 },
+        { x: 760, y: 200 },
+        { x: 380, y: 800 },
+        { x: 760, y: 800 },
+        { x: 570, y: 200 }
+      ],
+      mages: [
+        { x: 880, y: 220 },
+        { x: 260, y: 780 },
+        { x: 880, y: 780 },
+        { x: 260, y: 220 },
+        { x: 570, y: 160 },
+        { x: 570, y: 840 }
+      ],
+      hpMult: 2.1,
+      speedMult: 1.55,
+      damageMult: 2.2,
+      goldMult: 2.2
+    },
+    {
+      waveNumber: 8,
+      title: 'ONDA 8/8 (CHEFE FINAL): O DESPERTAR DO REI SLIME',
+      slimes: [
+        { x: 420, y: 380 },
+        { x: 720, y: 380 },
+        { x: 420, y: 620 },
+        { x: 720, y: 620 },
+        { x: 340, y: 488 },
+        { x: 800, y: 488 }
+      ],
+      bats: [
+        { x: 360, y: 260 },
+        { x: 780, y: 260 },
+        { x: 360, y: 740 },
+        { x: 780, y: 740 }
+      ],
+      mages: [
+        { x: 860, y: 220 },
+        { x: 280, y: 780 },
+        { x: 570, y: 180 }
       ],
       hasBoss: true,
-      bossPos: { x: 570, y: 280 }
+      bossPos: { x: 570, y: 280 },
+      hpMult: 2.5,
+      speedMult: 1.45,
+      damageMult: 2.5,
+      goldMult: 3.0
     }
   ];
 
@@ -125,38 +292,60 @@ export class WaveManager {
     this.showWaveBanner(config.title);
 
     let spawnedCount = 0;
+    const hpMult = config.hpMult ?? 1;
+    const speedMult = config.speedMult ?? 1;
+    const damageMult = config.damageMult ?? 1;
+    const goldMult = config.goldMult ?? 1;
 
-    // 1. Spawna Slimes da Onda
+    // 1. Spawna Slimes da Onda com escala de dificuldade
     config.slimes.forEach((pos, idx) => {
       const id = `w${this.currentWave}_slime_${idx}`;
       this.spawnSpawnCloud(pos.x, pos.y);
 
       const slime = new SlimeEnemy(this.scene, pos.x, pos.y, this.dropGroup);
       slime.setData('networkId', id);
+      slime.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
       this.enemyGroup.add(slime);
       this.enemyMap.set(id, slime);
       spawnedCount++;
     });
 
-    // 2. Spawna Magos da Onda
+    // 2. Spawna Morcegos da Onda com escala de dificuldade
+    if (config.bats) {
+      config.bats.forEach((pos, idx) => {
+        const id = `w${this.currentWave}_bat_${idx}`;
+        this.spawnSpawnCloud(pos.x, pos.y);
+
+        const bat = new BatEnemy(this.scene, pos.x, pos.y, this.dropGroup);
+        bat.setData('networkId', id);
+        bat.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
+        this.enemyGroup.add(bat);
+        this.enemyMap.set(id, bat);
+        spawnedCount++;
+      });
+    }
+
+    // 3. Spawna Magos da Onda com escala de dificuldade
     config.mages.forEach((pos, idx) => {
       const id = `w${this.currentWave}_mage_${idx}`;
       this.spawnSpawnCloud(pos.x, pos.y);
 
       const mage = new SkeletonMage(this.scene, pos.x, pos.y, this.dropGroup, this.projectileGroup);
       mage.setData('networkId', id);
+      mage.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
       this.enemyGroup.add(mage);
       this.enemyMap.set(id, mage);
       spawnedCount++;
     });
 
-    // 3. Spawna Chefe na Onda Final
+    // 4. Spawna Chefe na Onda Final
     if (config.hasBoss && config.bossPos) {
       const bossId = 'boss_king_slime';
       this.spawnSpawnCloud(config.bossPos.x, config.bossPos.y);
 
       const boss = new KingSlimeBoss(this.scene, config.bossPos.x, config.bossPos.y, this.dropGroup, this.enemyGroup);
       boss.setData('networkId', bossId);
+      boss.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
       this.enemyGroup.add(boss);
       this.enemyMap.set(bossId, boss);
       spawnedCount++;
@@ -189,7 +378,7 @@ export class WaveManager {
 
       if (this.currentWave >= this.totalWaves) {
         // Vitória completa da Masmorra
-        this.showWaveBanner('👑 TODAS AS 4 ONDAS VENCIDAS! O REI SLIME CAIU!', true);
+        this.showWaveBanner('👑 TODAS AS 8 ONDAS VENCIDAS! O REI SLIME FOI DERROTADO!', true);
         EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);
 
         if (NetworkManager.isConnected()) {
@@ -205,8 +394,8 @@ export class WaveManager {
         // Próxima Onda com contagem regressiva e aviso claro do chefe
         const nextWave = this.currentWave + 1;
         const bannerText = nextWave === this.totalWaves
-          ? `✨ ONDA ${this.currentWave}/4 CONCLUÍDA! PREPARE-SE PARA A ONDA 4 (CHEFE)!`
-          : `✨ ONDA ${this.currentWave}/4 CONCLUÍDA!`;
+          ? `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA! PREPARE-SE PARA O CHEFE FINAL (REI SLIME)!`
+          : `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA!`;
 
         this.showWaveBanner(bannerText, false);
         EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);

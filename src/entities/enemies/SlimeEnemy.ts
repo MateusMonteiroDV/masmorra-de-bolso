@@ -26,8 +26,8 @@ export class SlimeEnemy extends Enemy {
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
-      body.setSize(28, 20);
-      body.setOffset(18, 30);
+      body.setSize(30, 20);
+      body.setOffset(10, 43);
     }
 
     this.facing = 'd';
@@ -44,8 +44,12 @@ export class SlimeEnemy extends Enemy {
     // Se estiver no meio do ataque, mantém a investida
     if (this.isAttacking) return;
 
-    // Atualiza direção
+    // Atualiza direção e ajusta offset do corpo
     this.facing = player.x < this.x ? 'e' : 'd';
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setOffset(this.facing === 'd' ? 10 : 20, 43);
+    }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
 

@@ -183,6 +183,7 @@ export class TouchControls {
     };
 
     this.onPointerUpJoy = (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = false;
       if (this.joyPointerId === pointer.id) {
         this.joyPointerId = null;
         this.drawJoyKnob(this.joyCenterX, this.joyCenterY, false);
@@ -500,6 +501,7 @@ export class TouchControls {
 
     // Soltar o dedo
     this.onPointerUpAim = (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = false;
       if (this.shootPointerId === pointer.id) {
         const wasAiming = this.isAimingShoot;
         const wasCancel = this.isAimInCancel;
@@ -592,7 +594,7 @@ export class TouchControls {
     });
 
     const releaseButton = (pointer: Phaser.Input.Pointer) => {
-      (pointer as any).isVirtualControl = true;
+      (pointer as any).isVirtualControl = false;
       btnContainer.setScale(1);
       bg.clear();
       bg.fillStyle(config.bgColor, 0.4);
@@ -644,7 +646,7 @@ export class TouchControls {
 
     // pointerup garante que navegadores aceitem o gesto de tela cheia
     this.fullscreenBtn.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      (pointer as any).isVirtualControl = true;
+      (pointer as any).isVirtualControl = false;
       toggleFullscreen(this.scene);
     });
 

@@ -3,11 +3,20 @@ import { CONSTANTS } from '../../core/Constants';
 import { ASSET_KEYS } from '../../assets/AssetManifest';
 
 export class MagicProjectile extends Phaser.Physics.Arcade.Sprite {
-  public damage: number = 1;
+  public damage: number = CONSTANTS.ENEMIES.MAGE.DAMAGE;
   private lifeTime: number = 3000;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, targetX: number, targetY: number, speed: number = 75) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    targetX: number,
+    targetY: number,
+    speed: number = 75,
+    damage: number = CONSTANTS.ENEMIES.MAGE.DAMAGE
+  ) {
     super(scene, x, y, 'fireball_0');
+    this.damage = damage;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

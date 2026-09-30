@@ -10,6 +10,7 @@ export class SkeletonMage extends Enemy {
   private projectileGroup?: Phaser.GameObjects.Group;
   private isCasting: boolean = false;
   private facing: 'd' | 'e' = 'e';
+  public projectileDamage: number = CONSTANTS.ENEMIES.MAGE.DAMAGE;
 
   constructor(
     scene: Phaser.Scene,
@@ -29,16 +30,22 @@ export class SkeletonMage extends Enemy {
       dropGroup
     );
 
+    this.contactDamage = CONSTANTS.ENEMIES.MAGE.DAMAGE;
     this.projectileGroup = projectileGroup;
 
     // Corpo físico 64x64 ajustado à silhueta do esqueleto
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
-      body.setSize(18, 30);
-      body.setOffset(18, 32);
+      body.setSize(20, 30);
+      body.setOffset(16, 31);
     }
 
     this.play('mago_walk_e');
+  }
+
+  public override applyDifficultyScale(hpMult: number, speedMult: number, damageMult: number, goldMult: number = 1) {
+    super.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
+    this.projectileDamage = Math.max(1, Math.round(CONSTANTS.ENEMIES.MAGE.DAMAGE * damageMult));
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
@@ -53,6 +60,11 @@ export class SkeletonMage extends Enemy {
       this.facing = 'e';
     } else {
       this.facing = 'd';
+    }
+
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setOffset(this.facing === 'd' ? 26 : 16, 31);
     }
 
     // Kiting: Mantém distância tática do herói
@@ -113,7 +125,8 @@ export class SkeletonMage extends Enemy {
         this.y + staffOffsetY,
         targetX,
         targetY,
-        CONSTANTS.ENEMIES.MAGE.PROJECTILE_SPEED
+        CONSTANTS.ENEMIES.MAGE.PROJECTILE_SPEED,
+        this.projectileDamage
       );
 
       if (this.projectileGroup) {

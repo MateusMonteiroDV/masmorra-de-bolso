@@ -35,6 +35,15 @@ export abstract class Enemy extends Entity {
     this.health.setCallbacks(() => this.die());
   }
 
+  public applyDifficultyScale(hpMult: number, speedMult: number, damageMult: number, goldMult: number = 1) {
+    const scaledHp = Math.max(1, Math.round(this.health.maxHp * hpMult));
+    this.health.maxHp = scaledHp;
+    this.health.currentHp = scaledHp;
+    this.movement.baseSpeed = Math.round(this.movement.baseSpeed * speedMult);
+    this.contactDamage = Math.max(1, Math.round(this.contactDamage * damageMult));
+    this.goldReward = Math.max(1, Math.round(this.goldReward * goldMult));
+  }
+
   public die() {
     if (!this.active) return;
 

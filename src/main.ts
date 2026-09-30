@@ -13,12 +13,10 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   scale: {
-    mode: Phaser.Scale.EXPAND,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: CONSTANTS.GAME_WIDTH,
-    height: CONSTANTS.GAME_HEIGHT,
-    parent: 'game-container',
-    expandParent: true
+    height: CONSTANTS.GAME_HEIGHT
   },
   pixelArt: true,
   roundPixels: true,

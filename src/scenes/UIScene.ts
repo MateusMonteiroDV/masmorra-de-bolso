@@ -36,7 +36,7 @@ export class UIScene extends Phaser.Scene {
     // 2. Indicador de Onda Atual
     const dungeonScene = this.scene.get('DungeonScene') as any;
     const initialWave = dungeonScene?.waveManager?.currentWave || 1;
-    const initialTotal = dungeonScene?.waveManager?.totalWaves || 4;
+    const initialTotal = dungeonScene?.waveManager?.totalWaves || 8;
     const initialRemaining = dungeonScene?.waveManager?.remainingEnemies || 5;
 
     const width = this.scale.width;

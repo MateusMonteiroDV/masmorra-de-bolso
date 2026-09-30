@@ -51,7 +51,7 @@ export class DungeonScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBackgroundColor('#090a0f');
-    this.cameras.main.setZoom(0.85); // Zoom equilibrado para visão tática ampla sem aspecto claustrofóbico no mobile
+    this.cameras.main.setZoom(1); // Zoom 1:1 nativo perfeito para nitidez máxima dos pixels
 
     // 2. Imagem de Fundo do Mapa (1140x977)
     const mapBg = this.add.image(mapW / 2, mapH / 2, 'mapa_dungeon');
@@ -455,15 +455,46 @@ export class DungeonScene extends Phaser.Scene {
       });
     }
 
-    // 7. Trajetória tática de mira da flecha no mobile
-    if (this.player && this.player.active && !this.player.health.isDead() && this.player.controller?.isVirtualAiming) {
-      this.drawAimGuide(this.player.x, this.player.y, this.player.controller.virtualAimAngleRad);
+    // 7. Trajetória tática de mira da flecha no mobile e retículo tático no mouse
+    if (this.player && this.player.active && !this.player.health.isDead()) {
+      if (this.player.controller?.isVirtualAiming) {
+        this.drawAimGuide(this.player.x, this.player.y, this.player.controller.virtualAimAngleRad);
+      } else {
+        const pointer = this.input.activePointer;
+        if (pointer && (pointer.x !== 0 || pointer.y !== 0)) {
+          const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+          this.drawMouseReticle(worldPoint.x, worldPoint.y);
+        } else if (this.aimGuideGraphics) {
+          this.aimGuideGraphics.clear();
+        }
+      }
     } else if (this.aimGuideGraphics) {
       this.aimGuideGraphics.clear();
     }
   }
 
   private aimGuideGraphics?: Phaser.GameObjects.Graphics;
+
+  private drawMouseReticle(targetX: number, targetY: number) {
+    if (!this.aimGuideGraphics) {
+      this.aimGuideGraphics = this.add.graphics();
+      this.aimGuideGraphics.setDepth(CONSTANTS.DEPTH.PROJECTILES + 5);
+    }
+    this.aimGuideGraphics.clear();
+
+    // Retículo sutil e estilizado de mira no cursor do mouse
+    this.aimGuideGraphics.lineStyle(1.5, 0x38bdf8, 0.85);
+    this.aimGuideGraphics.strokeCircle(targetX, targetY, 6);
+    this.aimGuideGraphics.fillStyle(0x38bdf8, 0.9);
+    this.aimGuideGraphics.fillCircle(targetX, targetY, 1.5);
+
+    // Pequenas miras direcionais em cruz
+    this.aimGuideGraphics.lineStyle(1, 0x38bdf8, 0.7);
+    this.aimGuideGraphics.lineBetween(targetX - 9, targetY, targetX - 4, targetY);
+    this.aimGuideGraphics.lineBetween(targetX + 4, targetY, targetX + 9, targetY);
+    this.aimGuideGraphics.lineBetween(targetX, targetY - 9, targetX, targetY - 4);
+    this.aimGuideGraphics.lineBetween(targetX, targetY + 4, targetX, targetY + 9);
+  }
 
   private drawAimGuide(fromX: number, fromY: number, angleRad: number) {
     if (!this.aimGuideGraphics) {

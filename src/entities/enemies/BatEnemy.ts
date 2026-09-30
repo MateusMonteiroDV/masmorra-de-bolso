@@ -23,6 +23,8 @@ export class BatEnemy extends Enemy {
       body.setSize(10, 8);
       body.setOffset(3, 4);
     }
+
+    this.contactDamage = CONSTANTS.ENEMIES.BAT.DAMAGE;
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {

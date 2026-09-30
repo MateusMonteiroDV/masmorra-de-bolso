@@ -219,7 +219,7 @@ export class PlayerController {
     }
 
     if (fDown || jDown || keyTriggered) {
-      this.wasMouseShoot = false;
+      this.wasMouseShoot = true;
       return true;
     }
 

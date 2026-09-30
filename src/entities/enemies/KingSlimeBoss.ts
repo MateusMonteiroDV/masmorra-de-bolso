@@ -11,6 +11,7 @@ export class KingSlimeBoss extends Enemy {
   private isSlamming: boolean = false;
   private isClawing: boolean = false;
   private enemyGroup?: Phaser.GameObjects.Group;
+  public slamDamage: number = CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE;
 
   constructor(
     scene: Phaser.Scene,
@@ -30,6 +31,7 @@ export class KingSlimeBoss extends Enemy {
       dropGroup
     );
 
+    this.contactDamage = CONSTANTS.ENEMIES.BOSS.DAMAGE;
     this.enemyGroup = enemyGroup;
 
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -39,6 +41,11 @@ export class KingSlimeBoss extends Enemy {
     }
 
     this.play('king_slime_walk');
+  }
+
+  public override applyDifficultyScale(hpMult: number, speedMult: number, damageMult: number, goldMult: number = 1) {
+    super.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
+    this.slamDamage = Math.max(1, Math.round(CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE * damageMult));
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
@@ -180,7 +187,7 @@ export class KingSlimeBoss extends Enemy {
               const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
               if (dist < 34) {
                 const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
-                playerEntity.health?.takeDamage(CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE);
+                playerEntity.health?.takeDamage(this.slamDamage);
               }
             }
 
