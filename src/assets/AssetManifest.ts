@@ -4,6 +4,7 @@ export const ASSET_KEYS = {
     SLIME: 'char_slime',
     BAT: 'char_bat',
     MAGE: 'char_mage',
+    MINOTAUR: 'char_minotaur',
     BOSS: 'char_boss',
     NPC_SHOP: 'char_npc_shop'
   },

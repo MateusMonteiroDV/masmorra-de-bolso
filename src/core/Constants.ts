@@ -64,6 +64,16 @@ export const CONSTANTS = {
       PROJECTILE_SPEED: 80,
       XP_OR_GOLD: 2            // 2 moedas
     },
+    MINOTAUR: {
+      HP: 16,                  // Elite brutal (8 tiros de flecha ou golpes de espada)
+      SPEED: 52,
+      DAMAGE: 4,               // Dano do golpe pesado de machado
+      CHARGE_SPEED: 110,       // Velocidade na investida furiosa
+      CHARGE_COOLDOWN: 4500,   // Cooldown entre investidas
+      ATTACK_RANGE: 44,        // Alcance de corte do machado
+      ATTACK_COOLDOWN: 1400,   // Cooldown do machado
+      XP_OR_GOLD: 4            // 4 moedas de recompensa
+    },
     BOSS: {
       HP: 24,                  // Chefe / Monstro forte (12 tiros de flecha)
       SPEED: 32,

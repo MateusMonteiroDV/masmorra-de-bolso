@@ -6,6 +6,7 @@ import { SlimeEnemy } from '../entities/enemies/SlimeEnemy';
 import { SkeletonMage } from '../entities/enemies/SkeletonMage';
 import { BatEnemy } from '../entities/enemies/BatEnemy';
 import { KingSlimeBoss } from '../entities/enemies/KingSlimeBoss';
+import { MinotaurEnemy } from '../entities/enemies/MinotaurEnemy';
 import { NetworkManager } from '../network/NetworkManager';
 
 export interface WaveConfig {
@@ -14,6 +15,7 @@ export interface WaveConfig {
   slimes: { x: number; y: number }[];
   bats?: { x: number; y: number }[];
   mages: { x: number; y: number }[];
+  minotaurs?: { x: number; y: number }[];
   hasBoss?: boolean;
   bossPos?: { x: number; y: number };
   hpMult?: number;
@@ -158,32 +160,27 @@ export class WaveManager {
     },
     {
       waveNumber: 6,
-      title: 'ONDA 6/8: TEMPESTADE DE FOGO E GARRAS',
+      title: 'ONDA 6/8: A INVESTIDA DO MINOTAURO',
+      minotaurs: [
+        { x: 570, y: 320 }
+      ],
       slimes: [
         { x: 240, y: 260 },
         { x: 900, y: 260 },
         { x: 240, y: 820 },
         { x: 900, y: 820 },
-        { x: 360, y: 420 },
-        { x: 780, y: 420 },
-        { x: 360, y: 580 },
-        { x: 780, y: 580 },
-        { x: 570, y: 320 }
+        { x: 360, y: 500 },
+        { x: 780, y: 500 }
       ],
       bats: [
         { x: 250, y: 380 },
         { x: 890, y: 380 },
-        { x: 250, y: 620 },
-        { x: 890, y: 620 },
-        { x: 570, y: 230 },
         { x: 570, y: 770 }
       ],
       mages: [
         { x: 840, y: 200 },
         { x: 300, y: 800 },
-        { x: 880, y: 740 },
-        { x: 260, y: 220 },
-        { x: 570, y: 180 }
+        { x: 880, y: 740 }
       ],
       hpMult: 1.9,
       speedMult: 1.45,
@@ -192,34 +189,28 @@ export class WaveManager {
     },
     {
       waveNumber: 7,
-      title: 'ONDA 7/8: A GUARDA DE ELITE DO REI',
+      title: 'ONDA 7/8: A FÚRIA DOS MINOTAUROS',
+      minotaurs: [
+        { x: 360, y: 400 },
+        { x: 780, y: 400 }
+      ],
       slimes: [
         { x: 220, y: 240 },
         { x: 920, y: 240 },
         { x: 220, y: 840 },
         { x: 920, y: 840 },
-        { x: 340, y: 360 },
-        { x: 800, y: 360 },
-        { x: 340, y: 640 },
-        { x: 800, y: 640 },
-        { x: 480, y: 488 },
-        { x: 660, y: 488 },
-        { x: 570, y: 260 }
+        { x: 570, y: 260 },
+        { x: 570, y: 720 }
       ],
       bats: [
         { x: 200, y: 488 },
         { x: 940, y: 488 },
         { x: 380, y: 200 },
-        { x: 760, y: 200 },
-        { x: 380, y: 800 },
-        { x: 760, y: 800 },
-        { x: 570, y: 200 }
+        { x: 760, y: 200 }
       ],
       mages: [
         { x: 880, y: 220 },
         { x: 260, y: 780 },
-        { x: 880, y: 780 },
-        { x: 260, y: 220 },
         { x: 570, y: 160 },
         { x: 570, y: 840 }
       ],
@@ -231,13 +222,16 @@ export class WaveManager {
     {
       waveNumber: 8,
       title: 'ONDA 8/8 (CHEFE FINAL): O DESPERTAR DO REI SLIME',
+      hasBoss: true,
+      bossPos: { x: 570, y: 280 },
+      minotaurs: [
+        { x: 570, y: 720 }
+      ],
       slimes: [
         { x: 420, y: 380 },
         { x: 720, y: 380 },
         { x: 420, y: 620 },
-        { x: 720, y: 620 },
-        { x: 340, y: 488 },
-        { x: 800, y: 488 }
+        { x: 720, y: 620 }
       ],
       bats: [
         { x: 360, y: 260 },
@@ -247,11 +241,8 @@ export class WaveManager {
       ],
       mages: [
         { x: 860, y: 220 },
-        { x: 280, y: 780 },
-        { x: 570, y: 180 }
+        { x: 280, y: 780 }
       ],
-      hasBoss: true,
-      bossPos: { x: 570, y: 280 },
       hpMult: 2.5,
       speedMult: 1.45,
       damageMult: 2.5,
@@ -338,7 +329,22 @@ export class WaveManager {
       spawnedCount++;
     });
 
-    // 4. Spawna Chefe na Onda Final
+    // 4. Spawna Minotauros da Onda com escala de dificuldade
+    if (config.minotaurs) {
+      config.minotaurs.forEach((pos, idx) => {
+        const id = `w${this.currentWave}_minotaur_${idx}`;
+        this.spawnSpawnCloud(pos.x, pos.y);
+
+        const minotaur = new MinotaurEnemy(this.scene, pos.x, pos.y, this.dropGroup);
+        minotaur.setData('networkId', id);
+        minotaur.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
+        this.enemyGroup.add(minotaur);
+        this.enemyMap.set(id, minotaur);
+        spawnedCount++;
+      });
+    }
+
+    // 5. Spawna Chefe na Onda Final
     if (config.hasBoss && config.bossPos) {
       const bossId = 'boss_king_slime';
       this.spawnSpawnCloud(config.bossPos.x, config.bossPos.y);

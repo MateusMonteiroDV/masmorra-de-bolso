@@ -70,6 +70,13 @@ export class PreloadScene extends Phaser.Scene {
     for (let i = 0; i <= 4; i++) {
       this.load.image(`vendedor_${i}`, `/assets/vendedor/sprite_${i}.png`);
     }
+
+    // 12. Minotauro com Machado (Elite) (20 frames em cada direção: 00 a 19)
+    for (let i = 0; i <= 19; i++) {
+      const idx = i.toString().padStart(2, '0');
+      this.load.image(`minotaur_d_${idx}`, `/assets/minotauro/minotaur_d_${idx}.png`);
+      this.load.image(`minotaur_e_${idx}`, `/assets/minotauro/minotaur_e_${idx}.png`);
+    }
   }
 
   public create() {
@@ -394,6 +401,93 @@ export class PreloadScene extends Phaser.Scene {
         { key: 'vendedor_3' }
       ],
       frameRate: 4,
+      repeat: 0
+    });
+
+    // 17. Minotauro com Machado - Caminhada e Perseguição (Frames 00 a 04)
+    anims.create({
+      key: 'minotaur_walk_d',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_d_${i.toString().padStart(2, '0')}` })),
+      frameRate: 6,
+      repeat: -1
+    });
+
+    anims.create({
+      key: 'minotaur_walk_e',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_e_${i.toString().padStart(2, '0')}` })),
+      frameRate: 6,
+      repeat: -1
+    });
+
+    // Minotauro - Ataque Pesado com Machado (Frames 05 a 09)
+    anims.create({
+      key: 'minotaur_attack_d',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_d_${(i + 5).toString().padStart(2, '0')}` })),
+      frameRate: 7,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'minotaur_attack_e',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_e_${(i + 5).toString().padStart(2, '0')}` })),
+      frameRate: 7,
+      repeat: 0
+    });
+
+    // Minotauro - Rugido / Telégrafo de Fúria (Frames 10 a 12)
+    anims.create({
+      key: 'minotaur_roar_d',
+      frames: [
+        { key: 'minotaur_d_10' },
+        { key: 'minotaur_d_11' },
+        { key: 'minotaur_d_12' },
+        { key: 'minotaur_d_11' },
+        { key: 'minotaur_d_10' }
+      ],
+      frameRate: 6,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'minotaur_roar_e',
+      frames: [
+        { key: 'minotaur_e_10' },
+        { key: 'minotaur_e_11' },
+        { key: 'minotaur_e_12' },
+        { key: 'minotaur_e_11' },
+        { key: 'minotaur_e_10' }
+      ],
+      frameRate: 6,
+      repeat: 0
+    });
+
+    // Minotauro - Investida Furiosa / Charge (Frames 13 e 14)
+    anims.create({
+      key: 'minotaur_charge_d',
+      frames: [{ key: 'minotaur_d_13' }, { key: 'minotaur_d_14' }],
+      frameRate: 8,
+      repeat: -1
+    });
+
+    anims.create({
+      key: 'minotaur_charge_e',
+      frames: [{ key: 'minotaur_e_13' }, { key: 'minotaur_e_14' }],
+      frameRate: 8,
+      repeat: -1
+    });
+
+    // Minotauro - Morte (Frames 15 a 19)
+    anims.create({
+      key: 'minotaur_death_d',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_d_${(i + 15).toString().padStart(2, '0')}` })),
+      frameRate: 6,
+      repeat: 0
+    });
+
+    anims.create({
+      key: 'minotaur_death_e',
+      frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_e_${(i + 15).toString().padStart(2, '0')}` })),
+      frameRate: 6,
       repeat: 0
     });
   }
