@@ -1,5 +1,6 @@
 import { joinRoom, selfId } from 'trystero/nostr';
 import { PlayerNetworkState, PlayerNetworkAction, RoomInfo } from './NetworkTypes';
+import { getTurnServers } from './TurnConfig';
 
 type StateListener = (state: PlayerNetworkState, peerId: string) => void;
 type ActionListener = (action: PlayerNetworkAction, peerId: string) => void;
@@ -84,7 +85,9 @@ class NetworkManagerClass {
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' }
           ]
-        }
+        },
+        // Fallback via relay TURN (Cloudflare) para redes onde a conexão direta falha (4G/CGNAT)
+        turnConfig: getTurnServers()
       };
 
       this.room = joinRoom(config, cleanRoomId);

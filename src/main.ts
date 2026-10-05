@@ -8,6 +8,9 @@ import { LobbyScene } from './scenes/LobbyScene';
 import { DungeonScene } from './scenes/DungeonScene';
 import { UIScene } from './scenes/UIScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { preloadTurnServers } from './network/TurnConfig';
+
+void preloadTurnServers();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
