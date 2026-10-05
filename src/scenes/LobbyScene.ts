@@ -299,11 +299,12 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     const unsubJoin = NetworkManager.onPeerJoin((peerId: string) => {
-      // Envia nossa presença para o novo peer conectado
+      // Envia nossa presença e coordenadas imediatamente para o novo peer conectado
       NetworkManager.sendAction({
         type: 'lobby_presence',
         payload: { inLobby: true, ready: this.isSelfReady }
       });
+      NetworkManager.sendState(this.player.getNetworkState('LobbyScene'));
       this.refreshLobbyStateUI();
     });
     this.networkUnsubs.push(unsubJoin);
@@ -389,6 +390,7 @@ export class LobbyScene extends Phaser.Scene {
               type: 'lobby_presence',
               payload: { inLobby: true, ready: this.isSelfReady }
             });
+            NetworkManager.sendState(this.player.getNetworkState('LobbyScene'));
           }
           this.refreshLobbyStateUI();
         }

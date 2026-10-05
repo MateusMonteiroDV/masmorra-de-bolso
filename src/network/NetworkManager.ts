@@ -1,6 +1,6 @@
 import { joinRoom, selfId } from 'trystero/nostr';
 import { PlayerNetworkState, PlayerNetworkAction, RoomInfo } from './NetworkTypes';
-import { getTurnServers } from './TurnConfig';
+import { ensureTurnServers } from './TurnConfig';
 import { RemoteLogger } from '../systems/RemoteLogger';
 
 type StateListener = (state: PlayerNetworkState, peerId: string) => void;
@@ -11,11 +11,13 @@ type RoomChangeListener = (roomId: string | null) => void;
 // Relays Nostr públicos, rápidos e verificados sem exigência de autenticação (AUTH)
 const VERIFIED_NOSTR_RELAYS = [
   'wss://nos.lol',
-  'wss://purplerelay.com',
+  'wss://relay.damus.io',
   'wss://relay.primal.net',
+  'wss://nostr.mom',
+  'wss://purplerelay.com',
   'wss://nostr.sathoarder.com',
-  'wss://yabu.me/v2',
-  'wss://nostr.data.haus'
+  'wss://nostr.data.haus',
+  'wss://yabu.me/v2'
 ];
 
 class NetworkManagerClass {
@@ -61,7 +63,7 @@ class NetworkManagerClass {
     };
   }
 
-  public join(roomId: string, asHost: boolean = false): void {
+  public async join(roomId: string, asHost: boolean = false): Promise<void> {
     if (this.room || this.localChannel) {
       this.leave();
     }
@@ -70,27 +72,28 @@ class NetworkManagerClass {
     this.currentRoomId = cleanRoomId;
     this.isHost = asHost;
     RemoteLogger.setRoomId(cleanRoomId);
-    RemoteLogger.info(`Entrou na sala ${cleanRoomId}`, { isHost: asHost, selfId: this.selfId });
     this.roomChangeListeners.forEach(listener => listener(cleanRoomId));
 
     // 1. Conexão WebRTC P2P Global via Trystero Nostr com relays verificados
     try {
+      // Garante que o TURN esteja carregado antes de instanciar a sala WebRTC
+      const turnServers = await ensureTurnServers();
+      RemoteLogger.info(`Iniciando sala WebRTC ${cleanRoomId}`, {
+        isHost: asHost,
+        turnConfigured: turnServers.length > 0,
+        turnCount: turnServers.length
+      });
+
       const config = {
         appId: 'masmorra-de-bolso-p2p',
         relayConfig: {
           urls: VERIFIED_NOSTR_RELAYS,
-          redundancy: 4,
+          redundancy: 5,
           warnOnRelayFailure: false
         },
-        rtcConfig: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-          ]
-        },
-        // Fallback via relay TURN (Cloudflare) para redes onde a conexão direta falha (4G/CGNAT)
-        turnConfig: getTurnServers()
+        // ATENÇÃO: NÃO definir rtcConfig.iceServers aqui, pois o Trystero sobrescreve
+        // o defaultIceServers.concat(turnConfig) caso rtcConfig.iceServers seja passado!
+        turnConfig: turnServers
       };
 
       this.room = joinRoom(config, cleanRoomId);

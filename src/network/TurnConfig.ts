@@ -44,6 +44,18 @@ export function preloadTurnServers(): Promise<void> {
   return inFlight;
 }
 
+export async function ensureTurnServers(): Promise<RTCIceServer[]> {
+  if (turnServers.length > 0 && Date.now() - fetchedAt < REFRESH_AFTER_MS) {
+    return turnServers;
+  }
+  if (inFlight) {
+    await inFlight;
+    return turnServers;
+  }
+  await preloadTurnServers();
+  return turnServers;
+}
+
 export function getTurnServers(): RTCIceServer[] {
   if (TURN_ENDPOINT && Date.now() - fetchedAt > REFRESH_AFTER_MS) {
     // Renova em segundo plano para a próxima sala; usa o que já temos agora
