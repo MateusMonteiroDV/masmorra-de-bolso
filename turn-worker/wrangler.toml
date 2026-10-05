@@ -7,6 +7,9 @@ compatibility_date = "2025-01-01"
 # Adicione aqui o domínio onde o jogo for publicado.
 ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,https://masmorra-de-bolso.pages.dev,https://mateusmonteirodv.github.io"
 
+[observability]
+enabled = true
+
 # Secrets (NÃO coloque aqui, use `npx wrangler secret put <NOME>`):
 #   TURN_KEY_ID
 #   TURN_KEY_API_TOKEN

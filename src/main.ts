@@ -9,7 +9,9 @@ import { DungeonScene } from './scenes/DungeonScene';
 import { UIScene } from './scenes/UIScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { preloadTurnServers } from './network/TurnConfig';
+import { RemoteLogger } from './systems/RemoteLogger';
 
+RemoteLogger.init();
 void preloadTurnServers();
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -49,3 +51,12 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 export const game = new Phaser.Game(config);
+
+game.events.on(Phaser.Core.Events.READY, () => {
+  game.scene.scenes.forEach(scene => {
+    scene.events.on(Phaser.Scenes.Events.CREATE, () => {
+      RemoteLogger.setScene(scene.scene.key);
+      RemoteLogger.info(`Cena iniciada: ${scene.scene.key}`);
+    });
+  });
+});

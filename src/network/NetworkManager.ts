@@ -1,6 +1,7 @@
 import { joinRoom, selfId } from 'trystero/nostr';
 import { PlayerNetworkState, PlayerNetworkAction, RoomInfo } from './NetworkTypes';
 import { getTurnServers } from './TurnConfig';
+import { RemoteLogger } from '../systems/RemoteLogger';
 
 type StateListener = (state: PlayerNetworkState, peerId: string) => void;
 type ActionListener = (action: PlayerNetworkAction, peerId: string) => void;
@@ -68,6 +69,8 @@ class NetworkManagerClass {
     const cleanRoomId = roomId.trim().toUpperCase();
     this.currentRoomId = cleanRoomId;
     this.isHost = asHost;
+    RemoteLogger.setRoomId(cleanRoomId);
+    RemoteLogger.info(`Entrou na sala ${cleanRoomId}`, { isHost: asHost, selfId: this.selfId });
     this.roomChangeListeners.forEach(listener => listener(cleanRoomId));
 
     // 1. Conexão WebRTC P2P Global via Trystero Nostr com relays verificados
@@ -191,6 +194,7 @@ class NetworkManagerClass {
           const last = this.peerLastSeen.get(peerId);
           if (!last || now - last > 8000) {
             console.log(`[P2P] Peer ${peerId} timeout (sem resposta há >8s)`);
+            RemoteLogger.warn(`Peer timeout (>8s sem resposta)`, { peerId, roomId: this.currentRoomId });
             timedOutPeers.push(peerId);
           }
         }
@@ -204,6 +208,7 @@ class NetworkManagerClass {
     if (!this.connectedPeers.has(peerId)) {
       this.connectedPeers.add(peerId);
       console.log(`[P2P] Jogador conectado à sala: ${peerId}`);
+      RemoteLogger.info(`Jogador conectado`, { peerId, totalPeers: this.connectedPeers.size });
       this.peerJoinListeners.forEach(listener => listener(peerId));
     }
   }
@@ -213,6 +218,7 @@ class NetworkManagerClass {
     if (this.connectedPeers.has(peerId)) {
       this.connectedPeers.delete(peerId);
       console.log(`[P2P] Jogador desconectado da sala: ${peerId}`);
+      RemoteLogger.info(`Jogador desconectado`, { peerId, totalPeers: this.connectedPeers.size });
       this.peerLeaveListeners.forEach(listener => listener(peerId));
     }
   }
@@ -267,6 +273,8 @@ class NetworkManagerClass {
     this.isHost = false;
     this.connectedPeers.clear();
     this.peerLastSeen.clear();
+    RemoteLogger.setRoomId(null);
+    RemoteLogger.info('Saiu da sala multiplayer');
     this.roomChangeListeners.forEach(listener => listener(null));
   }
 
