@@ -331,6 +331,48 @@ class NetworkManagerClass {
     this.peerLeaveListeners.add(listener);
     return () => this.peerLeaveListeners.delete(listener);
   }
+
+  public async getPeerConnectionTypes(): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    if (!this.room || typeof this.room.getPeers !== 'function') return result;
+    const peers: Record<string, RTCPeerConnection> = this.room.getPeers();
+    for (const [peerId, pc] of Object.entries(peers)) {
+      if (!pc) continue;
+      try {
+        const stats = await pc.getStats();
+        let selectedPair: any = null;
+        for (const report of stats.values()) {
+          if (report.type === 'candidate-pair' && (report.selected || report.nominated) && (report.state === 'succeeded' || report.writable)) {
+            selectedPair = report;
+            break;
+          }
+        }
+        if (selectedPair) {
+          const local = stats.get(selectedPair.localCandidateId);
+          const remote = stats.get(selectedPair.remoteCandidateId);
+          const isTurn = local?.candidateType === 'relay' || remote?.candidateType === 'relay';
+          result[peerId] = isTurn
+            ? `🌐 TURN (Relay Cloudflare) [local:${local?.candidateType}, remote:${remote?.candidateType}]`
+            : `⚡ DIRETO (P2P ${local?.candidateType || 'direct'})`;
+        } else {
+          result[peerId] = 'Negociando ICE...';
+        }
+      } catch (e: any) {
+        result[peerId] = `Erro: ${e?.message}`;
+      }
+    }
+    return result;
+  }
 }
 
 export const NetworkManager = new NetworkManagerClass();
+
+if (typeof window !== 'undefined') {
+  (window as any).NetworkManager = NetworkManager;
+  (window as any).checkConnection = async () => {
+    const stats = await NetworkManager.getPeerConnectionTypes();
+    console.log('--- DIAGNÓSTICO DE REDE P2P / TURN ---');
+    console.table(stats);
+    return stats;
+  };
+}
