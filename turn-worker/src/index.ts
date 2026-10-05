@@ -15,7 +15,8 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const allowed = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
     const origin = req.headers.get('Origin') ?? '';
-    const isAllowed = allowed.includes(origin);
+    const isPagesDev = /^https:\/\/[a-z0-9-]+\.masmorra-de-bolso\.pages\.dev$/i.test(origin) || origin === 'https://masmorra-de-bolso.pages.dev';
+    const isAllowed = isPagesDev || allowed.includes(origin);
 
     const cors: Record<string, string> = {
       'Access-Control-Allow-Origin': isAllowed ? origin : allowed[0],
