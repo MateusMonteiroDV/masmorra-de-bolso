@@ -615,52 +615,9 @@ export class TouchControls {
   }
 
   private createFullscreenButton() {
-    // Botão de tela cheia elegante no topo direito com status visual ativo
-    const width = this.scene.scale.width;
-    this.fullscreenBtn = this.scene.add.container(width - 22, 16);
-
-    const bg = this.scene.add.graphics();
-    const updateVisual = (isFs: boolean) => {
-      bg.clear();
-      bg.fillStyle(0x0f172a, 0.65);
-      bg.fillRoundedRect(-14, -11, 28, 22, 5);
-      bg.lineStyle(1.5, isFs ? 0x22c55e : 0x38bdf8, 0.85);
-      bg.strokeRoundedRect(-14, -11, 28, 22, 5);
-    };
-    updateVisual(isFullscreenActive());
-
-    const icon = this.scene.add.text(0, -3, isFullscreenActive() ? '🗗' : '⛶', {
-      fontSize: '11px',
-      color: isFullscreenActive() ? '#22c55e' : '#38bdf8'
-    }).setOrigin(0.5);
-
-    const label = this.scene.add.text(0, 6, isFullscreenActive() ? 'SAIR' : 'TELA', {
-      fontFamily: 'monospace',
-      fontSize: '5px',
-      color: '#94a3b8'
-    }).setOrigin(0.5);
-
-    this.fullscreenBtn.add([bg, icon, label]);
-    this.fullscreenBtn.setSize(28, 22);
-    this.fullscreenBtn.setInteractive({ useHandCursor: true });
-
-    // pointerup garante que navegadores aceitem o gesto de tela cheia
-    this.fullscreenBtn.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      (pointer as any).isVirtualControl = false;
-      toggleFullscreen(this.scene);
-    });
-
-    this.onFsChange = () => {
-      const active = isFullscreenActive();
-      icon.setText(active ? '🗗' : '⛶');
-      icon.setColor(active ? '#22c55e' : '#38bdf8');
-      label.setText(active ? 'SAIR' : 'TELA');
-      updateVisual(active);
-    };
-
-    document.addEventListener('fullscreenchange', this.onFsChange);
-    document.addEventListener('webkitfullscreenchange', this.onFsChange);
-
+    const { container, cleanup } = createFullscreenToggleButton(this.scene, this.scene.scale.width - 22, 16);
+    this.fullscreenBtn = container;
+    this.onFsChange = cleanup;
     this.container.add(this.fullscreenBtn);
   }
 
@@ -679,10 +636,106 @@ export class TouchControls {
       this.scene.input.off('pointerup', this.onPointerUpAim);
       this.scene.input.off('pointerupoutside', this.onPointerUpAim);
     }
-    if (this.onFsChange) {
-      document.removeEventListener('fullscreenchange', this.onFsChange);
-      document.removeEventListener('webkitfullscreenchange', this.onFsChange);
-    }
+    this.onFsChange?.();
     this.container.destroy();
   }
 }
+
+export function createFullscreenToggleButton(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  markVirtual: boolean = false
+): { container: Phaser.GameObjects.Container; cleanup: () => void } {
+  const container = scene.add.container(x, y);
+  const bg = scene.add.graphics();
+  const updateVisual = (isFs: boolean) => {
+    bg.clear();
+    bg.fillStyle(0x0f172a, 0.65);
+    bg.fillRoundedRect(-14, -11, 28, 22, 5);
+    bg.lineStyle(1.5, isFs ? 0x22c55e : 0x38bdf8, 0.85);
+    bg.strokeRoundedRect(-14, -11, 28, 22, 5);
+  };
+  updateVisual(isFullscreenActive());
+
+  const icon = scene.add.text(0, -3, isFullscreenActive() ? '🗗' : '⛶', {
+    fontSize: '11px',
+    color: isFullscreenActive() ? '#22c55e' : '#38bdf8'
+  }).setOrigin(0.5);
+
+  const label = scene.add.text(0, 6, isFullscreenActive() ? 'SAIR' : 'TELA', {
+    fontFamily: 'monospace',
+    fontSize: '5px',
+    color: '#94a3b8'
+  }).setOrigin(0.5);
+
+  container.add([bg, icon, label]);
+  container.setSize(28, 22);
+  container.setInteractive({ useHandCursor: true });
+
+  container.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    (pointer as any).isVirtualControl = markVirtual;
+    toggleFullscreen(scene);
+  });
+
+  const onFsChange = () => {
+    const active = isFullscreenActive();
+    icon.setText(active ? '🗗' : '⛶');
+    icon.setColor(active ? '#22c55e' : '#38bdf8');
+    label.setText(active ? 'SAIR' : 'TELA');
+    updateVisual(active);
+  };
+
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
+
+  return {
+    container,
+    cleanup: () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    }
+  };
+}
+
+export function buildTiledRoomWithCampfire(
+  scene: Phaser.Scene,
+  floorKey: string,
+  wallKey: string,
+  campfireKey: string,
+  campfireYOffset: number = 0
+): Phaser.Physics.Arcade.StaticGroup {
+  const width = CONSTANTS.GAME_WIDTH;
+  const height = CONSTANTS.GAME_HEIGHT;
+  const tileSize = CONSTANTS.TILE_SIZE;
+
+  for (let x = 0; x < width; x += tileSize) {
+    for (let y = 0; y < height; y += tileSize) {
+      scene.add.image(x + tileSize / 2, y + tileSize / 2, floorKey).setDepth(CONSTANTS.DEPTH.FLOOR);
+    }
+  }
+
+  const walls = scene.physics.add.staticGroup();
+  for (let x = 0; x < width; x += tileSize) {
+    (walls.create(x + tileSize / 2, tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
+    (walls.create(x + tileSize / 2, height - tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
+  }
+  for (let y = 0; y < height; y += tileSize) {
+    (walls.create(tileSize / 2, y + tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
+    (walls.create(width - tileSize / 2, y + tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
+  }
+
+  const campfire = scene.add.sprite(width / 2, height / 2 + campfireYOffset, campfireKey);
+  campfire.setDepth(CONSTANTS.DEPTH.DECORATION).setScale(1.5);
+  scene.tweens.add({
+    targets: campfire,
+    scaleX: 1.6,
+    scaleY: 1.4,
+    yoyo: true,
+    repeat: -1,
+    duration: 350
+  });
+
+  return walls;
+}
+

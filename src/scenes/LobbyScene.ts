@@ -8,6 +8,7 @@ import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes
 import { AudioService } from '../systems/AudioService';
 import { GameState } from '../core/GameState';
 import { RoomInputDialog } from '../ui/RoomInputDialog';
+import { buildTiledRoomWithCampfire } from '../ui/TouchControls';
 
 export class LobbyScene extends Phaser.Scene {
   private player!: Player;
@@ -18,7 +19,6 @@ export class LobbyScene extends Phaser.Scene {
   private lobbyHeartbeatTimer: number = 0;
   private networkUnsubs: Array<() => void> = [];
 
-  // Estados de confirmação dos jogadores (Estilo Among Us / Impostor)
   private isSelfReady: boolean = false;
   private peerReadyMap: Map<string, boolean> = new Map();
   private peersInLobby: Set<string> = new Set();
@@ -45,54 +45,23 @@ export class LobbyScene extends Phaser.Scene {
     this.peersInLobby.clear();
     this.peerSceneMap.clear();
 
-    // Se não estiver em sala P2P multiplayer, assume liderança da sala como Host
     if (!NetworkManager.isConnected()) {
       NetworkManager.isHost = true;
     }
 
-    this.isSelfReady = NetworkManager.isHost; // Host começa marcado por padrão ou gerencia início
+    this.isSelfReady = NetworkManager.isHost;
     this.isCountingDown = false;
 
-    // Grupo de projéteis de flechas para treino na sala de espera
     this.arrowGroup = this.physics.add.group();
     this.dummyEnemyGroup = this.physics.add.group();
 
-    // 1. Cenário da Sala de Espera (Antecâmara medieval com fogueira)
-    const tileSize = CONSTANTS.TILE_SIZE;
-    for (let x = 0; x < width; x += tileSize) {
-      for (let y = 0; y < height; y += tileSize) {
-        const floor = this.add.image(x + tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.FLOOR);
-        floor.setDepth(CONSTANTS.DEPTH.FLOOR);
-      }
-    }
-
-    // Paredes de proteção da sala de espera
-    const walls = this.physics.add.staticGroup();
-    for (let x = 0; x < width; x += tileSize) {
-      const topW = walls.create(x + tileSize / 2, tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      const botW = walls.create(x + tileSize / 2, height - tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      topW.setDepth(CONSTANTS.DEPTH.WALLS);
-      botW.setDepth(CONSTANTS.DEPTH.WALLS);
-    }
-    for (let y = 0; y < height; y += tileSize) {
-      const leftW = walls.create(tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      const rightW = walls.create(width - tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      leftW.setDepth(CONSTANTS.DEPTH.WALLS);
-      rightW.setDepth(CONSTANTS.DEPTH.WALLS);
-    }
-
-    // Fogueira animada no centro
-    const campfire = this.add.sprite(width / 2, height / 2 - 10, ASSET_KEYS.ENVIRONMENT.CAMPFIRE);
-    campfire.setDepth(CONSTANTS.DEPTH.DECORATION);
-    campfire.setScale(1.5);
-    this.tweens.add({
-      targets: campfire,
-      scaleX: 1.6,
-      scaleY: 1.4,
-      yoyo: true,
-      repeat: -1,
-      duration: 350
-    });
+    const walls = buildTiledRoomWithCampfire(
+      this,
+      ASSET_KEYS.ENVIRONMENT.FLOOR,
+      ASSET_KEYS.ENVIRONMENT.WALL,
+      ASSET_KEYS.ENVIRONMENT.CAMPFIRE,
+      -10
+    );
 
     // Colisão das flechas com as paredes
     this.physics.add.collider(this.arrowGroup, walls, (arrowObj) => {

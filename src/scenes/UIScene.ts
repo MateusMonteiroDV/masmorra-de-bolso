@@ -16,7 +16,6 @@ export class UIScene extends Phaser.Scene {
   private p2pBadgeText?: Phaser.GameObjects.Text;
   private relicModal!: RelicSelectModal;
   private relicIconsContainer!: Phaser.GameObjects.Container;
-  private notificationText!: Phaser.GameObjects.Text;
   private touchControls?: TouchControls;
   private spectatorContainer?: Phaser.GameObjects.Container;
   private spectatorKeyEnter?: Phaser.Input.Keyboard.Key;
@@ -118,17 +117,7 @@ export class UIScene extends Phaser.Scene {
     // 7. Barra Central: Ícones de Relíquias Ativas
     this.relicIconsContainer = this.add.container(width / 2, height - 22);
 
-    // 8. Banner de Notificação
-    this.notificationText = this.add.text(width / 2, 60, '', {
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      color: '#ef4444',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5).setAlpha(0);
-
-    // 9. Modal de Relíquias
+    // 8. Modal de Relíquias
     this.relicModal = new RelicSelectModal(this);
 
     this.setupEventListeners();

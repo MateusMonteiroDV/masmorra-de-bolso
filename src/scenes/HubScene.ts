@@ -8,7 +8,7 @@ import { Player } from '../entities/player/Player';
 import { RemotePlayer } from '../entities/player/RemotePlayer';
 import { NetworkManager } from '../network/NetworkManager';
 import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes';
-import { TouchControls, isTouchDevice } from '../ui/TouchControls';
+import { TouchControls, isTouchDevice, buildTiledRoomWithCampfire } from '../ui/TouchControls';
 
 export class HubScene extends Phaser.Scene {
   private player!: Player;
@@ -43,45 +43,14 @@ export class HubScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.arrowGroup = this.add.group({ runChildUpdate: true });
 
-    // Na base, o arsenal de flechas está sempre reabastecido para testes
     GameState.arrows = 30 + (GameState.upgrades.quiverLevel ?? 0) * 3;
 
-    // 1. Cenário do Hub (Chão de pedra aconchegante)
-    const tileSize = CONSTANTS.TILE_SIZE;
-    for (let x = 0; x < width; x += tileSize) {
-      for (let y = 0; y < height; y += tileSize) {
-        const floor = this.add.image(x + tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.FLOOR);
-        floor.setDepth(CONSTANTS.DEPTH.FLOOR);
-      }
-    }
-
-    // Paredes ao redor
-    const walls = this.physics.add.staticGroup();
-    for (let x = 0; x < width; x += tileSize) {
-      const topW = walls.create(x + tileSize / 2, tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      const botW = walls.create(x + tileSize / 2, height - tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      topW.setDepth(CONSTANTS.DEPTH.WALLS);
-      botW.setDepth(CONSTANTS.DEPTH.WALLS);
-    }
-    for (let y = 0; y < height; y += tileSize) {
-      const leftW = walls.create(tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      const rightW = walls.create(width - tileSize / 2, y + tileSize / 2, ASSET_KEYS.ENVIRONMENT.WALL) as Phaser.Physics.Arcade.Image;
-      leftW.setDepth(CONSTANTS.DEPTH.WALLS);
-      rightW.setDepth(CONSTANTS.DEPTH.WALLS);
-    }
-
-    // 2. Fogueira no Centro
-    const campfire = this.add.sprite(width / 2, height / 2, ASSET_KEYS.ENVIRONMENT.CAMPFIRE);
-    campfire.setDepth(CONSTANTS.DEPTH.DECORATION);
-    campfire.setScale(1.5);
-    this.tweens.add({
-      targets: campfire,
-      scaleX: 1.6,
-      scaleY: 1.4,
-      yoyo: true,
-      repeat: -1,
-      duration: 350
-    });
+    const walls = buildTiledRoomWithCampfire(
+      this,
+      ASSET_KEYS.ENVIRONMENT.FLOOR,
+      ASSET_KEYS.ENVIRONMENT.WALL,
+      ASSET_KEYS.ENVIRONMENT.CAMPFIRE
+    );
 
     // 3. NPC Mercador da Loja / Barraco de Itens à Esquerda (64x64)
     this.shopNpc = this.physics.add.staticSprite(width / 2 - 90, height / 2 - 20, 'vendedor_0');

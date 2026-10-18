@@ -12,121 +12,36 @@ export class RoomInputDialog {
     onConfirm: (roomId: string) => void;
     onCancel?: () => void;
   }) {
-    // Remove qualquer modal pré-existente
-    const existing = document.getElementById('mdb-room-input-modal');
-    if (existing) {
-      existing.remove();
-    }
+    document.getElementById('mdb-room-input-modal')?.remove();
 
     const overlay = document.createElement('div');
     overlay.id = 'mdb-room-input-modal';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100vw';
-    overlay.style.height = '100vh';
-    overlay.style.backgroundColor = 'rgba(2, 6, 23, 0.82)';
-    overlay.style.backdropFilter = 'blur(4px)';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.zIndex = '999999';
-    overlay.style.fontFamily = "'Courier New', Courier, monospace";
+    overlay.style.cssText =
+      "position:fixed;inset:0;background:rgba(2,6,23,0.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:999999;font-family:'Courier New',Courier,monospace;";
 
-    const modalBox = document.createElement('div');
-    modalBox.style.width = '90%';
-    modalBox.style.maxWidth = '360px';
-    modalBox.style.backgroundColor = '#0a0f1d';
-    modalBox.style.border = '2px solid #0284c7';
-    modalBox.style.borderRadius = '8px';
-    modalBox.style.padding = '20px';
-    modalBox.style.boxShadow = '0 0 25px rgba(2, 132, 199, 0.45)';
-    modalBox.style.color = '#f8fafc';
-    modalBox.style.textAlign = 'center';
+    overlay.innerHTML = `
+      <div style="width:90%;max-width:360px;background:#0a0f1d;border:2px solid #0284c7;border-radius:8px;padding:20px;box-shadow:0 0 25px rgba(2,132,199,0.45);color:#f8fafc;text-align:center;">
+        <h3 style="margin:0 0 8px;font-size:14px;color:#38bdf8;letter-spacing:1px;font-weight:bold;">${options.title || '🔑 CONECTAR COM ID DA SALA'}</h3>
+        <p style="margin:0 0 16px;font-size:11px;color:#94a3b8;line-height:1.4;">${options.description || 'Digite ou cole o código ID gerado pelo anfitrião:'}</p>
+        <input type="text" maxlength="14" placeholder="Ex: MDB-1234" value="${options.defaultValue || ''}" style="width:85%;padding:10px 12px;font-size:16px;text-align:center;font-weight:bold;letter-spacing:2px;background:#0f172a;border:1.5px solid #38bdf8;border-radius:6px;color:#facc15;outline:none;margin-bottom:12px;text-transform:uppercase;" />
+        <div id="mdb-room-err" style="font-size:10px;color:#f43f5e;margin-bottom:12px;display:none;"></div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button id="mdb-room-cancel" style="padding:8px 16px;font-size:11px;font-weight:bold;background:#334155;color:#f1f5f9;border:none;border-radius:4px;cursor:pointer;">CANCELAR</button>
+          <button id="mdb-room-ok" style="padding:8px 16px;font-size:11px;font-weight:bold;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;">✅ ENTRAR NA SALA</button>
+        </div>
+      </div>
+    `;
 
-    const titleEl = document.createElement('h3');
-    titleEl.innerText = options.title || '🔑 CONECTAR COM ID DA SALA';
-    titleEl.style.margin = '0 0 8px 0';
-    titleEl.style.fontSize = '14px';
-    titleEl.style.color = '#38bdf8';
-    titleEl.style.letterSpacing = '1px';
-    titleEl.style.fontWeight = 'bold';
-    modalBox.appendChild(titleEl);
+    document.body.appendChild(overlay);
 
-    const descEl = document.createElement('p');
-    descEl.innerText = options.description || 'Digite ou cole o código ID gerado pelo anfitrião:';
-    descEl.style.margin = '0 0 16px 0';
-    descEl.style.fontSize = '11px';
-    descEl.style.color = '#94a3b8';
-    descEl.style.lineHeight = '1.4';
-    modalBox.appendChild(descEl);
+    const input = overlay.querySelector('input')!;
+    const errorMsg = overlay.querySelector<HTMLDivElement>('#mdb-room-err')!;
+    const cancelBtn = overlay.querySelector<HTMLButtonElement>('#mdb-room-cancel')!;
+    const confirmBtn = overlay.querySelector<HTMLButtonElement>('#mdb-room-ok')!;
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 14;
-    input.placeholder = 'Ex: MDB-1234';
-    input.value = options.defaultValue || '';
-    input.style.width = '85%';
-    input.style.padding = '10px 12px';
-    input.style.fontSize = '16px';
-    input.style.textAlign = 'center';
-    input.style.fontWeight = 'bold';
-    input.style.letterSpacing = '2px';
-    input.style.backgroundColor = '#0f172a';
-    input.style.border = '1.5px solid #38bdf8';
-    input.style.borderRadius = '6px';
-    input.style.color = '#facc15';
-    input.style.outline = 'none';
-    input.style.marginBottom = '12px';
-    input.style.textTransform = 'uppercase';
-
-    // Auto-uppercase ao digitar ou colar
     input.addEventListener('input', () => {
       input.value = input.value.toUpperCase();
     });
-
-    modalBox.appendChild(input);
-
-    const errorMsg = document.createElement('div');
-    errorMsg.style.fontSize = '10px';
-    errorMsg.style.color = '#f43f5e';
-    errorMsg.style.marginBottom = '12px';
-    errorMsg.style.display = 'none';
-    modalBox.appendChild(errorMsg);
-
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.gap = '10px';
-    buttonContainer.style.justifyContent = 'center';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.innerText = 'CANCELAR';
-    cancelBtn.style.padding = '8px 16px';
-    cancelBtn.style.fontSize = '11px';
-    cancelBtn.style.fontWeight = 'bold';
-    cancelBtn.style.backgroundColor = '#334155';
-    cancelBtn.style.color = '#f1f5f9';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.borderRadius = '4px';
-    cancelBtn.style.cursor = 'pointer';
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.innerText = '✅ ENTRAR NA SALA';
-    confirmBtn.style.padding = '8px 16px';
-    confirmBtn.style.fontSize = '11px';
-    confirmBtn.style.fontWeight = 'bold';
-    confirmBtn.style.backgroundColor = '#16a34a';
-    confirmBtn.style.color = '#ffffff';
-    confirmBtn.style.border = 'none';
-    confirmBtn.style.borderRadius = '4px';
-    confirmBtn.style.cursor = 'pointer';
-
-    buttonContainer.appendChild(cancelBtn);
-    buttonContainer.appendChild(confirmBtn);
-    modalBox.appendChild(buttonContainer);
-
-    overlay.appendChild(modalBox);
-    document.body.appendChild(overlay);
 
     const cleanup = () => {
       overlay.remove();
@@ -147,9 +62,7 @@ export class RoomInputDialog {
 
     const handleCancel = () => {
       cleanup();
-      if (options.onCancel) {
-        options.onCancel();
-      }
+      options.onCancel?.();
     };
 
     const handleKey = (e: KeyboardEvent) => {
@@ -166,10 +79,10 @@ export class RoomInputDialog {
     cancelBtn.addEventListener('click', handleCancel);
     document.addEventListener('keydown', handleKey);
 
-    // Foco imediato no campo de texto
     setTimeout(() => {
       input.focus();
       input.select();
     }, 50);
   }
 }
+
