@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { CONSTANTS } from '../core/Constants';
 import { GameState } from '../core/GameState';
-import { UPGRADE_DEFINITIONS, UpgradeSystem } from '../systems/UpgradeSystem';
+import { UPGRADE_DEFINITIONS, getUpgradeCost } from '../systems/UpgradeSystem';
 import { AudioService } from '../systems/AudioService';
 
 export class ShopModal extends Phaser.GameObjects.Container {
@@ -99,7 +99,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
     UPGRADE_DEFINITIONS.forEach((def, index) => {
       const iy = startY + index * itemHeight;
       const currentLevel = Math.min(def.maxLevel, GameState.upgrades[def.key] ?? 0);
-      const cost = UpgradeSystem.getUpgradeCost(def.key);
+      const cost = getUpgradeCost(def.key);
       const isMax = currentLevel >= def.maxLevel;
       const canAfford = !isMax && cost !== null && GameState.bankedGold >= cost;
 

@@ -53,22 +53,10 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   }
 ];
 
-export class UpgradeSystem {
-  public static getUpgradeCost(key: keyof PermanentUpgrades): number | null {
-    const def = UPGRADE_DEFINITIONS.find(u => u.key === key);
-    if (!def) return null;
-
-    const currentLevel = GameState.upgrades[key];
-    if (currentLevel >= def.maxLevel) {
-      return null; // Nível Máximo atingido
-    }
-
-    return def.costs[currentLevel];
-  }
-
-  public static canAfford(key: keyof PermanentUpgrades): boolean {
-    const cost = this.getUpgradeCost(key);
-    if (cost === null) return false;
-    return GameState.bankedGold >= cost;
-  }
+export function getUpgradeCost(key: keyof PermanentUpgrades): number | null {
+  const def = UPGRADE_DEFINITIONS.find(u => u.key === key);
+  if (!def) return null;
+  const currentLevel = GameState.upgrades[key];
+  return currentLevel >= def.maxLevel ? null : def.costs[currentLevel];
 }
+

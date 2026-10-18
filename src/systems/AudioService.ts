@@ -7,293 +7,122 @@ class AudioManager {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
 
-  private initCtx() {
+  private initCtx(): AudioContext | null {
+    if (this.isMuted) return null;
     if (!this.ctx) {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextClass) {
-        this.ctx = new AudioContextClass();
-      }
+      if (AudioContextClass) this.ctx = new AudioContextClass();
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    if (this.ctx?.state === 'suspended') this.ctx.resume();
+    return this.ctx;
   }
 
-  public toggleMute(): boolean {
-    this.isMuted = !this.isMuted;
-    return this.isMuted;
+  private playTone(
+    type: OscillatorType,
+    duration: number,
+    gainVal: number,
+    scheduleFreq: (freq: AudioParam, now: number) => void
+  ) {
+    const ctx = this.initCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    scheduleFreq(osc.frequency, now);
+    gain.gain.setValueAtTime(gainVal, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + duration);
   }
 
-  // Efeito de Ataque Melee (White noise suave / Swoosh)
   public playAttackSwing() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
-
-    gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.12);
+    this.playTone('triangle', 0.12, 0.18, (f, now) => {
+      f.setValueAtTime(320, now);
+      f.exponentialRampToValueAtTime(80, now + 0.12);
+    });
   }
 
-  // Efeito de Bloqueio com Escudo (Impacto metálico nítido / Clang)
   public playShieldBlock() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    // Oscilador 1: Ressonância metálica aguda (Triangle)
-    const osc1 = this.ctx.createOscillator();
-    const gain1 = this.ctx.createGain();
-    osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(920, now);
-    osc1.frequency.exponentialRampToValueAtTime(460, now + 0.14);
-
-    gain1.gain.setValueAtTime(0.25, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
-
-    osc1.connect(gain1);
-    gain1.connect(this.ctx.destination);
-
-    // Oscilador 2: 'Tick' de impacto rígido inicial (Square)
-    const osc2 = this.ctx.createOscillator();
-    const gain2 = this.ctx.createGain();
-    osc2.type = 'square';
-    osc2.frequency.setValueAtTime(1400, now);
-    osc2.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-
-    gain2.gain.setValueAtTime(0.18, now);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-    osc2.connect(gain2);
-    gain2.connect(this.ctx.destination);
-
-    osc1.start(now);
-    osc1.stop(now + 0.14);
-    osc2.start(now);
-    osc2.stop(now + 0.05);
+    this.playTone('triangle', 0.14, 0.25, (f, now) => {
+      f.setValueAtTime(920, now);
+      f.exponentialRampToValueAtTime(460, now + 0.14);
+    });
+    this.playTone('square', 0.05, 0.18, (f, now) => {
+      f.setValueAtTime(1400, now);
+      f.exponentialRampToValueAtTime(300, now + 0.05);
+    });
   }
 
-  // Efeito de Esquiva / Dash (Whoosh rápido)
   public playDash() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(450, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.16);
-
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.16);
+    this.playTone('sine', 0.16, 0.2, (f, now) => {
+      f.setValueAtTime(450, now);
+      f.exponentialRampToValueAtTime(150, now + 0.16);
+    });
   }
 
-  // Dano em Inimigo (Impacto agudo)
   public playEnemyHit() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.08);
-
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.08);
+    this.playTone('square', 0.08, 0.15, (f, now) => {
+      f.setValueAtTime(280, now);
+      f.exponentialRampToValueAtTime(60, now + 0.08);
+    });
   }
 
-  // Dano sofrido pelo Jogador (Grave de impacto)
   public playPlayerHurt() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(160, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
-
-    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.2);
+    this.playTone('sawtooth', 0.2, 0.25, (f, now) => {
+      f.setValueAtTime(160, now);
+      f.exponentialRampToValueAtTime(40, now + 0.2);
+    });
   }
 
-  // Coleta de Moeda (Arpeggio clássico 8-bit estilo Mario/Zelda)
   public playCoin() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-
-    osc.frequency.setValueAtTime(987.77, now); // B5
-    osc.frequency.setValueAtTime(1318.51, now + 0.07); // E6
-
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.25);
+    this.playTone('sine', 0.25, 0.15, (f, now) => {
+      f.setValueAtTime(987.77, now);
+      f.setValueAtTime(1318.51, now + 0.07);
+    });
   }
 
-  // Compra na Loja / Upgrade
   public playBuyUpgrade() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-
-    osc.frequency.setValueAtTime(523.25, now); // C5
-    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-    osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
-
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.45);
+    this.playTone('triangle', 0.45, 0.2, (f, now) => {
+      f.setValueAtTime(523.25, now);
+      f.setValueAtTime(659.25, now + 0.08);
+      f.setValueAtTime(783.99, now + 0.16);
+      f.setValueAtTime(1046.5, now + 0.24);
+    });
   }
 
-  // Portas destrancadas / Vitória de Sala
   public playRoomCleared() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.setValueAtTime(554.37, now + 0.1);
-    osc.frequency.setValueAtTime(659.25, now + 0.2);
-
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.35);
+    this.playTone('triangle', 0.35, 0.18, (f, now) => {
+      f.setValueAtTime(440, now);
+      f.setValueAtTime(554.37, now + 0.1);
+      f.setValueAtTime(659.25, now + 0.2);
+    });
   }
 
-  // Disparo Mágico
   public playMagicCast() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(700, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.15);
-
-    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
+    this.playTone('sine', 0.15, 0.12, (f, now) => {
+      f.setValueAtTime(700, now);
+      f.exponentialRampToValueAtTime(300, now + 0.15);
+    });
   }
 
-  // Impacto Pesado / Golpe de Machado no Chão (Grave com ressonância)
   public playHeavySlam() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(140, now);
-    osc.frequency.exponentialRampToValueAtTime(30, now + 0.22);
-
-    gain.gain.setValueAtTime(0.28, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.22);
+    this.playTone('triangle', 0.22, 0.28, (f, now) => {
+      f.setValueAtTime(140, now);
+      f.exponentialRampToValueAtTime(30, now + 0.22);
+    });
   }
 
-  // Rugido / Enrage do Minotauro
   public playMinotaurRoar() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(95, now);
-    osc.frequency.linearRampToValueAtTime(150, now + 0.15);
-    osc.frequency.exponentialRampToValueAtTime(55, now + 0.35);
-
-    gain.gain.setValueAtTime(0.22, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.35);
+    this.playTone('sawtooth', 0.35, 0.22, (f, now) => {
+      f.setValueAtTime(95, now);
+      f.linearRampToValueAtTime(150, now + 0.15);
+      f.exponentialRampToValueAtTime(55, now + 0.35);
+    });
   }
 }
 
 export const AudioService = new AudioManager();
+
