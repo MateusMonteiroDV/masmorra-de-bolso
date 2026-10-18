@@ -56,10 +56,3 @@ export async function ensureTurnServers(): Promise<RTCIceServer[]> {
   return turnServers;
 }
 
-export function getTurnServers(): RTCIceServer[] {
-  if (TURN_ENDPOINT && Date.now() - fetchedAt > REFRESH_AFTER_MS) {
-    // Renova em segundo plano para a próxima sala; usa o que já temos agora
-    void preloadTurnServers();
-  }
-  return turnServers;
-}

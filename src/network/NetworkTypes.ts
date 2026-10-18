@@ -20,8 +20,6 @@ export interface PlayerNetworkAction {
     | 'player_dash'
     | 'scene_sync'
     | 'enemy_hit'
-    | 'enemy_damage'
-    | 'chest_open'
     | 'dungeon_victory'
     | 'player_death'
     | 'player_revive'
@@ -35,8 +33,3 @@ export interface PlayerNetworkAction {
   payload?: any;
 }
 
-export interface RoomInfo {
-  roomId: string;
-  isHost: boolean;
-  connectedPeers: string[];
-}

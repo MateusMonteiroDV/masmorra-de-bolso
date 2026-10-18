@@ -1,5 +1,5 @@
 import { joinRoom, selfId } from 'trystero/nostr';
-import { PlayerNetworkState, PlayerNetworkAction, RoomInfo } from './NetworkTypes';
+import { PlayerNetworkState, PlayerNetworkAction } from './NetworkTypes';
 import { ensureTurnServers } from './TurnConfig';
 import { RemoteLogger } from '../systems/RemoteLogger';
 
@@ -53,14 +53,6 @@ class NetworkManagerClass {
 
   public isConnected(): boolean {
     return this.connectedPeers.size > 0;
-  }
-
-  public getRoomInfo(): RoomInfo {
-    return {
-      roomId: this.currentRoomId || '',
-      isHost: this.isHost,
-      connectedPeers: Array.from(this.connectedPeers)
-    };
   }
 
   public async join(roomId: string, asHost: boolean = false): Promise<void> {
@@ -331,25 +323,25 @@ class NetworkManagerClass {
     this.peerLeaveListeners.add(listener);
     return () => this.peerLeaveListeners.delete(listener);
   }
+}
 
-  public async getPeerConnectionTypes(): Promise<Record<string, string>> {
+export const NetworkManager = new NetworkManagerClass();
+
+if (typeof window !== 'undefined') {
+  (window as any).NetworkManager = NetworkManager;
+  (window as any).checkConnection = async () => {
     const result: Record<string, string> = {};
-    if (!this.room || typeof this.room.getPeers !== 'function') return result;
-    const peers: Record<string, RTCPeerConnection> = this.room.getPeers();
+    const peers: Record<string, RTCPeerConnection> = (NetworkManager as any).room?.getPeers?.() || {};
     for (const [peerId, pc] of Object.entries(peers)) {
       if (!pc) continue;
       try {
         const stats = await pc.getStats();
-        let selectedPair: any = null;
-        for (const report of stats.values()) {
-          if (report.type === 'candidate-pair' && (report.selected || report.nominated) && (report.state === 'succeeded' || report.writable)) {
-            selectedPair = report;
-            break;
-          }
-        }
-        if (selectedPair) {
-          const local = stats.get(selectedPair.localCandidateId);
-          const remote = stats.get(selectedPair.remoteCandidateId);
+        const pair = [...stats.values()].find(
+          (r: any) => r.type === 'candidate-pair' && (r.selected || r.nominated) && (r.state === 'succeeded' || r.writable)
+        );
+        if (pair) {
+          const local = stats.get(pair.localCandidateId);
+          const remote = stats.get(pair.remoteCandidateId);
           const isTurn = local?.candidateType === 'relay' || remote?.candidateType === 'relay';
           result[peerId] = isTurn
             ? `🌐 TURN (Relay Cloudflare) [local:${local?.candidateType}, remote:${remote?.candidateType}]`
@@ -361,18 +353,8 @@ class NetworkManagerClass {
         result[peerId] = `Erro: ${e?.message}`;
       }
     }
-    return result;
-  }
-}
-
-export const NetworkManager = new NetworkManagerClass();
-
-if (typeof window !== 'undefined') {
-  (window as any).NetworkManager = NetworkManager;
-  (window as any).checkConnection = async () => {
-    const stats = await NetworkManager.getPeerConnectionTypes();
     console.log('--- DIAGNÓSTICO DE REDE P2P / TURN ---');
-    console.table(stats);
-    return stats;
+    console.table(result);
+    return result;
   };
 }
