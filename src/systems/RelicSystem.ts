@@ -15,12 +15,6 @@ export const ALL_RELICS: ActiveRelic[] = [
     icon: ASSET_KEYS.UI.RELIC_TORCH
   },
   {
-    id: 'relic_vampire',
-    name: 'Amuleto Vampírico',
-    description: '15% de chance de curar ao matar monstros',
-    icon: ASSET_KEYS.UI.RELIC_VAMPIRE
-  },
-  {
     id: 'relic_ring',
     name: 'Anel do Titã',
     description: '+1 Coração de Vida Máxima na run',
@@ -37,9 +31,8 @@ export const ALL_RELICS: ActiveRelic[] = [
 export class RelicSystem {
   public static getRandomRelicChoices(count: number = 3, excludeIds: string[] = []): ActiveRelic[] {
     const pool = ALL_RELICS.filter(r => !excludeIds.includes(r.id));
-
-    // Embaralhar aleatoriamente
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 }
+

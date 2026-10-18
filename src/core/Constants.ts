@@ -5,7 +5,6 @@ export const CONSTANTS = {
   MAP_WIDTH: 1140,
   MAP_HEIGHT: 977,
   TILE_SIZE: 16,
-  ZOOM: 1.8,
 
   // Profundidade de Renderização (Z-Index)
   DEPTH: {
@@ -35,7 +34,6 @@ export const CONSTANTS = {
     DASH_DURATION: 180,
     DASH_COOLDOWN: 700,
     INVULNERABLE_DURATION: 700,
-    DEFENSE_REDUCTION: 0.8,    // 80% de absorção de dano na defesa com escudo
     ATTACK_COOLDOWN: 380,
     BOW_COOLDOWN: 450,
     ATTACK_RANGE: 32
@@ -88,21 +86,14 @@ export const CONSTANTS = {
   EVENTS: {
     PLAYER_HEALTH_CHANGED: 'player:health_changed',
     PLAYER_GOLD_CHANGED: 'player:gold_changed',
-    PLAYER_DASHED: 'player:dashed',
     PLAYER_DIED: 'player:died',
     ENEMY_DIED: 'enemy:died',
-    ROOM_ENTERED: 'room:entered',
-    ROOM_LOCKDOWN_START: 'room:lockdown_start',
-    ROOM_LOCKDOWN_END: 'room:lockdown_end',
     RELIC_ACQUIRED: 'relic:acquired',
     REQUEST_RELIC_CHOICE: 'ui:request_relic_choice',
-    OPEN_SHOP: 'ui:open_shop',
-    CLOSE_SHOP: 'ui:close_shop',
-    UPGRADE_PURCHASED: 'hub:upgrade_purchased',
     PLAYER_ARROWS_CHANGED: 'player:arrows_changed',
-    WAVE_CHANGED: 'wave:changed',
-    WAVE_COMPLETED: 'wave:completed'
+    WAVE_CHANGED: 'wave:changed'
   },
 
   STORAGE_KEY: 'masmorra_de_bolso_save_v1'
 } as const;
+

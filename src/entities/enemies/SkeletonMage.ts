@@ -1,7 +1,6 @@
 import * as Phaser from 'phaser';
 import { Enemy } from './Enemy';
 import { CONSTANTS } from '../../core/Constants';
-import { ASSET_KEYS } from '../../assets/AssetManifest';
 import { MagicProjectile } from '../projectiles/MagicProjectile';
 import { AudioService } from '../../systems/AudioService';
 

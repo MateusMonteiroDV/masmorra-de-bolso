@@ -26,7 +26,6 @@ export interface PlayerStats {
   dashCooldown: number;
   goldMultiplier: number;
   burnOnAttack: boolean;
-  vampireChance: number; // 0 to 1
   shieldRepulsionMultiplier: number;
 }
 
@@ -46,9 +45,7 @@ class GameStateManager {
 
   // Estado da Run Atual
   public runGold: number = 0;
-  public currentFloor: number = 1;
   public activeRelics: ActiveRelic[] = [];
-  public runEnemiesKilled: number = 0;
   public arrows: number = 30;
 
   constructor() {
@@ -56,34 +53,27 @@ class GameStateManager {
   }
 
   public getComputedPlayerStats(): PlayerStats {
-    // Cálculo balanceado com progressão justa por melhoria (5 níveis no total)
     let maxHp = CONSTANTS.PLAYER.BASE_MAX_HP + (this.upgrades.maxHpLevel ?? 0);
-    
-    // Dano escalado em +10% por nível (até +50% no nível 5)
     const dmgMultiplier = 1 + (this.upgrades.damageLevel ?? 0) * 0.10;
-    let baseDamage = CONSTANTS.PLAYER.BASE_ATTACK_DAMAGE * dmgMultiplier;
-    let arrowDamage = CONSTANTS.PLAYER.ARROW_DAMAGE * dmgMultiplier;
-    
+    const baseDamage = CONSTANTS.PLAYER.BASE_ATTACK_DAMAGE * dmgMultiplier;
+    const arrowDamage = CONSTANTS.PLAYER.ARROW_DAMAGE * dmgMultiplier;
+
     let moveSpeed = CONSTANTS.PLAYER.DEFAULT_SPEED;
-    let dashCooldown = CONSTANTS.PLAYER.DASH_COOLDOWN * (1 - (this.upgrades.dashCooldownLevel ?? 0) * 0.08);
+    const dashCooldown = CONSTANTS.PLAYER.DASH_COOLDOWN * (1 - (this.upgrades.dashCooldownLevel ?? 0) * 0.08);
     let goldMultiplier = 1 + (this.upgrades.greedLevel ?? 0) * 0.10;
-    let shieldRepulsionMultiplier = 1 + (this.upgrades.shieldLevel ?? 0) * 0.15;
+    const shieldRepulsionMultiplier = 1 + (this.upgrades.shieldLevel ?? 0) * 0.15;
 
     let burnOnAttack = false;
-    let vampireChance = 0;
 
-    // Aplicar efeitos das relíquias ativas
     for (const relic of this.activeRelics) {
       if (relic.id === 'relic_boots') {
-        moveSpeed *= 1.25; // +25% velocidade
+        moveSpeed *= 1.25;
       } else if (relic.id === 'relic_torch') {
-        burnOnAttack = true; // Queimadura nos ataques
-      } else if (relic.id === 'relic_vampire') {
-        vampireChance += 0.15; // 15% chance de curar ao derrotar inimigo
+        burnOnAttack = true;
       } else if (relic.id === 'relic_ring') {
-        maxHp += 2; // +2 HP temporário
+        maxHp += 2;
       } else if (relic.id === 'relic_crown') {
-        goldMultiplier += 0.5; // +50% ouro adicional
+        goldMultiplier += 0.5;
       }
     }
 
@@ -96,7 +86,6 @@ class GameStateManager {
       dashCooldown: Math.max(300, Math.round(dashCooldown)),
       goldMultiplier,
       burnOnAttack,
-      vampireChance,
       shieldRepulsionMultiplier
     };
   }
@@ -105,8 +94,6 @@ class GameStateManager {
     this.totalRuns++;
     this.runGold = 0;
     this.activeRelics = [];
-    this.runEnemiesKilled = 0;
-    this.currentFloor = 1;
     this.arrows = 30 + (this.upgrades.quiverLevel ?? 0) * 3;
     this.saveToStorage();
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, this.runGold);
@@ -140,9 +127,8 @@ class GameStateManager {
   }
 
   public endRun(victory: boolean = false) {
-    // Na morte ou vitória, transfere o ouro da run para o ouro guardado na base!
     this.bankedGold += this.runGold;
-    this.runGold = 0; // Limpa o ouro temporário para evitar transferências duplicadas
+    this.runGold = 0;
     if (victory) {
       this.totalBossKills++;
     }
@@ -163,7 +149,6 @@ class GameStateManager {
     if (this.spendBankedGold(cost)) {
       this.upgrades[type]++;
       this.saveToStorage();
-      EventBus.emit(CONSTANTS.EVENTS.UPGRADE_PURCHASED, type, this.upgrades[type]);
       return true;
     }
     return false;

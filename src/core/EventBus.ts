@@ -5,10 +5,5 @@ import * as Phaser from 'phaser';
  * Permite que cenas (DungeonScene, UIScene, HubScene) conversem
  * sem precisar de acoplamento direto ou referências globais confusas.
  */
-class GameEventBus extends Phaser.Events.EventEmitter {
-  constructor() {
-    super();
-  }
-}
+export const EventBus = new Phaser.Events.EventEmitter();
 
-export const EventBus = new GameEventBus();
