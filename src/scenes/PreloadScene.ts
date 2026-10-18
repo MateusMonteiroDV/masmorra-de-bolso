@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { generateProceduralPlaceholders } from '../assets/PlaceholderGen';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -6,6 +7,8 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   public preload() {
+    generateProceduralPlaceholders(this);
+
     // 1. Mapa do Jogo (1140x977)
     this.load.image('mapa_dungeon', '/assets/mapa/sprite_0.png');
 
