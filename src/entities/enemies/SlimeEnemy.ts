@@ -1,8 +1,6 @@
 import * as Phaser from 'phaser';
 import { Enemy } from './Enemy';
 import { CONSTANTS } from '../../core/Constants';
-import { CoinDrop } from '../items/CoinDrop';
-import { ArrowDrop } from '../items/ArrowDrop';
 import { EventBus } from '../../core/EventBus';
 
 export class SlimeEnemy extends Enemy {
@@ -100,27 +98,13 @@ export class SlimeEnemy extends Enemy {
     this.isDying = true;
     this.isAttacking = false;
 
-    // Desativa colisão física para não causar dano enquanto toca animação de morte
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
       body.setVelocity(0, 0);
       body.enable = false;
     }
 
-    // Dropa as moedas e flechas da vitória
-    if (this.dropGroup) {
-      const numCoins = Math.max(1, Math.floor(this.goldReward));
-      for (let i = 0; i < numCoins; i++) {
-        const offsetX = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-        const offsetY = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-        const coin = new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, 1);
-        this.dropGroup.add(coin);
-      }
-
-      const arrow = new ArrowDrop(this.scene, this.x + 6, this.y - 4);
-      this.dropGroup.add(arrow);
-    }
-
+    this.spawnDrops();
     EventBus.emit(CONSTANTS.EVENTS.ENEMY_DIED, this);
 
     // Executa a animação de morte do slime (frames 10 a 14)

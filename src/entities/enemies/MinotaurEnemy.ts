@@ -2,8 +2,6 @@ import * as Phaser from 'phaser';
 import { Enemy } from './Enemy';
 import { CONSTANTS } from '../../core/Constants';
 import { AudioService } from '../../systems/AudioService';
-import { CoinDrop } from '../items/CoinDrop';
-import { ArrowDrop } from '../items/ArrowDrop';
 import { EventBus } from '../../core/EventBus';
 
 export class MinotaurEnemy extends Enemy {
@@ -247,20 +245,7 @@ export class MinotaurEnemy extends Enemy {
       body.enable = false;
     }
 
-    // Dropa as moedas garantidas e a flecha
-    if (this.dropGroup) {
-      const numCoins = Math.max(1, Math.floor(this.goldReward));
-      for (let i = 0; i < numCoins; i++) {
-        const offsetX = (Math.random() - 0.5) * 18;
-        const offsetY = (Math.random() - 0.5) * 18;
-        const coin = new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, 1);
-        this.dropGroup.add(coin);
-      }
-
-      const arrow = new ArrowDrop(this.scene, this.x + 8, this.y - 4);
-      this.dropGroup.add(arrow);
-    }
-
+    this.spawnDrops();
     EventBus.emit(CONSTANTS.EVENTS.ENEMY_DIED, this);
 
     // Animação de queda / morte do Minotauro (Frames 15 a 19)

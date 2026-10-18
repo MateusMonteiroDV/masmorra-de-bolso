@@ -18,7 +18,6 @@ export class PlayerController {
 
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
-  public wasMouseShoot: boolean = false;
   public lastMouseShootScreenPos: { x: number; y: number } | null = null;
   private keyShootTriggered: boolean = false;
 
@@ -34,11 +33,6 @@ export class PlayerController {
   public isVirtualAiming: boolean = false;
   public virtualAimAngleRad: number = 0;
   public isVirtualShootAimed: boolean = false;
-
-  private capturedKeys: Set<string> = new Set();
-  private onKeyDownCapture?: (e: KeyboardEvent) => void;
-  private onKeyUpCapture?: (e: KeyboardEvent) => void;
-  private onBlur?: () => void;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -59,7 +53,6 @@ export class PlayerController {
       this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
       this.keyC = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
 
-      // Ouvintes de evento direto para garantir detecção instantânea das teclas F e J
       keyboard.on('keydown-F', () => {
         this.keyShootTriggered = true;
       });
@@ -68,53 +61,9 @@ export class PlayerController {
       });
     }
 
-    // Ouvinte em fase de captura global (capture: true) para garantir leitura de WASD
-    // mesmo se extensões do navegador (ex: Video Speed Controller) interceptarem o keydown
-    if (typeof window !== 'undefined') {
-      this.onKeyDownCapture = (e: KeyboardEvent) => {
-        const code = e.code;
-        if (
-          code === 'KeyD' || code === 'KeyA' || code === 'KeyW' || code === 'KeyS' ||
-          code === 'ArrowRight' || code === 'ArrowLeft' || code === 'ArrowUp' || code === 'ArrowDown' ||
-          e.key === 'd' || e.key === 'D' || e.key === 'a' || e.key === 'A' ||
-          e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S'
-        ) {
-          if (code === 'KeyD' || e.key === 'd' || e.key === 'D') this.capturedKeys.add('KeyD');
-          if (code === 'KeyA' || e.key === 'a' || e.key === 'A') this.capturedKeys.add('KeyA');
-          if (code === 'KeyW' || e.key === 'w' || e.key === 'W') this.capturedKeys.add('KeyW');
-          if (code === 'KeyS' || e.key === 's' || e.key === 'S') this.capturedKeys.add('KeyS');
-          if (code === 'ArrowRight') this.capturedKeys.add('ArrowRight');
-          if (code === 'ArrowLeft') this.capturedKeys.add('ArrowLeft');
-          if (code === 'ArrowUp') this.capturedKeys.add('ArrowUp');
-          if (code === 'ArrowDown') this.capturedKeys.add('ArrowDown');
-        }
-      };
-
-      this.onKeyUpCapture = (e: KeyboardEvent) => {
-        const code = e.code;
-        if (code === 'KeyD' || e.key === 'd' || e.key === 'D') this.capturedKeys.delete('KeyD');
-        if (code === 'KeyA' || e.key === 'a' || e.key === 'A') this.capturedKeys.delete('KeyA');
-        if (code === 'KeyW' || e.key === 'w' || e.key === 'W') this.capturedKeys.delete('KeyW');
-        if (code === 'KeyS' || e.key === 's' || e.key === 'S') this.capturedKeys.delete('KeyS');
-        if (code === 'ArrowRight') this.capturedKeys.delete('ArrowRight');
-        if (code === 'ArrowLeft') this.capturedKeys.delete('ArrowLeft');
-        if (code === 'ArrowUp') this.capturedKeys.delete('ArrowUp');
-        if (code === 'ArrowDown') this.capturedKeys.delete('ArrowDown');
-      };
-
-      this.onBlur = () => {
-        this.capturedKeys.clear();
-      };
-
-      window.addEventListener('keydown', this.onKeyDownCapture, true);
-      window.addEventListener('keyup', this.onKeyUpCapture, true);
-      window.addEventListener('blur', this.onBlur);
-    }
-
     this.scene.input.mouse?.disableContextMenu();
 
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      // Ignora toques em botões virtuais ou joystick touch para não disparar flechas acidentais
       if ((pointer as any).isVirtualControl) return;
 
       if (pointer.button === 0 || pointer.leftButtonDown()) {
@@ -139,29 +88,11 @@ export class PlayerController {
     let x = 0;
     let y = 0;
 
-    // A ou Seta Esquerda -> Direção negativa (-1)
-    const leftDown = this.keyA?.isDown || this.cursors?.left.isDown || this.capturedKeys.has('KeyA') || this.capturedKeys.has('ArrowLeft');
-    if (leftDown) {
-      x -= 1;
-    }
-    // D ou Seta Direita -> Direção positiva (+1)
-    const rightDown = this.keyD?.isDown || this.cursors?.right.isDown || this.capturedKeys.has('KeyD') || this.capturedKeys.has('ArrowRight');
-    if (rightDown) {
-      x += 1;
-    }
+    if (this.keyA?.isDown || this.cursors?.left.isDown) x -= 1;
+    if (this.keyD?.isDown || this.cursors?.right.isDown) x += 1;
+    if (this.keyW?.isDown || this.cursors?.up.isDown) y -= 1;
+    if (this.keyS?.isDown || this.cursors?.down.isDown) y += 1;
 
-    // W ou Seta Cima -> (-1)
-    const upDown = this.keyW?.isDown || this.cursors?.up.isDown || this.capturedKeys.has('KeyW') || this.capturedKeys.has('ArrowUp');
-    if (upDown) {
-      y -= 1;
-    }
-    // S ou Seta Baixo -> (+1)
-    const downDown = this.keyS?.isDown || this.cursors?.down.isDown || this.capturedKeys.has('KeyS') || this.capturedKeys.has('ArrowDown');
-    if (downDown) {
-      y += 1;
-    }
-
-    // Suporte a Joystick Virtual Mobile
     if (this.virtualMoveVector.x !== 0 || this.virtualMoveVector.y !== 0) {
       x += this.virtualMoveVector.x;
       y += this.virtualMoveVector.y;
@@ -170,22 +101,8 @@ export class PlayerController {
     return { x, y };
   }
 
-  public destroy() {
-    if (typeof window !== 'undefined') {
-      if (this.onKeyDownCapture) {
-        window.removeEventListener('keydown', this.onKeyDownCapture, true);
-      }
-      if (this.onKeyUpCapture) {
-        window.removeEventListener('keyup', this.onKeyUpCapture, true);
-      }
-      if (this.onBlur) {
-        window.removeEventListener('blur', this.onBlur);
-      }
-    }
-    this.capturedKeys.clear();
-  }
+  public destroy() {}
 
-  // Golpe com Espada (Espaço, K ou Botão Virtual Touch)
   public isMeleeAttackPressed(): boolean {
     const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
     const kDown = this.keyK ? Phaser.Input.Keyboard.JustDown(this.keyK) : false;
@@ -195,7 +112,6 @@ export class PlayerController {
     return spaceDown || kDown || virtualAttack;
   }
 
-  // Tiro com Besta / Flecha (Clique do Mouse, F, J ou Botão Virtual Touch)
   public isShootCrossbowPressed(): boolean {
     const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
     const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
@@ -208,25 +124,9 @@ export class PlayerController {
     const virtualShoot = this.virtualShootTriggered;
     this.virtualShootTriggered = false;
 
-    if (virtualShoot) {
-      this.wasMouseShoot = false;
-      return true;
-    }
-
-    if (mouseShoot) {
-      this.wasMouseShoot = true;
-      return true;
-    }
-
-    if (fDown || jDown || keyTriggered) {
-      this.wasMouseShoot = true;
-      return true;
-    }
-
-    return false;
+    return virtualShoot || mouseShoot || fDown || jDown || keyTriggered;
   }
 
-  // Esquiva / Dash (Shift, C ou Botão Virtual Touch)
   public isDashPressed(): boolean {
     const shiftDown = this.keyShift ? Phaser.Input.Keyboard.JustDown(this.keyShift) : false;
     const cDown = this.keyC ? Phaser.Input.Keyboard.JustDown(this.keyC) : false;
@@ -236,7 +136,6 @@ export class PlayerController {
     return shiftDown || cDown || virtualDash;
   }
 
-  // Defesa com Escudo (Q, Botão Direito do Mouse ou Botão Virtual Touch)
   public isDefending(): boolean {
     const qDown = this.keyQ?.isDown ?? false;
     return qDown || this.mouseDefendDown || this.virtualDefendDown;
@@ -249,20 +148,5 @@ export class PlayerController {
 
     return eDown || virtualInteract;
   }
-
-  public getAimAngle(playerX: number, playerY: number, facingDirX: number, facingDirY: number): number {
-    const pointer = this.scene.input.activePointer;
-
-    if (pointer && this.scene.cameras?.main) {
-      const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-      const rad = Phaser.Math.Angle.Between(playerX, playerY, worldPoint.x, worldPoint.y);
-      return Phaser.Math.RadToDeg(rad);
-    }
-
-    if (facingDirX !== 0 || facingDirY !== 0) {
-      return Phaser.Math.RadToDeg(Math.atan2(facingDirY, facingDirX));
-    }
-
-    return 0;
-  }
 }
+

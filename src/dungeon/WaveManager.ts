@@ -288,80 +288,36 @@ export class WaveManager {
     const damageMult = config.damageMult ?? 1;
     const goldMult = config.goldMult ?? 1;
 
-    // 1. Spawna Slimes da Onda com escala de dificuldade
-    config.slimes.forEach((pos, idx) => {
-      const id = `w${this.currentWave}_slime_${idx}`;
-      this.spawnSpawnCloud(pos.x, pos.y);
-
-      const slime = new SlimeEnemy(this.scene, pos.x, pos.y, this.dropGroup);
-      slime.setData('networkId', id);
-      slime.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
-      this.enemyGroup.add(slime);
-      this.enemyMap.set(id, slime);
-      spawnedCount++;
-    });
-
-    // 2. Spawna Morcegos da Onda com escala de dificuldade
-    if (config.bats) {
-      config.bats.forEach((pos, idx) => {
-        const id = `w${this.currentWave}_bat_${idx}`;
+    const spawnBatch = (
+      positions: { x: number; y: number }[] | undefined,
+      prefix: string,
+      createFn: (pos: { x: number; y: number }) => Enemy,
+      scaleHp: number = hpMult
+    ) => {
+      positions?.forEach((pos, idx) => {
+        const id = `w${this.currentWave}_${prefix}_${idx}`;
         this.spawnSpawnCloud(pos.x, pos.y);
-
-        const bat = new BatEnemy(this.scene, pos.x, pos.y, this.dropGroup);
-        bat.setData('networkId', id);
-        // O morcego continua sendo derrotado em um golpe mesmo nas ondas avançadas.
-        bat.applyDifficultyScale(1, speedMult, damageMult, goldMult);
-        this.enemyGroup.add(bat);
-        this.enemyMap.set(id, bat);
+        const enemy = createFn(pos);
+        enemy.setData('networkId', id);
+        enemy.applyDifficultyScale(scaleHp, speedMult, damageMult, goldMult);
+        this.enemyGroup.add(enemy);
+        this.enemyMap.set(id, enemy);
         spawnedCount++;
       });
-    }
+    };
 
-    // 3. Spawna Magos da Onda com escala de dificuldade
-    config.mages.forEach((pos, idx) => {
-      const id = `w${this.currentWave}_mage_${idx}`;
-      this.spawnSpawnCloud(pos.x, pos.y);
+    spawnBatch(config.slimes, 'slime', pos => new SlimeEnemy(this.scene, pos.x, pos.y, this.dropGroup));
+    spawnBatch(config.bats, 'bat', pos => new BatEnemy(this.scene, pos.x, pos.y, this.dropGroup), 1);
+    spawnBatch(config.mages, 'mage', pos => new SkeletonMage(this.scene, pos.x, pos.y, this.dropGroup, this.projectileGroup));
+    spawnBatch(config.minotaurs, 'minotaur', pos => new MinotaurEnemy(this.scene, pos.x, pos.y, this.dropGroup));
 
-      const mage = new SkeletonMage(this.scene, pos.x, pos.y, this.dropGroup, this.projectileGroup);
-      mage.setData('networkId', id);
-      mage.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
-      this.enemyGroup.add(mage);
-      this.enemyMap.set(id, mage);
-      spawnedCount++;
-    });
-
-    // 4. Spawna Minotauros da Onda com escala de dificuldade
-    if (config.minotaurs) {
-      config.minotaurs.forEach((pos, idx) => {
-        const id = `w${this.currentWave}_minotaur_${idx}`;
-        this.spawnSpawnCloud(pos.x, pos.y);
-
-        const minotaur = new MinotaurEnemy(this.scene, pos.x, pos.y, this.dropGroup);
-        minotaur.setData('networkId', id);
-        minotaur.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
-        this.enemyGroup.add(minotaur);
-        this.enemyMap.set(id, minotaur);
-        spawnedCount++;
-      });
-    }
-
-    // 5. Spawna Chefe na Onda Final
     if (config.hasBoss && config.bossPos) {
-      const bossId = 'boss_king_slime';
-      this.spawnSpawnCloud(config.bossPos.x, config.bossPos.y);
-
-      const boss = new KingSlimeBoss(this.scene, config.bossPos.x, config.bossPos.y, this.dropGroup, this.enemyGroup);
-      boss.setData('networkId', bossId);
-      boss.applyDifficultyScale(hpMult, speedMult, damageMult, goldMult);
-      this.enemyGroup.add(boss);
-      this.enemyMap.set(bossId, boss);
-      spawnedCount++;
+      spawnBatch([config.bossPos], 'boss', pos => new KingSlimeBoss(this.scene, pos.x, pos.y, this.dropGroup, this.enemyGroup));
     }
 
     this.remainingEnemies = spawnedCount;
     this.emitWaveUpdate();
 
-    // Sincroniza início de onda via P2P se for o Host
     if (NetworkManager.isHost && NetworkManager.isConnected()) {
       NetworkManager.sendAction({
         type: 'scene_sync',
@@ -373,39 +329,32 @@ export class WaveManager {
   public onEnemyKilled(deadEnemy: Enemy) {
     if (this.isTransitioning) return;
 
-    // Inimigos invocados pelo chefe (minions) não decrementam o contador da onda
     if (deadEnemy.getData('isMinion')) return;
 
     this.remainingEnemies = Math.max(0, this.remainingEnemies - 1);
     this.emitWaveUpdate();
 
-    // Se todos os inimigos da onda atual foram eliminados
     if (this.remainingEnemies <= 0) {
       this.isTransitioning = true;
 
       if (this.currentWave >= this.totalWaves) {
-        // Vitória completa da Masmorra
         this.showWaveBanner('👑 TODAS AS 8 ONDAS VENCIDAS! O REI SLIME FOI DERROTADO!', true);
-        EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);
 
         if (NetworkManager.isConnected()) {
           NetworkManager.sendAction({ type: 'dungeon_victory' });
         }
 
-        // Dá 4 segundos para o jogador ver a comemoração, abrir o Baú do Chefe e recolher suas recompensas
         this.scene.time.delayedCall(4000, () => {
           this.scene.scene.stop('UIScene');
           this.scene.scene.start('GameOverScene', { victory: true });
         });
       } else {
-        // Próxima Onda com contagem regressiva e aviso claro do chefe
         const nextWave = this.currentWave + 1;
         const bannerText = nextWave === this.totalWaves
           ? `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA! PREPARE-SE PARA O CHEFE FINAL (REI SLIME)!`
           : `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA!`;
 
         this.showWaveBanner(bannerText, false);
-        EventBus.emit(CONSTANTS.EVENTS.WAVE_COMPLETED, this.currentWave);
 
         this.scene.time.delayedCall(3000, () => {
           this.nextWave();

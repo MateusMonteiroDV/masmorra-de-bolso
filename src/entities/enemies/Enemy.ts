@@ -44,24 +44,21 @@ export abstract class Enemy extends Entity {
     this.goldReward = Math.max(1, Math.round(this.goldReward * goldMult));
   }
 
+  protected spawnDrops() {
+    if (!this.dropGroup) return;
+    const numCoins = Math.max(1, Math.floor(this.goldReward));
+    for (let i = 0; i < numCoins; i++) {
+      const offsetX = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
+      const offsetY = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
+      this.dropGroup.add(new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, 1));
+    }
+    this.dropGroup.add(new ArrowDrop(this.scene, this.x + 6, this.y - 4));
+  }
+
   public die() {
     if (!this.active) return;
 
-    // Dropa moedas de ouro e 1 flecha para reabastecimento
-    if (this.dropGroup) {
-      const numCoins = Math.max(1, Math.floor(this.goldReward));
-      for (let i = 0; i < numCoins; i++) {
-        const offsetX = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-        const offsetY = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-        const coin = new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, 1);
-        this.dropGroup.add(coin);
-      }
-
-      // Drop de 1 flecha por inimigo derrotado conforme solicitado
-      const arrow = new ArrowDrop(this.scene, this.x + 6, this.y - 4);
-      this.dropGroup.add(arrow);
-    }
-
+    this.spawnDrops();
     EventBus.emit(CONSTANTS.EVENTS.ENEMY_DIED, this);
 
     // Efeito de explosão de poeira ao morrer
