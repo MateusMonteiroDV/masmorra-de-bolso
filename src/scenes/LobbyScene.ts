@@ -8,7 +8,7 @@ import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes
 import { AudioService } from '../systems/AudioService';
 import { GameState } from '../core/GameState';
 import { RoomInputDialog } from '../ui/RoomInputDialog';
-import { buildTiledRoomWithCampfire } from '../ui/TouchControls';
+import { TouchControls, isTouchDevice, buildTiledRoomWithCampfire } from '../ui/TouchControls';
 
 export class LobbyScene extends Phaser.Scene {
   private player!: Player;
@@ -18,6 +18,7 @@ export class LobbyScene extends Phaser.Scene {
   private networkSyncTimer: number = 0;
   private lobbyHeartbeatTimer: number = 0;
   private networkUnsubs: Array<() => void> = [];
+  private touchControls?: TouchControls;
 
   private isSelfReady: boolean = false;
   private peerReadyMap: Map<string, boolean> = new Map();
@@ -37,8 +38,8 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   public create() {
-    const width = CONSTANTS.GAME_WIDTH;
-    const height = CONSTANTS.GAME_HEIGHT;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
     this.remotePlayers.clear();
     this.peerReadyMap.clear();
@@ -70,20 +71,27 @@ export class LobbyScene extends Phaser.Scene {
 
     // 2. Spawn do Jogador Local
     const spawnX = NetworkManager.isHost ? width / 2 - 55 : width / 2 + 55;
-    const spawnY = height / 2 + 30;
+    const spawnY = height / 2 + 24;
     this.player = new Player(this, spawnX, spawnY);
     this.physics.add.collider(this.player, walls);
 
     // 3. UI da Sala de Espera
     this.createLobbyUI();
 
-    // 4. Configuração da Rede P2P
+    // 4. Controles Touch Virtuais no Mobile
+    if (isTouchDevice(this.game)) {
+      this.touchControls = new TouchControls(this, this.player.controller, { isHub: true, showInteract: false });
+    }
+
+    // 5. Configuração da Rede P2P
     this.setupLobbyNetwork();
 
     // Limpeza de ouvintes ao sair da cena
     this.events.once('shutdown', () => {
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
+      this.touchControls?.destroy();
+      this.touchControls = undefined;
     });
 
     // Sincroniza presença inicial na sala de espera
@@ -96,7 +104,10 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private createLobbyUI() {
-    const width = CONSTANTS.GAME_WIDTH;
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const isTouch = isTouchDevice(this.game);
+    const rightPad = isTouch ? 36 : 0;
     const roomId = NetworkManager.currentRoomId || '----';
 
     this.uiContainer = this.add.container(0, 0);
@@ -128,7 +139,7 @@ export class LobbyScene extends Phaser.Scene {
     this.uiContainer.add(subTitle);
 
     // Botão 1: Digitar / Conectar com outro ID de Sala
-    const joinOtherBtn = this.add.text(width - 175, 14, '🔑 DIGITAR ID', {
+    const joinOtherBtn = this.add.text(width - 175 - rightPad, 16, '🔑 DIGITAR ID', {
       fontFamily: 'monospace',
       fontSize: '7.5px',
       color: '#38bdf8',
@@ -137,7 +148,8 @@ export class LobbyScene extends Phaser.Scene {
       padding: { x: 5, y: 3 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    joinOtherBtn.on('pointerdown', () => {
+    joinOtherBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       const currentScene = this.scene;
       RoomInputDialog.show({
         title: '🔑 CONECTAR A OUTRO ID',
@@ -153,7 +165,7 @@ export class LobbyScene extends Phaser.Scene {
     this.uiContainer.add(joinOtherBtn);
 
     // Botão 2: Copiar ID
-    const copyIdBtn = this.add.text(width - 95, 14, '📋 ID', {
+    const copyIdBtn = this.add.text(width - 95 - rightPad, 16, '📋 ID', {
       fontFamily: 'monospace',
       fontSize: '7.5px',
       color: '#94a3b8',
@@ -162,7 +174,8 @@ export class LobbyScene extends Phaser.Scene {
       padding: { x: 5, y: 3 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    copyIdBtn.on('pointerdown', () => {
+    copyIdBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(roomId).catch(() => {});
@@ -176,7 +189,7 @@ export class LobbyScene extends Phaser.Scene {
     this.uiContainer.add(copyIdBtn);
 
     // Botão 3: Copiar Link Completo
-    const copyLinkBtn = this.add.text(width - 35, 14, '🔗 LINK', {
+    const copyLinkBtn = this.add.text(width - 35 - rightPad, 16, '🔗 LINK', {
       fontFamily: 'monospace',
       fontSize: '7.5px',
       color: '#fde047',
@@ -185,7 +198,8 @@ export class LobbyScene extends Phaser.Scene {
       padding: { x: 5, y: 3 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    copyLinkBtn.on('pointerdown', () => {
+    copyLinkBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       const url = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -221,40 +235,53 @@ export class LobbyScene extends Phaser.Scene {
     });
     this.uiContainer.add(this.guestStatusText);
 
-    // Dica de treino / controles no rodapé
-    const controlsTip = this.add.text(width / 2, 208, 'Controles: [WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta', {
-      fontFamily: 'monospace',
-      fontSize: '6.5px',
-      color: '#64748b'
-    }).setOrigin(0.5);
-    this.uiContainer.add(controlsTip);
+    // Dica de treino / controles no rodapé (apenas desktop)
+    if (!isTouch) {
+      const controlsTip = this.add.text(width / 2, height - 62, 'Controles: [WASD] Mover | [Shift/C] Esquivar | [Espaço/K] Espada | [Botão Dir/Q] Escudo | [Clique/F] Besta', {
+        fontFamily: 'monospace',
+        fontSize: '6.5px',
+        color: '#64748b'
+      }).setOrigin(0.5);
+      this.uiContainer.add(controlsTip);
+    }
 
-    // Botão de Ação Inferior (Pronto / Iniciar) em Rectangle interativo sólido
-    this.actionButtonBg = this.add.rectangle(width / 2, 237, 220, 26, 0x475569);
-    this.actionButtonBg.setInteractive({ useHandCursor: true });
-    this.uiContainer.add(this.actionButtonBg);
+    // Barra inferior centralizada (280px de largura total, livre dos controles touch laterais)
+    const bottomY = height - 32;
 
-    this.actionButtonText = this.add.text(width / 2, 237, '', {
-      fontFamily: 'monospace',
-      fontSize: '8.5px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    this.uiContainer.add(this.actionButtonText);
+    // Botão Sair da Sala (Esquerda do bloco central)
+    const leaveBg = this.add.rectangle(width / 2 - 108, bottomY, 64, 26, 0x1e293b);
+    leaveBg.setStrokeStyle(1, 0xf43f5e);
+    leaveBg.setInteractive({ useHandCursor: true });
+    this.uiContainer.add(leaveBg);
 
-    // Botão Sair da Sala
-    const leaveBtn = this.add.text(45, 237, '[ 🚪 SAIR ]', {
+    const leaveBtn = this.add.text(width / 2 - 108, bottomY, '🚪 SAIR', {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#f43f5e',
       fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    leaveBtn.on('pointerdown', () => {
+    const handleLeave = (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       NetworkManager.leave();
       this.scene.start('HubScene');
-    });
+    };
+    leaveBg.on('pointerdown', handleLeave);
+    leaveBtn.on('pointerdown', handleLeave);
     this.uiContainer.add(leaveBtn);
+
+    // Botão de Ação Inferior (Pronto / Iniciar) à direita do botão Sair
+    this.actionButtonBg = this.add.rectangle(width / 2 + 35, bottomY, 210, 26, 0x475569);
+    this.actionButtonBg.setInteractive({ useHandCursor: true });
+    this.uiContainer.add(this.actionButtonBg);
+
+    this.actionButtonText = this.add.text(width / 2 + 35, bottomY, '', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.uiContainer.add(this.actionButtonText);
 
     this.refreshLobbyStateUI();
   }
@@ -293,7 +320,7 @@ export class LobbyScene extends Phaser.Scene {
         this.isSelfReady = true;
 
         const notice = this.add.text(
-          CONSTANTS.GAME_WIDTH / 2,
+          this.scale.width / 2,
           96,
           'O ANFITRIÃO SAIU. VOCÊ AGORA É O LÍDER DA SALA!',
           {
@@ -390,8 +417,8 @@ export class LobbyScene extends Phaser.Scene {
     if (this.remotePlayers.has(peerId)) {
       return this.remotePlayers.get(peerId)!;
     }
-    const spawnX = NetworkManager.isHost ? CONSTANTS.GAME_WIDTH / 2 + 55 : CONSTANTS.GAME_WIDTH / 2 - 55;
-    const remote = new RemotePlayer(this, spawnX, CONSTANTS.GAME_HEIGHT / 2 + 30, peerId);
+    const spawnX = NetworkManager.isHost ? this.scale.width / 2 + 55 : this.scale.width / 2 - 55;
+    const remote = new RemotePlayer(this, spawnX, this.scale.height / 2 + 24, peerId);
     this.remotePlayers.set(peerId, remote);
     return remote;
   }
@@ -405,9 +432,7 @@ export class LobbyScene extends Phaser.Scene {
       this.isSelfReady = true;
     }
 
-    const width = CONSTANTS.GAME_WIDTH;
     const isHost = NetworkManager.isHost;
-    const isConnected = NetworkManager.isConnected();
     const peers = Array.from(NetworkManager.connectedPeers);
     const hasPeers = peers.length > 0;
     const allConnectedPeersInLobby = hasPeers && peers.every(p => this.peersInLobby.has(p));
@@ -464,7 +489,8 @@ export class LobbyScene extends Phaser.Scene {
         if (canStart) {
           this.actionButtonBg.fillColor = 0x16a34a;
           this.actionButtonText.setText(hasPeers ? '⚔️ INICIAR MASMORRA (TODOS PRONTOS)' : '⚔️ INICIAR MASMORRA (SOLO)');
-          const handleStart = () => {
+          const handleStart = (pointer: Phaser.Input.Pointer) => {
+            (pointer as any).isVirtualControl = true;
             this.triggerStartMatch();
           };
           this.actionButtonBg.on('pointerdown', handleStart);
@@ -485,7 +511,8 @@ export class LobbyScene extends Phaser.Scene {
         this.actionButtonBg.fillColor = this.isSelfReady ? 0x991b1b : 0x059669;
         this.actionButtonText.setText(this.isSelfReady ? '❌ CANCELAR CONFIRMAÇÃO' : '✅ ESTOU PRONTO!');
 
-        const handleToggle = () => {
+        const handleToggle = (pointer: Phaser.Input.Pointer) => {
+          (pointer as any).isVirtualControl = true;
           this.isSelfReady = !this.isSelfReady;
           AudioService.playBuyUpgrade();
           NetworkManager.sendAction({
@@ -511,18 +538,19 @@ export class LobbyScene extends Phaser.Scene {
   private startCountdownSequence() {
     if (this.isCountingDown) return;
     this.isCountingDown = true;
+    this.touchControls?.setVisible(false);
 
     let secondsLeft = 3;
 
     // Overlay escuro com texto de contagem estilo contagem regressiva
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.78);
-    overlay.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
-    overlay.setDepth(CONSTANTS.DEPTH.MODAL + 10);
+    overlay.fillRect(0, 0, this.scale.width, this.scale.height);
+    overlay.setDepth(CONSTANTS.DEPTH.MODAL + 100);
 
     this.countdownText = this.add.text(
-      CONSTANTS.GAME_WIDTH / 2,
-      CONSTANTS.GAME_HEIGHT / 2,
+      this.scale.width / 2,
+      this.scale.height / 2,
       `COMEÇANDO EM ${secondsLeft}...`,
       {
         fontFamily: 'monospace',
@@ -532,7 +560,7 @@ export class LobbyScene extends Phaser.Scene {
         stroke: '#000000',
         strokeThickness: 3
       }
-    ).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.MODAL + 20);
+    ).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.MODAL + 110);
 
     AudioService.playBuyUpgrade();
 

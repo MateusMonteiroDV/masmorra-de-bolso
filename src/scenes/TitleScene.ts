@@ -49,10 +49,11 @@ export class TitleScene extends Phaser.Scene {
     const playY = imgY + 131 * titleScale;
     const playZone = this.add.zone(playX, playY, 110, 50).setDepth(25).setInteractive({ useHandCursor: true });
 
+    const isTouch = isTouchDevice(this.game);
     const promptKeyText = this.add.text(
       width / 2,
       height - 12,
-      '[ Pressione ESPAÇO, ENTER ou toque em PLAY ]',
+      isTouch ? '[ Toque em PLAY para iniciar ]' : '[ Pressione ESPAÇO, ENTER ou toque em PLAY ]',
       {
         fontFamily: 'monospace',
         fontSize: '7.5px',
@@ -77,9 +78,10 @@ export class TitleScene extends Phaser.Scene {
       color: '#64748b'
     }).setDepth(20);
 
-    const { container: fsBtn, cleanup } = createFullscreenToggleButton(this, width - 24, 16, true);
+    const { container: fsBtn, cleanup } = createFullscreenToggleButton(this, width - 22, 16, true);
     fsBtn.setDepth(30);
     this.cleanupFs = cleanup;
+    this.events.once('shutdown', () => this.cleanupFs?.());
 
     const triggerStart = (pointerOrEvent?: any) => {
       if (this.hasStarted) return;

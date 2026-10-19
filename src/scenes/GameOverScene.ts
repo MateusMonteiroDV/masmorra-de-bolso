@@ -15,8 +15,8 @@ export class GameOverScene extends Phaser.Scene {
 
   public create(data: GameOverData) {
     const isVictory = !!data.victory;
-    const width = CONSTANTS.GAME_WIDTH;
-    const height = CONSTANTS.GAME_HEIGHT;
+    const width = this.scale.width;
+    const height = this.scale.height;
     const isInMultiplayer = !!NetworkManager.currentRoomId;
 
     // Conclui a run e transfere todo o ouro para o banco permanente!

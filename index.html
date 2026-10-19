@@ -88,19 +88,37 @@
       box-sizing: border-box;
     }
 
-    @keyframes rotateIconAnim {
-      0%, 100% { transform: rotate(0deg); }
-      50% { transform: rotate(-90deg); }
+    @keyframes rotatePhoneAnim {
+      0%, 15% { transform: rotate(0deg); }
+      55%, 85% { transform: rotate(-90deg); }
+      100% { transform: rotate(0deg); }
     }
 
-    .rotate-icon {
-      font-size: 52px;
-      margin-bottom: 16px;
-      animation: rotateIconAnim 2s infinite ease-in-out;
-      display: inline-block;
+    .rotate-phone-box {
+      width: 44px;
+      height: 76px;
+      border: 3px solid #38bdf8;
+      border-radius: 8px;
+      position: relative;
+      margin-bottom: 20px;
+      animation: rotatePhoneAnim 2.2s infinite ease-in-out;
+      background: #0f172a;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
     }
 
-    @media screen and (orientation: portrait) and (max-width: 850px) {
+    .rotate-phone-box::after {
+      content: '';
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 14px;
+      height: 3px;
+      border-radius: 2px;
+      background: #38bdf8;
+    }
+
+    @media screen and (orientation: portrait) and (max-width: 900px) {
       #rotate-device {
         display: flex;
       }
@@ -109,10 +127,10 @@
 </head>
 <body>
   <div id="rotate-device">
-    <span class="rotate-icon">📱↻</span>
-    <div style="font-size: 16px; font-weight: bold; color: #4ade80; margin-bottom: 10px;">GIRE O CELULAR</div>
-    <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5; max-width: 280px;">
-      Vire o celular na horizontal (modo paisagem) para jogar em tela cheia sem barras pretas!
+    <div class="rotate-phone-box"></div>
+    <div style="font-size: 16px; font-weight: bold; color: #4ade80; margin-bottom: 10px; letter-spacing: 1px;">GIRE O CELULAR</div>
+    <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5; max-width: 260px;">
+      Vire o aparelho na horizontal (modo paisagem) para jogar em tela cheia!
     </div>
   </div>
   <div id="game-container"></div>

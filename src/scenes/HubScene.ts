@@ -37,8 +37,10 @@ export class HubScene extends Phaser.Scene {
   }
 
   public create() {
-    const width = CONSTANTS.GAME_WIDTH;
-    const height = CONSTANTS.GAME_HEIGHT;
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const isTouch = isTouchDevice(this.game);
+    this.isModalOpen = false;
 
     this.remotePlayers.clear();
     this.arrowGroup = this.add.group({ runChildUpdate: true });
@@ -117,7 +119,7 @@ export class HubScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.shopNpc);
 
     // 7. Textos de HUD do Hub
-    this.goldDisplayText = this.add.text(12, 10, `Ouro: ${GameState.bankedGold} G`, {
+    this.goldDisplayText = this.add.text(14, 11, `Ouro: ${GameState.bankedGold} G`, {
       fontFamily: 'monospace',
       fontSize: '9px',
       color: '#fbbf24',
@@ -125,8 +127,9 @@ export class HubScene extends Phaser.Scene {
       strokeThickness: 2
     }).setDepth(CONSTANTS.DEPTH.UI);
 
-    // Botão / Status P2P no canto superior direito
-    this.p2pStatusText = this.add.text(width - 12, 10, '[ 🌐 SALA MULTIPLAYER ]', {
+    // Botão / Status P2P no canto superior direito (recuado no mobile para não colidir com o botão de Tela Cheia)
+    const statusRightX = isTouch ? width - 44 : width - 14;
+    this.p2pStatusText = this.add.text(statusRightX, 11, '[ 🌐 SALA MULTIPLAYER ]', {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#38bdf8',
@@ -134,7 +137,8 @@ export class HubScene extends Phaser.Scene {
       strokeThickness: 2
     }).setOrigin(1, 0).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
 
-    this.p2pStatusText.on('pointerdown', () => {
+    this.p2pStatusText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       this.openMultiplayerModal();
     });
 
@@ -146,7 +150,7 @@ export class HubScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0d0e15');
 
     // 9. Controles Touch Virtuais para Dispositivos Móveis
-    if (isTouchDevice(this.game)) {
+    if (isTouch) {
       this.touchControls = new TouchControls(this, this.player.controller, { isHub: true, showInteract: true });
     }
 
@@ -229,6 +233,8 @@ export class HubScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
+      this.touchControls?.destroy();
+      this.touchControls = undefined;
     });
 
     this.updateP2PStatusText();
@@ -274,17 +280,20 @@ export class HubScene extends Phaser.Scene {
       }
     }
 
+    const keyLabel = isTouchDevice(this.game) ? '[USAR]' : '[E]';
+
     // 1. Proximidade com o NPC Ferreiro / Barraco da Loja
     const distNpc = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.shopNpc.x, this.shopNpc.y);
     if (distNpc < 48) {
       if (!this.npcPromptText) {
-        this.npcPromptText = this.add.text(this.shopNpc.x, this.shopNpc.y + 36, '[E] Melhorias', {
+        this.npcPromptText = this.add.text(this.shopNpc.x, this.shopNpc.y + 36, `${keyLabel} Melhorias`, {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#38bdf8',
           stroke: '#000000',
           strokeThickness: 2
-        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
+        this.npcPromptText.on('pointerdown', () => this.openShop());
       }
 
       if (this.player.controller.isInteractPressed()) {
@@ -299,13 +308,14 @@ export class HubScene extends Phaser.Scene {
     const distP2P = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.p2pTotem.x, this.p2pTotem.y);
     if (distP2P < 28) {
       if (!this.p2pPromptText) {
-        this.p2pPromptText = this.add.text(this.p2pTotem.x, this.p2pTotem.y + 16, '[E] Multiplayer P2P', {
+        this.p2pPromptText = this.add.text(this.p2pTotem.x, this.p2pTotem.y + 16, `${keyLabel} Multiplayer P2P`, {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#38bdf8',
           stroke: '#000000',
           strokeThickness: 2
-        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
+        this.p2pPromptText.on('pointerdown', () => this.openMultiplayerModal());
       }
 
       if (this.player.controller.isInteractPressed()) {
@@ -320,14 +330,21 @@ export class HubScene extends Phaser.Scene {
     const distPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.portal.x, this.portal.y);
     if (distPortal < 28) {
       if (!this.portalPromptText) {
-        const portalLabel = NetworkManager.currentRoomId ? '[E] Sala de Espera' : '[E] Descer Masmorra';
+        const portalLabel = NetworkManager.currentRoomId ? `${keyLabel} Sala de Espera` : `${keyLabel} Descer Masmorra`;
         this.portalPromptText = this.add.text(this.portal.x, this.portal.y + 18, portalLabel, {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#a855f7',
           stroke: '#000000',
           strokeThickness: 2
-        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+        }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
+        this.portalPromptText.on('pointerdown', () => {
+          if (NetworkManager.currentRoomId) {
+            this.scene.start('LobbyScene');
+          } else {
+            this.startDungeonRun(true);
+          }
+        });
       }
 
       if (this.player.controller.isInteractPressed()) {

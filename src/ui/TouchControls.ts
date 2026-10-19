@@ -285,21 +285,23 @@ export class TouchControls {
       }
     });
 
-    // 3. Botão de Interação [E] (Abrir baús, loja, portal)
-    this.interactBtn = this.createButton({
-      x: isHub ? width - 44 : width - 142,
-      y: isHub ? height - 100 : height - 40,
-      radius: isHub ? 21 : 16,
-      bgColor: 0xf59e0b,
-      borderColor: 0xfbbf24,
-      icon: '✋',
-      label: '[E] USAR',
-      onDown: () => {
-        if (this.controller) {
-          this.controller.virtualInteractTriggered = true;
+    // 3. Botão de Interação (Abrir baús, loja, portal)
+    if (this.options.showInteract !== false) {
+      this.interactBtn = this.createButton({
+        x: isHub ? width - 44 : width - 144,
+        y: isHub ? height - 100 : height - 34,
+        radius: isHub ? 21 : 17,
+        bgColor: 0xf59e0b,
+        borderColor: 0xfbbf24,
+        icon: '✋',
+        label: 'USAR',
+        onDown: () => {
+          if (this.controller) {
+            this.controller.virtualInteractTriggered = true;
+          }
         }
-      }
-    });
+      });
+    }
 
     // Em masmorras, inclui botões de combate à distância (Besta com mira) e Escudo
     if (!isHub) {
@@ -307,7 +309,7 @@ export class TouchControls {
       this.shootBtn = this.createAimShootButton({
         x: width - 44,
         y: height - 98,
-        radius: 20
+        radius: 21
       });
 
       // 5. Botão de Defesa com Escudo (Pressionar e segurar)
@@ -364,9 +366,9 @@ export class TouchControls {
         bg.lineStyle(2, 0x34d399, 1);
         bg.strokeCircle(0, 0, radius + 2);
       } else {
-        bg.fillStyle(0x10b981, 0.4);
+        bg.fillStyle(0x10b981, 0.45);
         bg.fillCircle(0, 0, radius);
-        bg.lineStyle(2, 0x34d399, 0.85);
+        bg.lineStyle(2, 0x34d399, 0.9);
         bg.strokeCircle(0, 0, radius);
       }
     };
@@ -393,17 +395,18 @@ export class TouchControls {
         knob.strokeCircle(kx, ky, 10);
       }
     };
-    drawKnob(0, -2, false, false);
+    drawKnob(0, -3, false, false);
 
-    const iconText = this.scene.add.text(0, -2, '🏹', {
-      fontSize: `${Math.round(radius * 0.8)}px`,
+    const iconText = this.scene.add.text(0, -3, '🏹', {
+      fontSize: `${Math.round(radius * 0.75)}px`,
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const labelText = this.scene.add.text(0, radius * 0.58, 'MIRA/TIRO', {
+    const labelText = this.scene.add.text(0, radius - 3, 'BESTA', {
       fontFamily: 'monospace',
-      fontSize: '5.5px',
+      fontSize: '6.5px',
       color: '#ffffff',
+      fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 2
     }).setOrigin(0.5);
@@ -425,7 +428,7 @@ export class TouchControls {
 
     const cancelLabel = this.scene.add.text(0, 16, 'CANCELAR', {
       fontFamily: 'monospace',
-      fontSize: '5px',
+      fontSize: '5.5px',
       color: '#fde047',
       stroke: '#000000',
       strokeThickness: 2
@@ -511,8 +514,8 @@ export class TouchControls {
         this.isAimInCancel = false;
 
         drawBg(false, false);
-        drawKnob(0, -2, false, false);
-        iconText.setPosition(0, -2);
+        drawKnob(0, -3, false, false);
+        iconText.setPosition(0, -3);
         cancelZone.setVisible(false);
 
         if (this.controller) {
@@ -559,20 +562,21 @@ export class TouchControls {
     const btnContainer = this.scene.add.container(config.x, config.y);
 
     const bg = this.scene.add.graphics();
-    bg.fillStyle(config.bgColor, 0.4);
+    bg.fillStyle(config.bgColor, 0.45);
     bg.fillCircle(0, 0, config.radius);
-    bg.lineStyle(2, config.borderColor, 0.85);
+    bg.lineStyle(2, config.borderColor, 0.9);
     bg.strokeCircle(0, 0, config.radius);
 
     const iconText = this.scene.add.text(0, -3, config.icon, {
-      fontSize: `${Math.round(config.radius * 0.85)}px`,
+      fontSize: `${Math.round(config.radius * 0.78)}px`,
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const labelText = this.scene.add.text(0, config.radius * 0.55, config.label, {
+    const labelText = this.scene.add.text(0, config.radius - 3, config.label, {
       fontFamily: 'monospace',
-      fontSize: '6px',
+      fontSize: '6.5px',
       color: '#ffffff',
+      fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 2
     }).setOrigin(0.5);
@@ -597,9 +601,9 @@ export class TouchControls {
       (pointer as any).isVirtualControl = false;
       btnContainer.setScale(1);
       bg.clear();
-      bg.fillStyle(config.bgColor, 0.4);
+      bg.fillStyle(config.bgColor, 0.45);
       bg.fillCircle(0, 0, config.radius);
-      bg.lineStyle(2, config.borderColor, 0.85);
+      bg.lineStyle(2, config.borderColor, 0.9);
       bg.strokeCircle(0, 0, config.radius);
 
       if (config.onUp) {
@@ -705,22 +709,24 @@ export function buildTiledRoomWithCampfire(
   campfireKey: string,
   campfireYOffset: number = 0
 ): Phaser.Physics.Arcade.StaticGroup {
-  const width = CONSTANTS.GAME_WIDTH;
-  const height = CONSTANTS.GAME_HEIGHT;
+  const width = Math.ceil(scene.scale.width);
+  const height = Math.ceil(scene.scale.height);
   const tileSize = CONSTANTS.TILE_SIZE;
 
-  for (let x = 0; x < width; x += tileSize) {
-    for (let y = 0; y < height; y += tileSize) {
+  scene.physics.world.setBounds(0, 0, width, height);
+
+  for (let x = 0; x < width + tileSize; x += tileSize) {
+    for (let y = 0; y < height + tileSize; y += tileSize) {
       scene.add.image(x + tileSize / 2, y + tileSize / 2, floorKey).setDepth(CONSTANTS.DEPTH.FLOOR);
     }
   }
 
   const walls = scene.physics.add.staticGroup();
-  for (let x = 0; x < width; x += tileSize) {
+  for (let x = 0; x < width + tileSize; x += tileSize) {
     (walls.create(x + tileSize / 2, tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
     (walls.create(x + tileSize / 2, height - tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
   }
-  for (let y = 0; y < height; y += tileSize) {
+  for (let y = 0; y < height + tileSize; y += tileSize) {
     (walls.create(tileSize / 2, y + tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
     (walls.create(width - tileSize / 2, y + tileSize / 2, wallKey) as Phaser.Physics.Arcade.Image).setDepth(CONSTANTS.DEPTH.WALLS);
   }
