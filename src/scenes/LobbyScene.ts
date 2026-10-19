@@ -111,7 +111,7 @@ export class LobbyScene extends Phaser.Scene {
     const roomId = NetworkManager.currentRoomId || '----';
 
     this.uiContainer = this.add.container(0, 0);
-    this.uiContainer.setDepth(CONSTANTS.DEPTH.UI + 50);
+    this.uiContainer.setDepth(CONSTANTS.DEPTH.MODAL + 70);
 
     // Barra superior
     const headerBg = this.add.graphics();
@@ -245,18 +245,18 @@ export class LobbyScene extends Phaser.Scene {
       this.uiContainer.add(controlsTip);
     }
 
-    // Barra inferior centralizada (280px de largura total, livre dos controles touch laterais)
-    const bottomY = height - 32;
+    // Barra inferior centralizada (236px de largura total, livre do Joystick à esquerda e do botão DASH à direita mesmo em telas 16:9 de 480px)
+    const bottomY = height - 28;
 
-    // Botão Sair da Sala (Esquerda do bloco central)
-    const leaveBg = this.add.rectangle(width / 2 - 108, bottomY, 64, 26, 0x1e293b);
+    // Botão Sair da Sala (Esquerda do bloco central: x = width/2 - 89, largura 56)
+    const leaveBg = this.add.rectangle(width / 2 - 89, bottomY, 56, 24, 0x1e293b);
     leaveBg.setStrokeStyle(1, 0xf43f5e);
     leaveBg.setInteractive({ useHandCursor: true });
     this.uiContainer.add(leaveBg);
 
-    const leaveBtn = this.add.text(width / 2 - 108, bottomY, '🚪 SAIR', {
+    const leaveBtn = this.add.text(width / 2 - 89, bottomY, '🚪 SAIR', {
       fontFamily: 'monospace',
-      fontSize: '8px',
+      fontSize: '7.5px',
       color: '#f43f5e',
       fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -270,14 +270,14 @@ export class LobbyScene extends Phaser.Scene {
     leaveBtn.on('pointerdown', handleLeave);
     this.uiContainer.add(leaveBtn);
 
-    // Botão de Ação Inferior (Pronto / Iniciar) à direita do botão Sair
-    this.actionButtonBg = this.add.rectangle(width / 2 + 35, bottomY, 210, 26, 0x475569);
+    // Botão de Ação Inferior (Pronto / Iniciar) à direita do botão Sair (x = width/2 + 30, largura 172)
+    this.actionButtonBg = this.add.rectangle(width / 2 + 30, bottomY, 172, 24, 0x475569);
     this.actionButtonBg.setInteractive({ useHandCursor: true });
     this.uiContainer.add(this.actionButtonBg);
 
-    this.actionButtonText = this.add.text(width / 2 + 35, bottomY, '', {
+    this.actionButtonText = this.add.text(width / 2 + 30, bottomY, '', {
       fontFamily: 'monospace',
-      fontSize: '8px',
+      fontSize: '7.5px',
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
