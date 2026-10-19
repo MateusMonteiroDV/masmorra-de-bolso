@@ -128,14 +128,16 @@ export class HubScene extends Phaser.Scene {
     }).setDepth(CONSTANTS.DEPTH.UI);
 
     // Botão / Status P2P no canto superior direito (recuado no mobile para não colidir com o botão de Tela Cheia)
-    const statusRightX = isTouch ? width - 44 : width - 14;
-    this.p2pStatusText = this.add.text(statusRightX, 11, '[ 🌐 SALA MULTIPLAYER ]', {
+    const statusRightX = isTouch ? width - 46 : width - 14;
+    this.p2pStatusText = this.add.text(statusRightX, 8, '[ 🌐 SALA MULTIPLAYER ]', {
       fontFamily: 'monospace',
       fontSize: '8px',
       color: '#38bdf8',
+      backgroundColor: '#0f172a',
+      padding: { x: 5, y: 3 },
       stroke: '#000000',
       strokeThickness: 2
-    }).setOrigin(1, 0).setDepth(CONSTANTS.DEPTH.UI).setInteractive({ useHandCursor: true });
+    }).setOrigin(1, 0).setDepth(CONSTANTS.DEPTH.UI + 20).setInteractive({ useHandCursor: true });
 
     this.p2pStatusText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       (pointer as any).isVirtualControl = true;

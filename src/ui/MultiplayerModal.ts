@@ -19,7 +19,7 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
     const h = scene.scale.height;
 
     // Overlay escuro de fundo
-    this.overlay = scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.84);
+    this.overlay = scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.92);
     this.overlay.setInteractive();
     this.add(this.overlay);
 
@@ -310,14 +310,17 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
       this.bgContainer.add(joinBtn);
     }
 
-    // Botão de Fechar
-    const closeBtn = this.scene.add.text(cx, by + boxH - 12, '[ X FECHAR ]', {
+    // Botão de Fechar com área de toque ampliada
+    const closeBtn = this.scene.add.text(cx, by + boxH - 13, '[ X FECHAR ]', {
       fontFamily: 'monospace',
-      fontSize: '7px',
-      color: '#94a3b8'
+      fontSize: '7.5px',
+      color: '#cbd5e1',
+      backgroundColor: '#1e293b',
+      padding: { x: 8, y: 3 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    closeBtn.on('pointerdown', () => {
+    closeBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       this.hide();
     });
     this.bgContainer.add(closeBtn);
