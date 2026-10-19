@@ -59,12 +59,13 @@ export function toggleFullscreen(scene: Phaser.Scene) {
     } catch (e) {}
   }
 
-  // Compensar barra de endereço em navegadores mobile sem disparar scale.refresh() artificial
+  // Recalcular layout do Phaser e compensar barra de endereço no mobile
   setTimeout(() => {
     try {
+      scene.scale.refresh();
       window.scrollTo(0, 1);
     } catch (e) {}
-  }, 150);
+  }, 200);
 }
 
 export interface TouchControlsOptions {

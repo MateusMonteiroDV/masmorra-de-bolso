@@ -41,7 +41,7 @@ export class UIScene extends Phaser.Scene {
     const width = this.scale.width;
     const height = this.scale.height;
 
-    this.waveText = this.add.text(12, 28, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
+    this.waveText = this.add.text(36, 30, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
       fontFamily: 'monospace',
       fontSize: '8.5px',
       color: '#c084fc',
@@ -50,11 +50,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 3. HUD Superior Direito: Contador de Flechas (Quiver)
-    const arrowIcon = this.add.image(width - 146, 15, 'arrow_sprite');
+    const arrowIcon = this.add.image(width - 150, 16, 'arrow_sprite');
     arrowIcon.setScale(0.75);
     arrowIcon.setRotation(-Math.PI / 4);
 
-    this.arrowText = this.add.text(width - 136, 10, `${GameState.arrows}`, {
+    this.arrowText = this.add.text(width - 140, 11, `${GameState.arrows}`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#38bdf8',
@@ -63,11 +63,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 4. HUD Superior Direito: Contador de Ouro
-    const coinIcon = this.add.sprite(width - 92, 15, 'moeda_0');
-    coinIcon.setScale(0.8);
+    const coinIcon = this.add.sprite(width - 92, 16, 'moeda_0');
+    coinIcon.setScale(0.55);
     coinIcon.play('anim_moeda');
 
-    this.goldText = this.add.text(width - 78, 10, `${GameState.runGold} G`, {
+    this.goldText = this.add.text(width - 78, 11, `${GameState.runGold} G`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#fbbf24',
@@ -131,8 +131,8 @@ export class UIScene extends Phaser.Scene {
     this.hearts = [];
 
     const stats = GameState.getComputedPlayerStats();
-    const startX = 16;
-    const startY = 15;
+    const startX = 36;
+    const startY = 16;
     const spacing = 12;
 
     for (let i = 0; i < stats.maxHp; i++) {

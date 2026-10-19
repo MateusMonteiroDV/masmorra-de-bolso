@@ -50,21 +50,14 @@ const config: Phaser.Types.Core.GameConfig = {
 
 export const game = new Phaser.Game(config);
 
-let lastWidth = Math.round(game.scale.width);
-let lastHeight = Math.round(game.scale.height);
 let resizeTimer: number | null = null;
-const sceneCreatedAt: Record<string, number> = {};
+const sceneCreatedSize: Record<string, { w: number; h: number }> = {};
 
-game.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
-  const newW = Math.round(gameSize.width);
-  const newH = Math.round(gameSize.height);
-  if (Math.abs(newW - lastWidth) < 8 && Math.abs(newH - lastHeight) < 8) return;
-  lastWidth = newW;
-  lastHeight = newH;
-
+game.scale.on('resize', () => {
   if (resizeTimer) window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    const now = performance.now();
+    const curW = Math.round(game.scale.width);
+    const curH = Math.round(game.scale.height);
     const restartableScenes = ['TitleScene', 'HubScene', 'LobbyScene', 'UIScene'];
     restartableScenes.forEach(key => {
       if (game.scene.isActive(key)) {
@@ -72,7 +65,10 @@ game.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
         if (key === 'TitleScene' && sc.hasStarted) return;
         if (key === 'LobbyScene' && sc.isCountingDown) return;
         if (key === 'HubScene' && sc.isModalOpen) return;
-        if (now - (sceneCreatedAt[key] || 0) < 500) return;
+        const created = sceneCreatedSize[key];
+        if (created && Math.abs(curW - created.w) < 6 && Math.abs(curH - created.h) < 6) {
+          return;
+        }
         sc.scene.restart();
       }
     });
@@ -80,15 +76,15 @@ game.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
 });
 
 game.events.on(Phaser.Core.Events.READY, () => {
-  lastWidth = Math.round(game.scale.width);
-  lastHeight = Math.round(game.scale.height);
   game.scene.scenes.forEach(scene => {
     scene.events.on(Phaser.Scenes.Events.CREATE, () => {
-      sceneCreatedAt[scene.scene.key] = performance.now();
+      sceneCreatedSize[scene.scene.key] = {
+        w: Math.round(scene.scale.width),
+        h: Math.round(scene.scale.height)
+      };
       RemoteLogger.setScene(scene.scene.key);
       RemoteLogger.info(`Cena iniciada: ${scene.scene.key}`);
     });
   });
 });
-
 
