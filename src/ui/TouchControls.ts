@@ -39,25 +39,18 @@ export function toggleFullscreen(scene: Phaser.Scene) {
   if (isFs) {
     const exitFs = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
     if (exitFs) {
-      exitFs.call(doc).catch(() => {});
+      Promise.resolve(exitFs.call(doc)).catch(() => {});
     }
   } else {
-    // 1. Aciona tela cheia nativa pelo Phaser ScaleManager (gerencia o canvas e resize automaticamente)
-    try {
-      if (scene.scale.fullscreen && scene.scale.fullscreen.available) {
-        scene.scale.startFullscreen({ navigationUI: 'hide' });
-      }
-    } catch (e) {}
-
-    // 2. Se o documento ainda não estiver em fullscreen, aciona via documentElement
-    if (!isFullscreenActive()) {
-      const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
-      if (reqFs) {
-        reqFs.call(docEl, { navigationUI: 'hide' }).catch(() => {});
-      }
+    // 1. Aciona tela cheia diretamente via document.documentElement (evita erro de elemento desconectado no Phaser 4)
+    const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+    if (reqFs) {
+      try {
+        Promise.resolve(reqFs.call(docEl, { navigationUI: 'hide' })).catch(() => {});
+      } catch (e) {}
     }
 
-    // 3. Travar orientação em paisagem (landscape) para celulares
+    // 2. Travar orientação em paisagem (landscape) para celulares
     try {
       const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
       if (orientation && orientation.lock) {
@@ -66,13 +59,12 @@ export function toggleFullscreen(scene: Phaser.Scene) {
     } catch (e) {}
   }
 
-  // Recalcular layout do Phaser e compensar barra de endereço
+  // Compensar barra de endereço em navegadores mobile sem disparar scale.refresh() artificial
   setTimeout(() => {
     try {
-      scene.scale.refresh();
       window.scrollTo(0, 1);
     } catch (e) {}
-  }, 200);
+  }, 150);
 }
 
 export interface TouchControlsOptions {
@@ -148,9 +140,9 @@ export class TouchControls {
 
     this.container.add([this.joyBase, this.joyKnob]);
 
-    // 3. Zona interativa ampla no canto inferior esquerdo para captura flexível do toque
-    const zoneW = width * 0.42;
-    const zoneH = height * 0.58;
+    // 3. Zona interativa no canto inferior esquerdo (limitada a 120px para não bloquear botões centrais de UI)
+    const zoneW = Math.min(120, Math.round(width * 0.28));
+    const zoneH = Math.round(height * 0.56);
     const zoneX = zoneW / 2;
     const zoneY = height - zoneH / 2;
 
@@ -168,7 +160,7 @@ export class TouchControls {
       if (dist < 45) {
         this.updateJoystickKnob(pointer.x, pointer.y);
       } else {
-        this.joyCenterX = Phaser.Math.Clamp(pointer.x, 35, 120);
+        this.joyCenterX = Phaser.Math.Clamp(pointer.x, 35, 92);
         this.joyCenterY = Phaser.Math.Clamp(pointer.y, height - 100, height - 25);
         this.drawJoyBase(true);
         this.updateJoystickKnob(pointer.x, pointer.y);
