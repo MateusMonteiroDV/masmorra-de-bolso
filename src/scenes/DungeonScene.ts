@@ -12,6 +12,7 @@ import { PlayerNetworkState, PlayerNetworkAction } from '../network/NetworkTypes
 import { WaveManager } from '../dungeon/WaveManager';
 import { GameState } from '../core/GameState';
 import { UIScene } from './UIScene';
+import { isTouchDevice } from '../ui/TouchControls';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -562,7 +563,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.player && this.player.active && !this.player.health.isDead()) {
       if (this.player.controller?.isVirtualAiming) {
         this.drawAimGuide(this.player.x, this.player.y, this.player.controller.virtualAimAngleRad);
-      } else {
+      } else if (!isTouchDevice(this.game)) {
         const pointer = this.input.activePointer;
         if (pointer && (pointer.x !== 0 || pointer.y !== 0)) {
           const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -570,6 +571,8 @@ export class DungeonScene extends Phaser.Scene {
         } else if (this.aimGuideGraphics) {
           this.aimGuideGraphics.clear();
         }
+      } else if (this.aimGuideGraphics) {
+        this.aimGuideGraphics.clear();
       }
     } else if (this.aimGuideGraphics) {
       this.aimGuideGraphics.clear();

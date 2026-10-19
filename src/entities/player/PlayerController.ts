@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { isTouchDevice } from '../../ui/TouchControls';
 
 export class PlayerController {
   private scene: Phaser.Scene;
@@ -63,25 +64,27 @@ export class PlayerController {
 
     this.scene.input.mouse?.disableContextMenu();
 
-    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if ((pointer as any).isVirtualControl) return;
+    if (!isTouchDevice(this.scene.game)) {
+      this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if ((pointer as any).isVirtualControl) return;
 
-      if (pointer.button === 0 || pointer.leftButtonDown()) {
-        this.mouseShootTriggered = true;
-        this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
-      }
-      if (pointer.button === 2 || pointer.rightButtonDown()) {
-        this.mouseDefendDown = true;
-      }
-    });
+        if (pointer.button === 0 || pointer.leftButtonDown()) {
+          this.mouseShootTriggered = true;
+          this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
+        }
+        if (pointer.button === 2 || pointer.rightButtonDown()) {
+          this.mouseDefendDown = true;
+        }
+      });
 
-    this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if ((pointer as any).isVirtualControl) return;
+      this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if ((pointer as any).isVirtualControl) return;
 
-      if (pointer.button === 2 || !pointer.rightButtonDown()) {
-        this.mouseDefendDown = false;
-      }
-    });
+        if (pointer.button === 2 || !pointer.rightButtonDown()) {
+          this.mouseDefendDown = false;
+        }
+      });
+    }
   }
 
   public getMovementVector(): { x: number; y: number } {

@@ -12,13 +12,11 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.setDepth(CONSTANTS.DEPTH.MODAL);
+    this.setDepth(CONSTANTS.DEPTH.MODAL + 100);
     scene.add.existing(this);
 
     // Fundo escuro semi-transparente
     this.overlay = scene.add.graphics();
-    this.overlay.fillStyle(0x000000, 0.75);
-    this.overlay.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
     this.add(this.overlay);
 
     this.contentContainer = scene.add.container(0, 0);
@@ -32,8 +30,16 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
     this.setVisible(true);
     this.contentContainer.removeAll(true);
 
+    const screenW = this.scene.scale.width;
+    const screenH = this.scene.scale.height;
+
+    this.overlay.clear();
+    this.overlay.fillStyle(0x000000, 0.8);
+    this.overlay.fillRect(0, 0, screenW, screenH);
+    this.overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, screenW, screenH), Phaser.Geom.Rectangle.Contains);
+
     // Título do Modal
-    const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, 38, 'ESCOLHA UMA RELÍQUIA', {
+    const title = this.scene.add.text(screenW / 2, 38, 'ESCOLHA UMA RELÍQUIA', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#fbbf24',
@@ -50,8 +56,8 @@ export class RelicSelectModal extends Phaser.GameObjects.Container {
     const cardWidth = 110;
     const cardHeight = 130;
     const totalWidth = choices.length * cardWidth + (choices.length - 1) * 16;
-    const startX = (CONSTANTS.GAME_WIDTH - totalWidth) / 2 + cardWidth / 2;
-    const cardY = 125;
+    const startX = (screenW - totalWidth) / 2 + cardWidth / 2;
+    const cardY = screenH / 2 + 8;
 
     choices.forEach((relic, index) => {
       const cx = startX + index * (cardWidth + 16);

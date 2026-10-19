@@ -41,7 +41,7 @@ export class UIScene extends Phaser.Scene {
     const width = this.scale.width;
     const height = this.scale.height;
 
-    this.waveText = this.add.text(36, 30, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
+    this.waveText = this.add.text(12, 28, `ONDA ${initialWave}/${initialTotal} [${initialRemaining} restantes]`, {
       fontFamily: 'monospace',
       fontSize: '8.5px',
       color: '#c084fc',
@@ -50,11 +50,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 3. HUD Superior Direito: Contador de Flechas (Quiver)
-    const arrowIcon = this.add.image(width - 150, 16, 'arrow_sprite');
+    const arrowIcon = this.add.image(width - 146, 15, 'arrow_sprite');
     arrowIcon.setScale(0.75);
     arrowIcon.setRotation(-Math.PI / 4);
 
-    this.arrowText = this.add.text(width - 140, 11, `${GameState.arrows}`, {
+    this.arrowText = this.add.text(width - 136, 10, `${GameState.arrows}`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#38bdf8',
@@ -63,11 +63,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     // 4. HUD Superior Direito: Contador de Ouro
-    const coinIcon = this.add.sprite(width - 92, 16, 'moeda_0');
+    const coinIcon = this.add.sprite(width - 92, 15, 'moeda_0');
     coinIcon.setScale(0.8);
     coinIcon.play('anim_moeda');
 
-    this.goldText = this.add.text(width - 78, 11, `${GameState.runGold} G`, {
+    this.goldText = this.add.text(width - 78, 10, `${GameState.runGold} G`, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#fbbf24',
@@ -90,9 +90,9 @@ export class UIScene extends Phaser.Scene {
     if (isTouchDevice(this.game)) {
       this.touchControls = new TouchControls(this);
       const linkController = () => {
-        const dungeonScene = this.scene.get('DungeonScene') as any;
-        if (dungeonScene?.player?.controller) {
-          this.touchControls?.setController(dungeonScene.player.controller);
+        const ds = this.scene.get('DungeonScene') as any;
+        if (ds?.player?.controller) {
+          this.touchControls?.setController(ds.player.controller);
         }
       };
 
@@ -116,6 +116,7 @@ export class UIScene extends Phaser.Scene {
 
     // 7. Barra Central: Ícones de Relíquias Ativas
     this.relicIconsContainer = this.add.container(width / 2, height - 22);
+    this.refreshRelicsBar();
 
     // 8. Modal de Relíquias
     this.relicModal = new RelicSelectModal(this);
@@ -130,12 +131,12 @@ export class UIScene extends Phaser.Scene {
     this.hearts = [];
 
     const stats = GameState.getComputedPlayerStats();
-    const startX = 36;
-    const startY = 16;
+    const startX = 16;
+    const startY = 15;
     const spacing = 12;
 
     for (let i = 0; i < stats.maxHp; i++) {
-      const heart = this.add.image(startX + i * spacing, startY, ASSET_KEYS.UI.HEART_FULL);
+      const heart = this.add.image(startX + i * spacing, startY, i < stats.currentHp ? ASSET_KEYS.UI.HEART_FULL : ASSET_KEYS.UI.HEART_EMPTY);
       heart.setScale(0.95);
       this.hearts.push(heart);
     }
@@ -221,7 +222,7 @@ export class UIScene extends Phaser.Scene {
 
     NetworkManager.onPeerJoin(() => {
       if (!this.p2pBadgeText || !this.p2pBadgeText.active) {
-        this.p2pBadgeText = this.add.text(CONSTANTS.GAME_WIDTH / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
+        this.p2pBadgeText = this.add.text(this.scale.width / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
           fontFamily: 'monospace',
           fontSize: '8px',
           color: '#22c55e',
@@ -240,6 +241,8 @@ export class UIScene extends Phaser.Scene {
 
     this.events.on('shutdown', () => {
       this.cleanupSpectatorMode();
+      this.touchControls?.destroy();
+      this.touchControls = undefined;
       EventBus.off(CONSTANTS.EVENTS.PLAYER_HEALTH_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED);
@@ -252,12 +255,13 @@ export class UIScene extends Phaser.Scene {
   public showSpectatorMode(onReturnToLobby: () => void) {
     if (this.spectatorContainer) return;
 
+    this.touchControls?.setVisible(false);
     this.spectatorContainer = this.add.container(0, 0);
-    this.spectatorContainer.setDepth(CONSTANTS.DEPTH.UI + 80);
+    this.spectatorContainer.setDepth(CONSTANTS.DEPTH.MODAL + 80);
 
     // Banner piscante no topo anunciando observação de aliado
     const banner = this.add.text(
-      CONSTANTS.GAME_WIDTH / 2,
+      this.scale.width / 2,
       36,
       'VOCÊ CAIU! AGUARDE UM ALIADO REVIVER VOCÊ...',
       {
@@ -281,19 +285,24 @@ export class UIScene extends Phaser.Scene {
     // Botão de retorno ao Lobby no rodapé com clique amplo e feedback
     const btnW = 220;
     const btnH = 22;
-    const btnX = CONSTANTS.GAME_WIDTH / 2;
-    const btnY = CONSTANTS.GAME_HEIGHT - 22;
+    const btnX = this.scale.width / 2;
+    const btnY = this.scale.height - 22;
 
     const btnBg = this.add.rectangle(0, 0, btnW, btnH, 0x0f172a, 0.95);
     btnBg.setStrokeStyle(1.5, 0x38bdf8);
     btnBg.setInteractive({ useHandCursor: true });
 
-    const btnLabel = this.add.text(0, 0, '⚔️ RETORNAR AO LOBBY [ENTER]', {
-      fontFamily: 'monospace',
-      fontSize: '7.5px',
-      color: '#38bdf8',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    const btnLabel = this.add.text(
+      0,
+      0,
+      isTouchDevice(this.game) ? '⚔️ RETORNAR AO LOBBY' : '⚔️ RETORNAR AO LOBBY [ENTER]',
+      {
+        fontFamily: 'monospace',
+        fontSize: '7.5px',
+        color: '#38bdf8',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
     btnLabel.setInteractive({ useHandCursor: true });
 
     const btnContainer = this.add.container(btnX, btnY, [btnBg, btnLabel]);

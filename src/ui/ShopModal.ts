@@ -14,17 +14,13 @@ export class ShopModal extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.setDepth(CONSTANTS.DEPTH.MODAL);
+    this.setDepth(CONSTANTS.DEPTH.MODAL + 100);
     scene.add.existing(this);
 
-    this.overlay = scene.add.rectangle(
-      CONSTANTS.GAME_WIDTH / 2,
-      CONSTANTS.GAME_HEIGHT / 2,
-      CONSTANTS.GAME_WIDTH,
-      CONSTANTS.GAME_HEIGHT,
-      0x000000,
-      0.82
-    );
+    const w = scene.scale.width;
+    const h = scene.scale.height;
+
+    this.overlay = scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.82);
     this.overlay.setInteractive();
     this.add(this.overlay);
 
@@ -62,10 +58,15 @@ export class ShopModal extends Phaser.GameObjects.Container {
   public refreshUI() {
     this.contentContainer.removeAll(true);
 
+    const screenW = this.scene.scale.width;
+    const screenH = this.scene.scale.height;
+    this.overlay.setPosition(screenW / 2, screenH / 2);
+    this.overlay.setSize(screenW, screenH);
+
     const modalWidth = 320;
     const modalHeight = 242;
-    const mx = (CONSTANTS.GAME_WIDTH - modalWidth) / 2;
-    const my = (CONSTANTS.GAME_HEIGHT - modalHeight) / 2;
+    const mx = (screenW - modalWidth) / 2;
+    const my = (screenH - modalHeight) / 2;
 
     // Fundo do Menu
     const bg = this.scene.add.graphics();
@@ -76,7 +77,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
     this.contentContainer.add(bg);
 
     // Título
-    const title = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 13, 'MELHORIAS PERMANENTES', {
+    const title = this.scene.add.text(screenW / 2, my + 13, 'MELHORIAS PERMANENTES', {
       fontFamily: 'monospace',
       fontSize: '10.5px',
       color: '#f59e0b',
@@ -85,7 +86,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
     this.contentContainer.add(title);
 
     // Ouro do Jogador
-    this.goldText = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, my + 26, `Ouro Guardado: ${GameState.bankedGold} G`, {
+    this.goldText = this.scene.add.text(screenW / 2, my + 26, `Ouro Guardado: ${GameState.bankedGold} G`, {
       fontFamily: 'monospace',
       fontSize: '8.5px',
       color: '#fbbf24'
@@ -150,7 +151,8 @@ export class ShopModal extends Phaser.GameObjects.Container {
 
       if (canAfford && cost !== null) {
         btnBg.setInteractive(new Phaser.Geom.Rectangle(btnX, btnY, btnW, btnH), Phaser.Geom.Rectangle.Contains);
-        btnBg.on('pointerdown', () => {
+        btnBg.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          (pointer as any).isVirtualControl = true;
           const success = GameState.purchaseUpgrade(def.key, cost);
           if (success) {
             AudioService.playBuyUpgrade();
@@ -162,7 +164,7 @@ export class ShopModal extends Phaser.GameObjects.Container {
 
     // Botão Fechar Centralizado
     const closeBtnY = my + modalHeight - 14;
-    const closeBtn = this.scene.add.text(CONSTANTS.GAME_WIDTH / 2, closeBtnY, '[ X FECHAR ]', {
+    const closeBtn = this.scene.add.text(screenW / 2, closeBtnY, '[ X FECHAR ]', {
       fontFamily: 'monospace',
       fontSize: '8.5px',
       color: '#94a3b8'
@@ -170,7 +172,8 @@ export class ShopModal extends Phaser.GameObjects.Container {
 
     closeBtn.on('pointerover', () => closeBtn.setColor('#f87171'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#94a3b8'));
-    closeBtn.on('pointerdown', () => {
+    closeBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      (pointer as any).isVirtualControl = true;
       this.close();
     });
     this.contentContainer.add(closeBtn);

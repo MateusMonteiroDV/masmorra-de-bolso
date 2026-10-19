@@ -356,8 +356,8 @@ export class Player extends Entity {
       } else if (Math.cos(angle) > 0.1) {
         this.facing = 'd';
       }
-    } else if (pointer && this.scene.cameras?.main) {
-      // Disparo via mouse ou teclas F/J: a mira segue rigorosamente a posição do cursor do mouse no mundo
+    } else if (!('ontouchstart' in window || navigator.maxTouchPoints > 0) && pointer && this.scene.cameras?.main) {
+      // Disparo via mouse ou teclas F/J no desktop: a mira segue rigorosamente a posição do cursor do mouse no mundo
       const screenX = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.x : pointer.x;
       const screenY = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.y : pointer.y;
       this.controller.lastMouseShootScreenPos = null;
@@ -373,7 +373,7 @@ export class Player extends Entity {
         this.facing = 'd';
       }
     } else {
-      // Fallback para movimentação sem ponteiro ativo
+      // Toque rápido no mobile ou fallback sem cursor: dispara na direção atual de movimento/olhar
       const moveInput = this.controller.getMovementVector();
       if (moveInput.x !== 0 || moveInput.y !== 0) {
         targetX = this.x + moveInput.x * 180;

@@ -382,8 +382,8 @@ export class WaveManager {
 
   private showWaveBanner(text: string, isBig: boolean = false) {
     const banner = this.scene.add.text(
-      CONSTANTS.GAME_WIDTH / 2,
-      isBig ? 65 : 45,
+      this.scene.scale.width / 2,
+      isBig ? 68 : 52,
       text,
       {
         fontFamily: 'monospace',

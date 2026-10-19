@@ -13,17 +13,13 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.setDepth(CONSTANTS.DEPTH.MODAL + 10);
+    this.setDepth(CONSTANTS.DEPTH.MODAL + 100);
+
+    const w = scene.scale.width;
+    const h = scene.scale.height;
 
     // Overlay escuro de fundo
-    this.overlay = scene.add.rectangle(
-      CONSTANTS.GAME_WIDTH / 2,
-      CONSTANTS.GAME_HEIGHT / 2,
-      CONSTANTS.GAME_WIDTH,
-      CONSTANTS.GAME_HEIGHT,
-      0x000000,
-      0.84
-    );
+    this.overlay = scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.84);
     this.overlay.setInteractive();
     this.add(this.overlay);
 
@@ -73,8 +69,13 @@ export class MultiplayerModal extends Phaser.GameObjects.Container {
   private renderContent() {
     this.clearDynamicElements();
 
-    const cx = CONSTANTS.GAME_WIDTH / 2;
-    const cy = CONSTANTS.GAME_HEIGHT / 2;
+    const screenW = this.scene.scale.width;
+    const screenH = this.scene.scale.height;
+    this.overlay.setPosition(screenW / 2, screenH / 2);
+    this.overlay.setSize(screenW, screenH);
+
+    const cx = screenW / 2;
+    const cy = screenH / 2;
     const boxW = 280;
     const boxH = 190;
     const bx = cx - boxW / 2;
