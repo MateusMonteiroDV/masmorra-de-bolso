@@ -80,7 +80,9 @@ export class RoomInputDialog {
     };
 
     confirmBtn.addEventListener('click', handleConfirm);
+    confirmBtn.addEventListener('pointerdown', handleConfirm);
     cancelBtn.addEventListener('click', handleCancel);
+    cancelBtn.addEventListener('pointerdown', handleCancel);
     document.addEventListener('keydown', handleKey);
 
     setTimeout(() => {

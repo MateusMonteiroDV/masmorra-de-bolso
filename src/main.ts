@@ -49,6 +49,9 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 export const game = new Phaser.Game(config);
+if (typeof window !== 'undefined') {
+  (window as any).game = game;
+}
 
 let resizeTimer: number | null = null;
 const sceneCreatedSize: Record<string, { w: number; h: number }> = {};
