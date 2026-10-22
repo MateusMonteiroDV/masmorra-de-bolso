@@ -112,7 +112,20 @@ export class PlayerController {
     }
   }
 
+  private isTypingInInput(): boolean {
+    if (typeof document === 'undefined') return false;
+    const active = document.activeElement;
+    const tag = active?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+    if (document.getElementById('mdb-room-input-modal')) return true;
+    return false;
+  }
+
   public getMovementVector(): { x: number; y: number } {
+    if (this.isTypingInInput()) {
+      return { x: 0, y: 0 };
+    }
+
     let x = 0;
     let y = 0;
 
@@ -141,6 +154,11 @@ export class PlayerController {
   }
 
   public isMeleeAttackPressed(): boolean {
+    if (this.isTypingInInput()) {
+      this.virtualAttackTriggered = false;
+      return false;
+    }
+
     const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
     const kDown = this.keyK ? Phaser.Input.Keyboard.JustDown(this.keyK) : false;
     const virtualAttack = this.virtualAttackTriggered;
@@ -150,6 +168,13 @@ export class PlayerController {
   }
 
   public isShootCrossbowPressed(): boolean {
+    if (this.isTypingInInput()) {
+      this.keyShootTriggered = false;
+      this.mouseShootTriggered = false;
+      this.virtualShootTriggered = false;
+      return false;
+    }
+
     const fDown = this.keyF ? Phaser.Input.Keyboard.JustDown(this.keyF) : false;
     const jDown = this.keyJ ? Phaser.Input.Keyboard.JustDown(this.keyJ) : false;
     const keyTriggered = this.keyShootTriggered;
@@ -178,6 +203,11 @@ export class PlayerController {
   }
 
   public isDashPressed(): boolean {
+    if (this.isTypingInInput()) {
+      this.virtualDashTriggered = false;
+      return false;
+    }
+
     const shiftDown = this.keyShift ? Phaser.Input.Keyboard.JustDown(this.keyShift) : false;
     const cDown = this.keyC ? Phaser.Input.Keyboard.JustDown(this.keyC) : false;
     const virtualDash = this.virtualDashTriggered;
@@ -187,11 +217,20 @@ export class PlayerController {
   }
 
   public isDefending(): boolean {
+    if (this.isTypingInInput()) {
+      return false;
+    }
+
     const qDown = this.keyQ?.isDown ?? false;
     return qDown || this.mouseDefendDown || this.virtualDefendDown;
   }
 
   public isInteractPressed(): boolean {
+    if (this.isTypingInInput()) {
+      this.virtualInteractTriggered = false;
+      return false;
+    }
+
     const eDown = this.keyE ? Phaser.Input.Keyboard.JustDown(this.keyE) : false;
     const virtualInteract = this.virtualInteractTriggered;
     this.virtualInteractTriggered = false;

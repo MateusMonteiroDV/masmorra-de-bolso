@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node tests/hybrid-input-shield.spec.mjs"
+    "test": "node tests/hybrid-input-shield.spec.mjs && node tests/room-input-fix.spec.mjs"
   },
   "keywords": [
     "game",
