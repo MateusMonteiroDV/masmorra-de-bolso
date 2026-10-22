@@ -29,6 +29,7 @@ export const CONSTANTS = {
     ARROW_SPEED: 280,           // Velocidade do projétil da flecha
     ARROW_DAMAGE: 2,           // Dano inicial da flecha: 2
     ARROW_KNOCKBACK: 85,       // Deslocamento para trás ao acertar inimigo
+    BASE_ARROWS: 100,          // Flechas iniciais do Roberto (100)
     DEFAULT_SPEED: 110,
     DASH_SPEED: 260,
     DASH_DURATION: 180,

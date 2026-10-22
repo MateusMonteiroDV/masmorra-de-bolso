@@ -45,7 +45,7 @@ export class HubScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.arrowGroup = this.add.group({ runChildUpdate: true });
 
-    GameState.arrows = 30 + (GameState.upgrades.quiverLevel ?? 0) * 3;
+    GameState.arrows = CONSTANTS.PLAYER.BASE_ARROWS + (GameState.upgrades.quiverLevel ?? 0) * 10;
 
     const walls = buildTiledRoomWithCampfire(
       this,

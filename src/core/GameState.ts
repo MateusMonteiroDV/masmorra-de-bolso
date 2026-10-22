@@ -4,7 +4,7 @@ import { EventBus } from './EventBus';
 export interface PermanentUpgrades {
   maxHpLevel: number;       // +1 HP inicial por nível (máx 5)
   damageLevel: number;      // +10% de dano base por nível (máx 5)
-  quiverLevel: number;      // +3 flechas iniciais por nível (máx 5)
+  quiverLevel: number;      // +10 flechas iniciais por nível (máx 5)
   shieldLevel: number;      // +15% de repulsão do escudo por nível (máx 5)
   dashCooldownLevel: number;// -8% de recarga do dash por nível (máx 5)
   greedLevel: number;       // +10% de ouro por nível (máx 5)
@@ -46,7 +46,7 @@ class GameStateManager {
   // Estado da Run Atual
   public runGold: number = 0;
   public activeRelics: ActiveRelic[] = [];
-  public arrows: number = 30;
+  public arrows: number = CONSTANTS.PLAYER.BASE_ARROWS;
 
   constructor() {
     this.loadFromStorage();
@@ -94,7 +94,7 @@ class GameStateManager {
     this.totalRuns++;
     this.runGold = 0;
     this.activeRelics = [];
-    this.arrows = 30 + (this.upgrades.quiverLevel ?? 0) * 3;
+    this.arrows = CONSTANTS.PLAYER.BASE_ARROWS + (this.upgrades.quiverLevel ?? 0) * 10;
     this.saveToStorage();
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED, this.runGold);
     EventBus.emit(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED, this.arrows);

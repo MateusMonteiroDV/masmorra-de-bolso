@@ -26,7 +26,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     key: 'quiverLevel',
     name: 'Aljava Reforçada',
-    description: '+3 Flechas extras ao iniciar a Masmorra (Máx: +15)',
+    description: '+10 Flechas extras ao iniciar a Masmorra (Máx: +50)',
     maxLevel: 5,
     costs: [60, 150, 350, 750, 1500]
   },
