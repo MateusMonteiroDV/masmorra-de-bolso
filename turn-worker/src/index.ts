@@ -13,10 +13,11 @@ const CREDENTIAL_TTL_SECONDS = 86400; // 24h
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    const allowed = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+    const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim());
     const origin = req.headers.get('Origin') ?? '';
     const isPagesDev = /^https:\/\/[a-z0-9-]+\.masmorra-de-bolso\.pages\.dev$/i.test(origin) || origin === 'https://masmorra-de-bolso.pages.dev';
-    const isAllowed = isPagesDev || allowed.includes(origin);
+    const isLocalDev = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+    const isAllowed = isPagesDev || isLocalDev || allowed.includes(origin);
 
     const url = new URL(req.url);
 

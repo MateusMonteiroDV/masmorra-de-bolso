@@ -1,5 +1,4 @@
 import * as Phaser from 'phaser';
-import { isTouchDevice } from '../../ui/TouchControls';
 
 export class PlayerController {
   private scene: Phaser.Scene;
@@ -20,7 +19,14 @@ export class PlayerController {
   public mouseShootTriggered: boolean = false;
   public mouseDefendDown: boolean = false;
   public lastMouseShootScreenPos: { x: number; y: number } | null = null;
+  public lastShootTrigger: 'mouse' | 'keyboard' | 'virtual' | null = null;
   private keyShootTriggered: boolean = false;
+
+  // Ouvintes de entrada defensivos e universais
+  private onPointerDown: (pointer: Phaser.Input.Pointer) => void;
+  private onPointerUp: (pointer: Phaser.Input.Pointer) => void;
+  private onWindowBlur: () => void;
+  private onWindowPointerUp: (e: PointerEvent | MouseEvent) => void;
 
   // Estados dos Controles Touch Virtuais (Mobile)
   public virtualMoveVector: { x: number; y: number } = { x: 0, y: 0 };
@@ -64,26 +70,45 @@ export class PlayerController {
 
     this.scene.input.mouse?.disableContextMenu();
 
-    if (!isTouchDevice(this.scene.game)) {
-      this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if ((pointer as any).isVirtualControl) return;
+    // Suporte a Entrada Híbrida Universal (mouse + teclado + toque simultâneos)
+    this.onPointerDown = (pointer: Phaser.Input.Pointer) => {
+      if ((pointer as any).isVirtualControl) return;
 
-        if (pointer.button === 0 || pointer.leftButtonDown()) {
-          this.mouseShootTriggered = true;
-          this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
-        }
-        if (pointer.button === 2 || pointer.rightButtonDown()) {
-          this.mouseDefendDown = true;
-        }
-      });
+      if (pointer.button === 0 || pointer.leftButtonDown()) {
+        this.mouseShootTriggered = true;
+        this.lastMouseShootScreenPos = { x: pointer.x, y: pointer.y };
+      }
+      if (pointer.button === 2 || pointer.rightButtonDown()) {
+        this.mouseDefendDown = true;
+      }
+    };
 
-      this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-        if ((pointer as any).isVirtualControl) return;
+    this.onPointerUp = (pointer: Phaser.Input.Pointer) => {
+      if ((pointer as any).isVirtualControl) return;
 
-        if (pointer.button === 2 || !pointer.rightButtonDown()) {
-          this.mouseDefendDown = false;
-        }
-      });
+      if (pointer.button === 2 || !pointer.rightButtonDown()) {
+        this.mouseDefendDown = false;
+      }
+    };
+
+    // Ouvintes defensivos para destravar escudo em blur ou soltura fora da janela
+    this.onWindowBlur = () => {
+      this.mouseDefendDown = false;
+    };
+
+    this.onWindowPointerUp = (e: PointerEvent | MouseEvent) => {
+      if (e.button === 2 || (e.buttons !== undefined && (e.buttons & 2) === 0)) {
+        this.mouseDefendDown = false;
+      }
+    };
+
+    this.scene.input.on('pointerdown', this.onPointerDown);
+    this.scene.input.on('pointerup', this.onPointerUp);
+    this.scene.input.on('pointerupoutside', this.onPointerUp);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('blur', this.onWindowBlur);
+      window.addEventListener('pointerup', this.onWindowPointerUp);
     }
   }
 
@@ -104,7 +129,16 @@ export class PlayerController {
     return { x, y };
   }
 
-  public destroy() {}
+  public destroy() {
+    this.scene.input.off('pointerdown', this.onPointerDown);
+    this.scene.input.off('pointerup', this.onPointerUp);
+    this.scene.input.off('pointerupoutside', this.onPointerUp);
+
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('blur', this.onWindowBlur);
+      window.removeEventListener('pointerup', this.onWindowPointerUp);
+    }
+  }
 
   public isMeleeAttackPressed(): boolean {
     const spaceDown = this.keySpace ? Phaser.Input.Keyboard.JustDown(this.keySpace) : false;
@@ -127,7 +161,20 @@ export class PlayerController {
     const virtualShoot = this.virtualShootTriggered;
     this.virtualShootTriggered = false;
 
-    return virtualShoot || mouseShoot || fDown || jDown || keyTriggered;
+    if (mouseShoot) {
+      this.lastShootTrigger = 'mouse';
+      return true;
+    }
+    if (fDown || jDown || keyTriggered) {
+      this.lastShootTrigger = 'keyboard';
+      return true;
+    }
+    if (virtualShoot) {
+      this.lastShootTrigger = 'virtual';
+      return true;
+    }
+
+    return false;
   }
 
   public isDashPressed(): boolean {

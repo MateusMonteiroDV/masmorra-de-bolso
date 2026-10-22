@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/hybrid-input-shield.spec.mjs"
   },
   "keywords": [
     "game",
@@ -22,6 +23,7 @@
     "trystero": "^0.25.4"
   },
   "devDependencies": {
+    "playwright": "^1.64.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0"
   }

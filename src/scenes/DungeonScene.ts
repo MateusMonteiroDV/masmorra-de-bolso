@@ -563,16 +563,15 @@ export class DungeonScene extends Phaser.Scene {
     if (this.player && this.player.active && !this.player.health.isDead()) {
       if (this.player.controller?.isVirtualAiming) {
         this.drawAimGuide(this.player.x, this.player.y, this.player.controller.virtualAimAngleRad);
-      } else if (!isTouchDevice(this.game)) {
+      } else {
         const pointer = this.input.activePointer;
-        if (pointer && (pointer.x !== 0 || pointer.y !== 0)) {
+        const isMouseActive = pointer && (!isTouchDevice(this.game) || !pointer.wasTouch);
+        if (isMouseActive && (pointer.x !== 0 || pointer.y !== 0)) {
           const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
           this.drawMouseReticle(worldPoint.x, worldPoint.y);
         } else if (this.aimGuideGraphics) {
           this.aimGuideGraphics.clear();
         }
-      } else if (this.aimGuideGraphics) {
-        this.aimGuideGraphics.clear();
       }
     } else if (this.aimGuideGraphics) {
       this.aimGuideGraphics.clear();

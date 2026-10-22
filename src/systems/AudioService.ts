@@ -45,6 +45,17 @@ class AudioManager {
     });
   }
 
+  public playEmptyBowClick() {
+    this.playTone('triangle', 0.04, 0.2, (f, now) => {
+      f.setValueAtTime(800, now);
+      f.exponentialRampToValueAtTime(120, now + 0.04);
+    });
+    this.playTone('square', 0.02, 0.15, (f, now) => {
+      f.setValueAtTime(1200, now);
+      f.exponentialRampToValueAtTime(300, now + 0.02);
+    });
+  }
+
   public playShieldBlock() {
     this.playTone('triangle', 0.14, 0.25, (f, now) => {
       f.setValueAtTime(920, now);

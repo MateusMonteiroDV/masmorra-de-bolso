@@ -10,6 +10,9 @@ import { GameOverScene } from './scenes/GameOverScene';
 import { preloadTurnServers } from './network/TurnConfig';
 import { RemoteLogger } from './systems/RemoteLogger';
 
+import { GameState } from './core/GameState';
+import { AudioService } from './systems/AudioService';
+
 RemoteLogger.init();
 void preloadTurnServers();
 
@@ -51,6 +54,8 @@ const config: Phaser.Types.Core.GameConfig = {
 export const game = new Phaser.Game(config);
 if (typeof window !== 'undefined') {
   (window as any).game = game;
+  (window as any).GameState = GameState;
+  (window as any).AudioService = AudioService;
 }
 
 let resizeTimer: number | null = null;

@@ -308,7 +308,7 @@ export class Player extends Entity {
 
   private showNoArrowsPopup() {
     this.bowCooldownTimer = 350;
-    AudioService.playAttackSwing();
+    AudioService.playEmptyBowClick();
     const popup = this.scene.add.text(this.x, this.y - 28, 'SEM FLECHAS!', {
       fontFamily: 'monospace',
       fontSize: '7px',
@@ -356,21 +356,27 @@ export class Player extends Entity {
       } else if (Math.cos(angle) > 0.1) {
         this.facing = 'd';
       }
-    } else if (!('ontouchstart' in window || navigator.maxTouchPoints > 0) && pointer && this.scene.cameras?.main) {
-      // Disparo via mouse ou teclas F/J no desktop: a mira segue rigorosamente a posição do cursor do mouse no mundo
-      const screenX = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.x : pointer.x;
-      const screenY = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.y : pointer.y;
+    } else if (
+      this.controller.lastMouseShootScreenPos ||
+      this.controller.lastShootTrigger === 'mouse' ||
+      (this.controller.lastShootTrigger === 'keyboard' && pointer && (pointer.x !== 0 || pointer.y !== 0))
+    ) {
+      // Disparo via mouse ou teclas F/J no desktop/notebook híbrido: a mira segue rigorosamente a posição do cursor do mouse no mundo
+      const screenX = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.x : (pointer?.x ?? this.x);
+      const screenY = this.controller.lastMouseShootScreenPos ? this.controller.lastMouseShootScreenPos.y : (pointer?.y ?? this.y);
       this.controller.lastMouseShootScreenPos = null;
 
-      const worldPoint = this.scene.cameras.main.getWorldPoint(screenX, screenY);
-      targetX = worldPoint.x;
-      targetY = worldPoint.y;
+      if (this.scene.cameras?.main) {
+        const worldPoint = this.scene.cameras.main.getWorldPoint(screenX, screenY);
+        targetX = worldPoint.x;
+        targetY = worldPoint.y;
 
-      // Roberto vira para o lado da mira do disparo
-      if (targetX < this.x - 4) {
-        this.facing = 'e';
-      } else if (targetX > this.x + 4) {
-        this.facing = 'd';
+        // Roberto vira para o lado da mira do disparo
+        if (targetX < this.x - 4) {
+          this.facing = 'e';
+        } else if (targetX > this.x + 4) {
+          this.facing = 'd';
+        }
       }
     } else {
       // Toque rápido no mobile ou fallback sem cursor: dispara na direção atual de movimento/olhar
@@ -380,6 +386,7 @@ export class Player extends Entity {
         targetY = this.y + moveInput.y * 180;
       }
     }
+    this.controller.lastShootTrigger = null;
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
