@@ -98,6 +98,11 @@ export class PreloadScene extends Phaser.Scene {
       const idx = i.toString().padStart(2, '0');
       this.load.image(`capetao_${idx}`, `/assets/capetao/sprite_${idx}.png`);
     }
+
+    // 14. Kleber, refém do Capetão (8 frames: amarrado 0-3, livre comemorando 4-7)
+    for (let i = 0; i <= 7; i++) {
+      this.load.image(`kleber_${i}`, `/assets/kleber/sprite_${i}.png`);
+    }
   }
 
   public create() {
@@ -514,5 +519,11 @@ export class PreloadScene extends Phaser.Scene {
     anims.create({ key: 'capetao_breath_d', frames: capetaoFrames(16, 16, 17, 18, 18, 18), frameRate: 9, repeat: 0 });
     anims.create({ key: 'capetao_death_d', frames: capetaoFrames(19, 20, 21, 22, 23, 24, 25), frameRate: 6, repeat: 0 });
     anims.create({ key: 'capetao_death_e', frames: capetaoFrames(26, 27, 28, 29, 30, 31, 32), frameRate: 6, repeat: 0 });
+
+    // 19. Kleber (refém). Amarrado: parado, olha para o lado e pisca. Livre: comemora em laço.
+    const kleberFrames = (...indexes: number[]) => indexes.map(index => ({ key: `kleber_${index}` }));
+
+    anims.create({ key: 'kleber_amarrado', frames: kleberFrames(0, 0, 1, 1, 0, 2, 0, 3, 3, 0), frameRate: 3, repeat: -1 });
+    anims.create({ key: 'kleber_livre', frames: kleberFrames(4, 5, 6, 7, 6, 5), frameRate: 6, repeat: -1 });
   }
 }

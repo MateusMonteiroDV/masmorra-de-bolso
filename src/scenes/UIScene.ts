@@ -206,10 +206,15 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    EventBus.on(CONSTANTS.EVENTS.WAVE_CHANGED, (data: { wave: number; total: number; remaining: number; bossName?: string }) => {
+    EventBus.on(CONSTANTS.EVENTS.WAVE_CHANGED, (data: { wave: number; total: number; remaining: number; bossName?: string; mission?: string }) => {
       if (this.waveText && this.waveText.active) {
+        // A missão é longa: quebra a linha antes de invadir a barra de vida do chefe no centro
+        const bossBarLeft = (this.scale.width - Math.min(220, this.scale.width - 120)) / 2;
+        this.waveText.setWordWrapWidth(bossBarLeft - this.waveText.x - 8);
         this.waveText.setText(
-          data.bossName
+          data.mission
+            ? `MISSÃO: ${data.mission}`
+            : data.bossName
             ? `CHEFE FINAL: ${data.bossName}`
             : `ONDA ${data.wave}/${data.total} [${data.remaining} restantes]`
         );
@@ -368,6 +373,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   public cleanupSpectatorMode() {
+    // O modo espectador esconde o joystick; sem isto o herói revivido não andava no mobile
+    this.touchControls?.setVisible(true);
     if (this.spectatorKeyEnter) {
       this.spectatorKeyEnter.removeAllListeners();
       this.spectatorKeyEnter = undefined;

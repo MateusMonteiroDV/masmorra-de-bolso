@@ -15,9 +15,16 @@ import { UIScene } from './UIScene';
 import { isTouchDevice } from '../ui/TouchControls';
 import { ArenaLayout, MAIN_ARENA, BOSS_ARENA, buildWallRects } from '../dungeon/ArenaLayouts';
 import { CapetaoBoss } from '../entities/enemies/CapetaoBoss';
+import { KleberHostage } from '../entities/npcs/KleberHostage';
+import { SlimeEnemy } from '../entities/enemies/SlimeEnemy';
+import { BatEnemy } from '../entities/enemies/BatEnemy';
+import { SkeletonMage } from '../entities/enemies/SkeletonMage';
+import { CapetaoMinionSpawn, getCapetaoHordeInterval, planCapetaoHorde } from '../dungeon/CapetaoMinions';
 
 const BOSS_NETWORK_ID = 'boss_capetao';
 const BOSS_PORTAL_COUNTDOWN_SECONDS = 10;
+const BOSS_MISSION_TEXT = 'Salve o Kleber do Capetão! Ele está amarrado!';
+const BOSS_MISSION_DONE_TEXT = 'O Kleber foi desamarrado!';
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -52,6 +59,14 @@ export class DungeonScene extends Phaser.Scene {
   private isInBossArena: boolean = false;
   private isVictoryScheduled: boolean = false;
 
+  // Refém amarrado no topo da Sala do Capetão
+  private kleber?: KleberHostage;
+
+  // Lacaios que surgem em hordas enquanto o Capetão estiver vivo
+  private capetaoMinionTimer: number = 0;
+  private capetaoHordeNumber: number = 0;
+  private isCapetaoSummoning: boolean = false;
+
   private static readonly REVIVE_RANGE = 58;
 
   constructor() {
@@ -65,6 +80,9 @@ export class DungeonScene extends Phaser.Scene {
     this.isEnteringBossArena = false;
     this.isInBossArena = false;
     this.isVictoryScheduled = false;
+    this.isCapetaoSummoning = false;
+    this.capetaoHordeNumber = 0;
+    this.kleber = undefined;
     this.bossPortalGraphics = undefined;
     this.bossPortalText = undefined;
     this.bossPortalTimer = undefined;
@@ -142,6 +160,10 @@ export class DungeonScene extends Phaser.Scene {
     EventBus.on(CONSTANTS.EVENTS.ENEMY_DIED, (deadEnemy: Enemy) => {
       if (deadEnemy instanceof CapetaoBoss) {
         this.handleCapetaoDefeated();
+        return;
+      }
+      if (deadEnemy.getData('isCapetaoMinion')) {
+        this.enemyMap.delete(deadEnemy.getData('networkId'));
         return;
       }
       this.waveManager.onEnemyKilled(deadEnemy);
@@ -306,13 +328,14 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.remotePlayers.forEach(remote => remote.snapTo(BOSS_ARENA.playerSpawn.x + 30, BOSS_ARENA.playerSpawn.y));
 
-    EventBus.emit(CONSTANTS.EVENTS.WAVE_CHANGED, { wave: 0, total: 0, remaining: 1, bossName: 'CAPETÃO' });
-    this.showBossBanner('O CAPETÃO DESPERTOU NO SANTUÁRIO!');
+    const hostageSpawn = BOSS_ARENA.hostageSpawn!;
+    this.kleber = new KleberHostage(this, hostageSpawn.x, hostageSpawn.y);
+
+    EventBus.emit(CONSTANTS.EVENTS.WAVE_CHANGED, { wave: 0, total: 0, remaining: 1, bossName: 'CAPETÃO', mission: BOSS_MISSION_TEXT });
+    this.showBossBanner(BOSS_MISSION_TEXT.toUpperCase());
 
     const bossSpawn = BOSS_ARENA.bossSpawn!;
-    const summonCloud = this.add.sprite(bossSpawn.x, bossSpawn.y, 'nuvem_0').setScale(2.5).setDepth(CONSTANTS.DEPTH.EFFECTS);
-    summonCloud.play('anim_nuvem');
-    summonCloud.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => summonCloud.destroy());
+    this.spawnSummonCloud(bossSpawn.x, bossSpawn.y, 2.5);
 
     this.time.delayedCall(900, () => {
       if (!this.isInBossArena || this.isTransitioningToGameOver) return;
@@ -321,7 +344,89 @@ export class DungeonScene extends Phaser.Scene {
       boss.setData('networkId', BOSS_NETWORK_ID);
       this.enemyGroup.add(boss);
       this.enemyMap.set(BOSS_NETWORK_ID, boss);
+
+      this.capetaoHordeNumber = 0;
+      this.capetaoMinionTimer = CONSTANTS.ENEMIES.CAPETAO.MINION_FIRST_DELAY;
+      this.isCapetaoSummoning = true;
     });
+  }
+
+  // ===================== Lacaios do Capetão =====================
+
+  private getCapetaoMinions(): Enemy[] {
+    return (this.enemyGroup.getChildren() as Enemy[]).filter(
+      enemy => enemy.active && enemy.getData('isCapetaoMinion') && !enemy.health.isDead()
+    );
+  }
+
+  /** Enquanto o Capetão vive, uma nova horda de lacaios surge a cada intervalo */
+  private updateCapetaoMinions(delta: number) {
+    if (!this.isCapetaoSummoning || this.isTransitioningToGameOver) return;
+
+    const boss = this.enemyMap.get(BOSS_NETWORK_ID);
+    if (!boss || !boss.active || boss.health.isDead()) {
+      this.stopCapetaoMinions();
+      return;
+    }
+
+    this.capetaoMinionTimer -= delta;
+    if (this.capetaoMinionTimer > 0) return;
+
+    const isEnraged = boss.health.currentHp <= boss.health.maxHp / 2;
+    this.capetaoMinionTimer = getCapetaoHordeInterval(isEnraged);
+    this.capetaoHordeNumber++;
+
+    const heroPositions: { x: number; y: number }[] = [];
+    if (!this.player.health.isDead()) heroPositions.push({ x: this.player.x, y: this.player.y });
+    this.remotePlayers.forEach(remote => {
+      if (remote.active && !remote.isDead()) heroPositions.push({ x: remote.x, y: remote.y });
+    });
+
+    planCapetaoHorde(this.capetaoHordeNumber, this.getCapetaoMinions().length, heroPositions)
+      .forEach((spawn, index) => this.spawnCapetaoMinion(spawn, index));
+  }
+
+  private spawnCapetaoMinion(spawn: CapetaoMinionSpawn, index: number) {
+    const stats = CONSTANTS.ENEMIES.CAPETAO;
+    this.spawnSummonCloud(spawn.x, spawn.y);
+
+    let minion: Enemy;
+    let hpMult: number = stats.MINION_HP_MULT;
+    if (spawn.kind === 'bat') {
+      minion = new BatEnemy(this, spawn.x, spawn.y, this.dropGroup);
+      hpMult = 1; // Morcegos continuam morrendo com um golpe, como nas ondas
+    } else if (spawn.kind === 'mage') {
+      minion = new SkeletonMage(this, spawn.x, spawn.y, this.dropGroup, this.projectileGroup);
+    } else {
+      minion = new SlimeEnemy(this, spawn.x, spawn.y, this.dropGroup);
+    }
+
+    const id = `capetao_minion_${this.capetaoHordeNumber}_${index}`;
+    minion.applyDifficultyScale(hpMult, stats.MINION_SPEED_MULT, 1);
+    minion.goldReward = stats.MINION_GOLD;
+    minion.setData('networkId', id);
+    minion.setData('isMinion', true);
+    minion.setData('isCapetaoMinion', true);
+    this.enemyGroup.add(minion);
+    this.enemyMap.set(id, minion);
+  }
+
+  /** O Capetão caiu: as hordas param e os lacaios restantes se desfazem em fumaça */
+  private stopCapetaoMinions() {
+    if (!this.isCapetaoSummoning) return;
+    this.isCapetaoSummoning = false;
+
+    this.getCapetaoMinions().forEach(minion => {
+      this.spawnSummonCloud(minion.x, minion.y);
+      this.enemyMap.delete(minion.getData('networkId'));
+      minion.destroy();
+    });
+  }
+
+  private spawnSummonCloud(x: number, y: number, scale: number = 1) {
+    const cloud = this.add.sprite(x, y, 'nuvem_0').setScale(scale).setDepth(CONSTANTS.DEPTH.EFFECTS);
+    cloud.play('anim_nuvem');
+    cloud.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => cloud.destroy());
   }
 
   private showBossBanner(text: string) {
@@ -344,8 +449,22 @@ export class DungeonScene extends Phaser.Scene {
     });
   }
 
+  /** Capetão derrotado: o Kleber é desamarrado e o herói recebe a recompensa do resgate */
+  private rescueKleber() {
+    if (!this.kleber?.free()) return;
+
+    const goldBefore = GameState.runGold;
+    GameState.addRunGold(CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD);
+    const rescueGold = GameState.runGold - goldBefore;
+
+    this.spawnSummonCloud(this.kleber.x, this.kleber.y - 20);
+    this.showFloatingText(this.kleber.x, this.kleber.y - 54, 'OBRIGADO, HERÓI!', '#4ade80');
+    this.showFloatingText(this.player.x, this.player.y - 46, `+${rescueGold} G POR SALVAR O KLEBER`, '#fbbf24');
+    EventBus.emit(CONSTANTS.EVENTS.WAVE_CHANGED, { wave: 0, total: 0, remaining: 0, bossName: 'CAPETÃO', mission: BOSS_MISSION_DONE_TEXT });
+  }
+
   private handleCapetaoDefeated() {
-    this.showBossBanner('👑 O CAPETÃO FOI DERROTADO! A MASMORRA É SUA!');
+    this.showBossBanner(`👑 ${BOSS_MISSION_DONE_TEXT.toUpperCase()} +${CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD} G`);
     if (NetworkManager.isConnected()) {
       NetworkManager.sendAction({ type: 'dungeon_victory' });
     }
@@ -355,6 +474,8 @@ export class DungeonScene extends Phaser.Scene {
   private scheduleVictory(delayMs: number) {
     if (this.isVictoryScheduled || this.isTransitioningToGameOver) return;
     this.isVictoryScheduled = true;
+    this.stopCapetaoMinions();
+    this.rescueKleber();
     this.time.delayedCall(delayMs, () => {
       if (this.isTransitioningToGameOver) return;
       this.isTransitioningToGameOver = true;
@@ -746,6 +867,9 @@ export class DungeonScene extends Phaser.Scene {
         }
       }
     });
+
+    // 4b. Hordas de lacaios da Sala do Capetão
+    this.updateCapetaoMinions(delta);
 
     // 5. Atualizar Atração Magnética de Drops (Moedas e Flechas)
     if (!this.player.health.isDead() && !this.isTransitioningToGameOver) {

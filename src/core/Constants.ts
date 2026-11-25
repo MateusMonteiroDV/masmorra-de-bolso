@@ -97,7 +97,16 @@ export const CONSTANTS = {
       FIRE_PROJECTILE_SPEED: 120,
       RING_COOLDOWN: 7000,
       CONTACT_DAMAGE: 1,
-      XP_OR_GOLD: 40           // 40 moedas de recompensa
+      MINION_FIRST_DELAY: 5000,      // Primeira horda de lacaios após o Capetão surgir
+      MINION_INTERVAL: 9000,         // Intervalo entre hordas enquanto o Capetão vive
+      MINION_ENRAGED_INTERVAL: 6500, // Hordas mais frequentes na fase 2
+      MINION_MAX_ALIVE: 6,           // Limite de lacaios vivos ao mesmo tempo
+      MINION_SAFE_DISTANCE: 130,     // Lacaios não nascem colados nos heróis
+      MINION_HP_MULT: 1.5,
+      MINION_SPEED_MULT: 1.15,
+      MINION_GOLD: 1,                // Recompensa baixa: a luta não vira fazenda de ouro
+      XP_OR_GOLD: 40,          // 40 moedas de recompensa
+      RESCUE_GOLD: 500         // Recompensa por libertar o Kleber
     }
   },
 
