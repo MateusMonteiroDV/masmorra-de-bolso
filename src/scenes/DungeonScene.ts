@@ -25,6 +25,7 @@ const BOSS_NETWORK_ID = 'boss_capetao';
 const BOSS_PORTAL_COUNTDOWN_SECONDS = 10;
 const BOSS_MISSION_TEXT = 'Salve o Kleber do Capetão! Ele está amarrado!';
 const BOSS_MISSION_DONE_TEXT = 'O Kleber foi desamarrado!';
+const EXIT_PORTAL_DELAY_MS = 1500;
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -57,7 +58,13 @@ export class DungeonScene extends Phaser.Scene {
   private isBossPortalOpen: boolean = false;
   private isEnteringBossArena: boolean = false;
   private isInBossArena: boolean = false;
-  private isVictoryScheduled: boolean = false;
+  private isDungeonCleared: boolean = false;
+
+  // Portal de saída ao lado do Kleber (aparece depois que o Capetão cai)
+  private exitPortalGraphics?: Phaser.GameObjects.Graphics;
+  private exitPortalText?: Phaser.GameObjects.Text;
+  private isExitPortalOpen: boolean = false;
+  private isLeavingDungeon: boolean = false;
 
   // Refém amarrado no topo da Sala do Capetão
   private kleber?: KleberHostage;
@@ -79,7 +86,11 @@ export class DungeonScene extends Phaser.Scene {
     this.isBossPortalOpen = false;
     this.isEnteringBossArena = false;
     this.isInBossArena = false;
-    this.isVictoryScheduled = false;
+    this.isDungeonCleared = false;
+    this.isExitPortalOpen = false;
+    this.isLeavingDungeon = false;
+    this.exitPortalGraphics = undefined;
+    this.exitPortalText = undefined;
     this.isCapetaoSummoning = false;
     this.capetaoHordeNumber = 0;
     this.kleber = undefined;
@@ -464,23 +475,96 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private handleCapetaoDefeated() {
-    this.showBossBanner(`👑 ${BOSS_MISSION_DONE_TEXT.toUpperCase()} +${CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD} G`);
     if (NetworkManager.isConnected()) {
       NetworkManager.sendAction({ type: 'dungeon_victory' });
     }
-    this.scheduleVictory(4000);
+    this.completeDungeon();
   }
 
-  private scheduleVictory(delayMs: number) {
-    if (this.isVictoryScheduled || this.isTransitioningToGameOver) return;
-    this.isVictoryScheduled = true;
+  /**
+   * Masmorra vencida (o Capetão caiu aqui ou na tela do aliado): a luta acaba, o Kleber é solto
+   * e o portal de saída se abre. Cada herói só deixa a sala quando entrar no portal.
+   */
+  private completeDungeon() {
+    if (this.isDungeonCleared || this.isTransitioningToGameOver) return;
+    this.isDungeonCleared = true;
+
+    // Na tela do aliado o Capetão pode ainda estar de pé: ele cai junto
+    const boss = this.enemyMap.get(BOSS_NETWORK_ID);
+    if (boss && boss.active && !boss.health.isDead()) {
+      boss.health.isInvulnerable = false;
+      boss.health.takeDamage(boss.health.maxHp);
+    }
+
+    // Quem estava caído comemora junto e pode andar até o portal
+    if (this.player.health.isDead()) {
+      this.reviveLocalPlayer();
+    }
+
     this.stopCapetaoMinions();
+    this.projectileGroup.clear(true, true);
     this.rescueKleber();
-    this.time.delayedCall(delayMs, () => {
-      if (this.isTransitioningToGameOver) return;
-      this.isTransitioningToGameOver = true;
+    this.showBossBanner(`👑 ${BOSS_MISSION_DONE_TEXT.toUpperCase()} +${CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD} G`);
+
+    this.time.delayedCall(EXIT_PORTAL_DELAY_MS, () => this.openExitPortal());
+  }
+
+  // ===================== Portal de saída =====================
+
+  private getReturnDestination(): { scene: 'LobbyScene' | 'HubScene'; label: string } {
+    return NetworkManager.currentRoomId
+      ? { scene: 'LobbyScene', label: 'AO LOBBY' }
+      : { scene: 'HubScene', label: 'À BASE' };
+  }
+
+  private openExitPortal() {
+    const portal = BOSS_ARENA.exitPortal;
+    if (this.isExitPortalOpen || this.isLeavingDungeon || !this.isInBossArena || !portal) return;
+    this.isExitPortalOpen = true;
+
+    this.spawnSummonCloud(portal.x, portal.y, 1.5);
+    this.exitPortalGraphics = this.add.graphics().setDepth(CONSTANTS.DEPTH.DOORS);
+    this.exitPortalGraphics.fillStyle(0x0ea5e9, 0.4);
+    this.exitPortalGraphics.fillEllipse(portal.x, portal.y, portal.radius * 2, portal.radius * 1.5);
+    this.exitPortalGraphics.fillStyle(0xe0f2fe, 0.35);
+    this.exitPortalGraphics.fillEllipse(portal.x, portal.y, portal.radius, portal.radius * 0.75);
+    this.exitPortalGraphics.lineStyle(2, 0x38bdf8, 0.95);
+    this.exitPortalGraphics.strokeEllipse(portal.x, portal.y, portal.radius * 2, portal.radius * 1.5);
+    this.tweens.add({ targets: this.exitPortalGraphics, alpha: 0.5, duration: 450, yoyo: true, repeat: -1 });
+
+    this.exitPortalText = this.add.text(
+      this.scale.width / 2,
+      92,
+      `🌀 ENTRE NO PORTAL AO LADO DO KLEBER PARA VOLTAR ${this.getReturnDestination().label} 🌀`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#38bdf8',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }
+    ).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 20);
+  }
+
+  /** O herói entrou no portal: conclui a run como vitória (ouro vai para o cofre) e sai da masmorra */
+  private leaveThroughExitPortal() {
+    if (this.isLeavingDungeon) return;
+    this.isLeavingDungeon = true;
+    this.isTransitioningToGameOver = true;
+    this.exitPortalText?.destroy();
+    this.exitPortalText = undefined;
+
+    const destination = this.getReturnDestination();
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      GameState.endRun(true);
+      if (destination.scene === 'LobbyScene') {
+        // Avisa o aliado que já estamos no lobby o aguardando
+        NetworkManager.sendAction({ type: 'lobby_peer_waiting' });
+      }
       this.scene.stop('UIScene');
-      this.scene.start('GameOverScene', { victory: true });
+      this.scene.start(destination.scene);
     });
   }
 
@@ -640,7 +724,7 @@ export class DungeonScene extends Phaser.Scene {
           }
         }
       } else if (action.type === 'dungeon_victory') {
-        this.scheduleVictory(1200);
+        this.completeDungeon();
       } else if (action.type === 'boss_phase') {
         this.enterBossArena(false);
       } else if (action.type === 'all_players_dead') {
@@ -902,6 +986,15 @@ export class DungeonScene extends Phaser.Scene {
         const distanceToPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, portal.x, portal.y);
         if (distanceToPortal <= portal.radius) {
           this.enterBossArena(true);
+        }
+      }
+
+      // Depois da vitória, o herói só volta quando entrar no portal ao lado do Kleber
+      const exitPortal = BOSS_ARENA.exitPortal;
+      if (this.isExitPortalOpen && exitPortal && !this.isLeavingDungeon) {
+        const distanceToExit = Phaser.Math.Distance.Between(this.player.x, this.player.y, exitPortal.x, exitPortal.y);
+        if (distanceToExit <= exitPortal.radius) {
+          this.leaveThroughExitPortal();
         }
       }
     } else {

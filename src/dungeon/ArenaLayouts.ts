@@ -36,6 +36,8 @@ export interface ArenaLayout {
   bossSpawn?: Point;
   /** Onde o refém fica amarrado (apenas na sala do chefe) */
   hostageSpawn?: Point;
+  /** Portal de saída que surge ao lado do refém depois que o chefe cai */
+  exitPortal?: Point & { radius: number };
 }
 
 export const MAIN_ARENA: ArenaLayout = {
@@ -108,7 +110,8 @@ export const BOSS_ARENA: ArenaLayout = {
   chestPositions: [],
   coinPositions: [],
   bossSpawn: { x: 768, y: 330 },
-  hostageSpawn: { x: 772, y: 188 }   // Topo do santuário, aos pés da estátua
+  hostageSpawn: { x: 772, y: 188 },  // Topo do santuário, aos pés da estátua
+  exitPortal: { x: 840, y: 214, radius: 28 }
 };
 
 /** Intervalos [inícioX, fimX] em que a linha horizontal y cruza o interior do polígono */

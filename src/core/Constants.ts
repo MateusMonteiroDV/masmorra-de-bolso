@@ -102,6 +102,7 @@ export const CONSTANTS = {
       MINION_ENRAGED_INTERVAL: 6500, // Hordas mais frequentes na fase 2
       MINION_MAX_ALIVE: 6,           // Limite de lacaios vivos ao mesmo tempo
       MINION_SAFE_DISTANCE: 130,     // Lacaios não nascem colados nos heróis
+      MINION_SPAWN_RADIUS: 140,      // Nascem em volta do herói, dentro da tela
       MINION_HP_MULT: 1.5,
       MINION_SPEED_MULT: 1.15,
       MINION_GOLD: 1,                // Recompensa baixa: a luta não vira fazenda de ouro
