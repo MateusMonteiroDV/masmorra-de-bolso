@@ -26,6 +26,22 @@ async function run() {
     const { WAVE_CONFIGS, getWaveClearBonus } = await server.ssrLoadModule('/src/dungeon/WaveConfigs.ts');
     const { splitCoinReward } = await server.ssrLoadModule('/src/core/Economy.ts');
     const { CONSTANTS } = await server.ssrLoadModule('/src/core/Constants.ts');
+    const { clearReleasedVirtualFlags } = await server.ssrLoadModule('/src/core/PointerFlags.ts');
+
+    // ---------- Mouse (regressão: parava de atirar/defender após clicar em menus) ----------
+    await test('PointerFlags: novo clique limpa a marca de controle virtual do mouse solto', () => {
+      const mousePointer = { isDown: false, isVirtualControl: true };
+      clearReleasedVirtualFlags([mousePointer]);
+      assert.equal(mousePointer.isVirtualControl, false);
+    });
+
+    await test('PointerFlags: dedo ainda segurando o joystick mantém a marca', () => {
+      const joystickPointer = { isDown: true, isVirtualControl: true };
+      const mousePointer = { isDown: false, isVirtualControl: true };
+      clearReleasedVirtualFlags([mousePointer, joystickPointer, undefined]);
+      assert.equal(joystickPointer.isVirtualControl, true);
+      assert.equal(mousePointer.isVirtualControl, false);
+    });
 
     // ---------- Escala pixel-perfect ----------
     await test('PixelScale: 1920x1080 @1x usa fator inteiro 4 e mantém 480x270', () => {

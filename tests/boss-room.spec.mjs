@@ -39,6 +39,30 @@ async function run() {
     assertCheck(leftX >= 110, `parede esquerda bloqueia o herói (body.x=${Math.round(leftX)})`);
     await page.evaluate(() => game.scene.getScene('DungeonScene').enemyGroup.getChildren().forEach(enemy => enemy.setActive(true)));
 
+    // 2b. Regressão do mouse: depois de clicar num botão de menu (Hub/Loja/Lobby), o ponteiro
+    // ficava marcado como controle virtual para sempre e o mouse parava de atirar e defender.
+    await page.evaluate(() => {
+      game.input.mousePointer.isVirtualControl = true; // o que os botões de menu fazem ao serem clicados
+      game.scene.getScene('DungeonScene').enemyGroup.getChildren().forEach(enemy => enemy.setActive(false));
+      game.scene.getScene('DungeonScene').player.teleportTo(627, 640);
+    });
+    const arrowsBeforeClick = await page.evaluate(() => GameState.arrows);
+    await page.mouse.move(900, 300);
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    const arrowsAfterClick = await page.evaluate(() => GameState.arrows);
+    assertCheck(arrowsBeforeClick - arrowsAfterClick === 1, 'clique esquerdo atira flecha mesmo após usar menus');
+    await page.mouse.down({ button: 'right' });
+    await page.waitForTimeout(120);
+    const shieldUp = await page.evaluate(() => game.scene.getScene('DungeonScene').player.isDefending);
+    await page.mouse.up({ button: 'right' });
+    await page.waitForTimeout(120);
+    const shieldDown = await page.evaluate(() => game.scene.getScene('DungeonScene').player.isDefending);
+    assertCheck(shieldUp && !shieldDown, 'botão direito levanta e abaixa o escudo');
+    await page.evaluate(() => game.scene.getScene('DungeonScene').enemyGroup.getChildren().forEach(enemy => enemy.setActive(true)));
+
     // 3. Movimento com aceleração: não atinge velocidade máxima no primeiro frame e para suavemente
     await page.evaluate(() => game.scene.getScene('DungeonScene').player.teleportTo(627, 640));
     await page.keyboard.down('d');
@@ -79,6 +103,30 @@ async function run() {
     });
     await page.waitForTimeout(300);
     const chestsBefore = await page.evaluate(() => game.scene.getScene('DungeonScene').chests.length);
+
+    // 6b. Novo Rei Slime: 1.5x o slime comum, animação de dano e de morte (poça com coroa)
+    const kingInfo = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      const king = dungeon.enemyGroup.getChildren().find(enemy => enemy.texture.key.startsWith('king_slime'));
+      const slime = dungeon.enemyGroup.getChildren().find(enemy => enemy.texture.key.startsWith('slime_'));
+      const visibleWidth = sprite => {
+        const frame = sprite.frame;
+        return { key: sprite.texture.key, width: frame.width };
+      };
+      king.health.isInvulnerable = false;
+      king.health.takeDamage(1);
+      return { king: visibleWidth(king), slime: visibleWidth(slime), hurtAnim: king.anims.currentAnim?.key };
+    });
+    assertCheck(kingInfo.king.width === 75, `Rei Slime usa os novos quadros (${kingInfo.king.key}, ${kingInfo.king.width}px)`);
+    assertCheck(kingInfo.hurtAnim === 'king_slime_hurt', `Rei Slime anima ao tomar dano (${kingInfo.hurtAnim})`);
+    const kingDeathAnim = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      const king = dungeon.enemyGroup.getChildren().find(enemy => enemy.texture.key.startsWith('king_slime'));
+      king.health.isInvulnerable = false;
+      king.health.takeDamage(999);
+      return king.anims.currentAnim?.key;
+    });
+    assertCheck(kingDeathAnim === 'king_slime_death', 'Rei Slime derrete ao morrer');
     await page.evaluate(() => game.scene.getScene('DungeonScene').enemyGroup.getChildren().slice().forEach(enemy => enemy.health.takeDamage(999)));
     await page.waitForTimeout(800);
     const portalState = await page.evaluate(() => {
@@ -97,6 +145,20 @@ async function run() {
     await page.waitForTimeout(200);
     const promptVisible = await page.evaluate(() => !!game.scene.getScene('DungeonScene').chests[0].promptText);
     assertCheck(promptVisible, 'aviso [E] Abrir aparece ao se aproximar do baú');
+
+    // 7b. Novo baú: abre com animação, mostra as relíquias e fica aberto (último quadro) após a escolha
+    await page.keyboard.down('e');
+    await page.waitForTimeout(120);
+    await page.keyboard.up('e');
+    await page.waitForFunction(() => game.scene.getScene('UIScene').relicModal.visible, null, { timeout: 3000, polling: 100 });
+    await page.mouse.click(640, 376);
+    await page.waitForFunction(() => game.scene.getScene('DungeonScene').sys.isActive(), null, { timeout: 3000, polling: 100 });
+    const chestAfterChoice = await page.evaluate(() => ({
+      texture: game.scene.getScene('DungeonScene').chests[0].texture.key,
+      relics: GameState.activeRelics.length
+    }));
+    assertCheck(chestAfterChoice.relics === 1, 'relíquia escolhida com o mouse');
+    assertCheck(chestAfterChoice.texture === 'bau_3', `baú permanece aberto após a escolha (${chestAfterChoice.texture})`);
 
     // 8. Entrar no portal teleporta para a Sala do Capetão
     await page.evaluate(() => game.scene.getScene('DungeonScene').player.teleportTo(627, 185));
