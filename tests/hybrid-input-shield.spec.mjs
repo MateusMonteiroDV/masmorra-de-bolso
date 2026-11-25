@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { resolveChromePath } from './helpers/browser.mjs';
 import { createServer } from 'vite';
 
 async function run() {
@@ -14,7 +15,7 @@ async function run() {
   console.log(`📡 Vite server listening at ${baseUrl}`);
 
   const browser = await chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
+    executablePath: resolveChromePath(),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--use-gl=angle', '--use-angle=swiftshader']
   });

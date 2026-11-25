@@ -1,19 +1,25 @@
 import { chromium } from 'playwright';
-import { spawn } from 'child_process';
+import { resolveChromePath } from './helpers/browser.mjs';
+import { createServer } from 'vite';
 
 async function run() {
   console.log('--- Testando RoomInputDialog e Imobilidade do Jogador ---');
-  const server = spawn('npx', ['vite', '--port', '5192'], { stdio: 'ignore' });
-  await new Promise(r => setTimeout(r, 2000));
+  const server = await createServer({
+    server: { port: 5192, host: '127.0.0.1' },
+    logLevel: 'error'
+  });
+  await server.listen();
+  const address = server.httpServer?.address();
+  const baseUrl = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 5192}`;
 
   const browser = await chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
+    executablePath: resolveChromePath(),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--use-gl=angle', '--use-angle=swiftshader']
   });
   const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
 
-  await page.goto('http://127.0.0.1:5192');
+  await page.goto(baseUrl);
   await page.waitForTimeout(1000);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(1000);
@@ -90,7 +96,7 @@ async function run() {
   console.log('Modal fechado após confirmação?', modalGone === null);
 
   await browser.close();
-  server.kill();
+  await server.close();
   console.log('🎉 TODOS OS TESTES DE DIGITAÇÃO E IMOBILIDADE PASSARAM!');
 }
 
