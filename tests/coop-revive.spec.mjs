@@ -100,6 +100,51 @@ async function run() {
     await guestPage.waitForFunction(() => game.scene.getScene('DungeonScene').isInBossArena, null, { timeout: 5000, polling: 100 });
     assertCheck(true, 'aliado também foi teleportado para a Sala do Capetão');
 
+    // 6. Vitória no co-op: o Capetão cai para os dois, o portal abre e cada um volta ao Lobby ao entrar nele
+    for (const page of [hostPage, guestPage]) {
+      await page.waitForFunction(() => game.scene.getScene('DungeonScene').enemyMap.get('boss_capetao'), null, { timeout: 8000, polling: 100 });
+    }
+    // O aliado cai antes do golpe final: ele deve levantar para poder andar até o portal
+    await guestPage.bringToFront();
+    await guestPage.evaluate(() => {
+      const player = game.scene.getScene('DungeonScene').player;
+      player.health.isInvulnerable = false;
+      player.health.takeDamage(999);
+    });
+    await guestPage.waitForFunction(() => game.scene.getScene('DungeonScene').player.health.isDead(), null, { timeout: 3000, polling: 100 });
+    await hostPage.bringToFront();
+    await hostPage.evaluate(() => {
+      const boss = game.scene.getScene('DungeonScene').enemyMap.get('boss_capetao');
+      boss.health.isInvulnerable = false;
+      boss.health.takeDamage(9999);
+    });
+    await hostPage.waitForFunction(() => game.scene.getScene('DungeonScene').isExitPortalOpen, null, { timeout: 5000, polling: 100 });
+    await guestPage.bringToFront();
+    await guestPage.waitForFunction(() => game.scene.getScene('DungeonScene').isExitPortalOpen, null, { timeout: 5000, polling: 100 });
+    const guestVictory = await guestPage.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      return {
+        alive: !dungeon.player.health.isDead(),
+        bossDown: dungeon.enemyMap.get('boss_capetao').health.isDead(),
+        kleberFree: dungeon.kleber.isFree,
+        prompt: dungeon.exitPortalText.text
+      };
+    });
+    assertCheck(guestVictory.bossDown && guestVictory.kleberFree, 'vitória do host chega ao aliado (Capetão caído e Kleber solto)');
+    assertCheck(guestVictory.alive, 'aliado caído levanta na vitória para poder ir até o portal');
+    assertCheck(guestVictory.prompt.includes('AO LOBBY'), `no co-op o portal leva ao Lobby (${guestVictory.prompt})`);
+
+    await hostPage.bringToFront();
+    await hostPage.evaluate(() => game.scene.getScene('DungeonScene').player.teleportTo(840, 214));
+    await hostPage.waitForFunction(() => game.scene.isActive('LobbyScene'), null, { timeout: 5000, polling: 100 });
+    await guestPage.bringToFront();
+    await guestPage.waitForTimeout(800);
+    const guestStays = await guestPage.evaluate(() => game.scene.isActive('DungeonScene') && !game.scene.isActive('GameOverScene'));
+    assertCheck(guestStays, 'host volta ao Lobby pelo portal e o aliado continua na sala até entrar também');
+    await guestPage.evaluate(() => game.scene.getScene('DungeonScene').player.teleportTo(840, 214));
+    await guestPage.waitForFunction(() => game.scene.isActive('LobbyScene'), null, { timeout: 5000, polling: 100 });
+    assertCheck(true, 'aliado também volta ao Lobby ao entrar no portal');
+
     const relevantErrors = errors.filter(error => !error.includes('CORS') && !error.includes('[vite]'));
     assertCheck(relevantErrors.length === 0, `sem erros no console (${relevantErrors.join(' | ') || 'nenhum'})`);
 

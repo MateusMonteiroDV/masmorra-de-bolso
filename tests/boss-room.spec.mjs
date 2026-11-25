@@ -212,6 +212,12 @@ async function run() {
     await page.waitForFunction(() => game.scene.getScene('DungeonScene').capetaoHordeNumber === 1, null, { timeout: 3000 });
     const firstHorde = await countMinions();
     assertCheck(firstHorde === 3, `primeira horda de lacaios surgiu (${firstHorde})`);
+    const minionsOnScreen = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      const view = dungeon.cameras.main.worldView;
+      return dungeon.enemyGroup.getChildren().filter(enemy => enemy.getData('isCapetaoMinion') && view.contains(enemy.x, enemy.y)).length;
+    });
+    assertCheck(minionsOnScreen === 3, `lacaios surgem perto do herói, dentro da tela (${minionsOnScreen}/3)`);
     await page.evaluate(() => {
       const dungeon = game.scene.getScene('DungeonScene');
       dungeon.player.health.currentHp = 10;
@@ -262,9 +268,33 @@ async function run() {
     assertCheck(rescue.free && rescue.anim === 'kleber_livre', 'Kleber é desamarrado e comemora quando o Capetão morre');
     assertCheck(rescue.hud === 'MISSÃO: O Kleber foi desamarrado!', `HUD avisa que o Kleber foi desamarrado (${rescue.hud})`);
     assertCheck(rescue.gold - goldBeforeVictory >= 500, `resgate rende 500 de ouro (+${rescue.gold - goldBeforeVictory} G)`);
-    await page.waitForFunction(() => game.scene.isActive('GameOverScene'), null, { timeout: 8000 });
-    const victory = await page.evaluate(() => ({ banked: GameState.bankedGold, bossKills: GameState.totalBossKills }));
-    assertCheck(victory.banked >= goldBeforeVictory, `vitória registrada e ouro guardado no cofre (${victory.banked} G)`);
+
+    // 11. Portal de saída: abre ao lado do Kleber e o herói só sai da masmorra ao entrar nele
+    const bossKillsBefore = await page.evaluate(() => GameState.totalBossKills);
+    await page.waitForFunction(() => game.scene.getScene('DungeonScene').isExitPortalOpen, null, { timeout: 5000 });
+    await page.waitForTimeout(4500); // antes a vitória trocava de cena sozinha depois de 4s
+    const stillInDungeon = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      return {
+        active: dungeon.sys.isActive() && !game.scene.isActive('GameOverScene'),
+        prompt: dungeon.exitPortalText?.text ?? ''
+      };
+    });
+    assertCheck(stillInDungeon.active, 'herói continua na sala enquanto não entra no portal');
+    assertCheck(stillInDungeon.prompt.includes('PORTAL AO LADO DO KLEBER'), `aviso do portal de saída (${stillInDungeon.prompt})`);
+
+    await page.evaluate(() => game.scene.getScene('DungeonScene').player.teleportTo(840, 214));
+    await page.waitForFunction(() => game.scene.isActive('HubScene'), null, { timeout: 5000 });
+    const victory = await page.evaluate(() => ({
+      banked: GameState.bankedGold,
+      runGold: GameState.runGold,
+      bossKills: GameState.totalBossKills,
+      dungeonActive: game.scene.isActive('DungeonScene'),
+      uiActive: game.scene.isActive('UIScene')
+    }));
+    assertCheck(!victory.dungeonActive && !victory.uiActive, 'entrar no portal leva o herói de volta à Base (jogo solo)');
+    assertCheck(victory.banked >= goldBeforeVictory + 500 && victory.runGold === 0, `ouro guardado no cofre ao sair pelo portal (${victory.banked} G)`);
+    assertCheck(victory.bossKills === bossKillsBefore + 1, 'vitória sobre o chefe registrada');
 
     const relevantErrors = errors.filter(error => !error.includes('CORS'));
     assertCheck(relevantErrors.length === 0, `sem erros no console (${relevantErrors.join(' | ') || 'nenhum'})`);

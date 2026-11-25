@@ -133,6 +133,16 @@ async function run() {
       assert.equal(CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD, 500);
     });
 
+    await test('Arena do chefe: portal de saída fica no piso, ao lado do Kleber e sem encostar nele', () => {
+      const portal = BOSS_ARENA.exitPortal;
+      const hostage = BOSS_ARENA.hostageSpawn;
+      const distance = Math.hypot(portal.x - hostage.x, portal.y - hostage.y);
+      assert.ok(isPointInsidePolygon(BOSS_ARENA.floorPolygon, portal));
+      assert.ok(distance > portal.radius && distance < 120, `portal a ${Math.round(distance)}px do Kleber`);
+      const fromBoss = Math.hypot(portal.x - BOSS_ARENA.bossSpawn.x, portal.y - BOSS_ARENA.bossSpawn.y);
+      assert.ok(fromBoss > portal.radius + 60, 'portal não abre em cima de onde o Capetão nasce');
+    });
+
     // ---------- Lacaios do Capetão ----------
     await test('Lacaios do Capetão: pontos de invocação no piso e longe do spawn do herói', () => {
       CAPETAO_MINION_SPAWN_POINTS.forEach(point => {
@@ -163,6 +173,30 @@ async function run() {
           assert.ok(Math.hypot(spawn.x - hero.x, spawn.y - hero.y) >= CONSTANTS.ENEMIES.CAPETAO.MINION_SAFE_DISTANCE);
         });
       }
+    });
+
+    await test('Lacaios do Capetão: nascem em volta do herói (visíveis na tela) e sempre no piso', () => {
+      const radius = CONSTANTS.ENEMIES.CAPETAO.MINION_SPAWN_RADIUS;
+      const heroes = [
+        BOSS_ARENA.playerSpawn,
+        { x: 768, y: 500 },   // meio da sala
+        { x: 230, y: 200 },   // canto superior esquerdo, colado nas paredes
+        { x: 1300, y: 600 },  // borda direita
+        { x: 768, y: 860 }    // parede de baixo
+      ];
+      heroes.forEach(hero => {
+        for (let horde = 1; horde <= 12; horde++) {
+          const spawns = planCapetaoHorde(horde, 0, [hero]);
+          assert.equal(spawns.length, 3);
+          spawns.forEach(spawn => {
+            const distance = Math.hypot(spawn.x - hero.x, spawn.y - hero.y);
+            assert.ok(isPointInsidePolygon(BOSS_ARENA.floorPolygon, spawn), `${JSON.stringify(spawn)} fora do piso`);
+            assert.ok(Math.abs(distance - radius) < 2, `lacaio a ${Math.round(distance)}px do herói ${JSON.stringify(hero)}`);
+          });
+          const [a, b] = spawns;
+          assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 40, 'lacaios da mesma horda não nascem empilhados');
+        }
+      });
     });
 
     await test('Lacaios do Capetão: hordas ficam mais frequentes na fúria', () => {
