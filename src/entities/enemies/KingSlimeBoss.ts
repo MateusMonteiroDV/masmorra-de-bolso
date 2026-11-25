@@ -10,6 +10,7 @@ export class KingSlimeBoss extends Enemy {
   private clawCooldownTimer: number = 0;
   private isSlamming: boolean = false;
   private isClawing: boolean = false;
+  private isDying: boolean = false;
   private enemyGroup?: Phaser.GameObjects.Group;
   public slamDamage: number = CONSTANTS.ENEMIES.BOSS.SLAM_DAMAGE;
 
@@ -34,13 +35,30 @@ export class KingSlimeBoss extends Enemy {
     this.contactDamage = CONSTANTS.ENEMIES.BOSS.DAMAGE;
     this.enemyGroup = enemyGroup;
 
+    // Quadro 75x75: corpo visível com ~57px de largura (1.5x o slime comum) apoiado em y=61
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
-      body.setSize(26, 20);
-      body.setOffset(3, 8);
+      body.setSize(46, 20);
+      body.setOffset(15, 41);
     }
 
     this.play('king_slime_walk');
+
+    this.health.setCallbacks(
+      () => this.die(),
+      () => this.playHurt()
+    );
+  }
+
+  /** Tomando dano: recua, pisca e volta à postura normal (sem interromper golpe ou salto) */
+  private playHurt() {
+    if (this.isDying || this.isSlamming || this.isClawing || this.health.isDead()) return;
+    this.play('king_slime_hurt', true);
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (this.active && !this.isDying && !this.isClawing && !this.isSlamming) {
+        this.play('king_slime_walk', true);
+      }
+    });
   }
 
   public override applyDifficultyScale(hpMult: number, speedMult: number, damageMult: number, goldMult: number = 1) {
@@ -49,7 +67,7 @@ export class KingSlimeBoss extends Enemy {
   }
 
   public override aiBehavior(player: Phaser.GameObjects.Sprite, delta: number) {
-    if (!this.active || this.health.isDead() || !player || !player.active) return;
+    if (!this.active || this.isDying || this.health.isDead() || !player || !player.active) return;
 
     // Se estiver no meio do salto aéreo do Slam, aguarda o pouso
     if (this.isSlamming) return;
@@ -59,7 +77,6 @@ export class KingSlimeBoss extends Enemy {
     }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-    const facingLeft = player.x < this.x;
 
     // 1. Perseguição constante: a velocidade SEMPRE é atualizada em direção ao jogador
     // Isso garante que o chefe NUNCA trave ou congele, mesmo recebendo golpes de espada/flechas
@@ -69,17 +86,15 @@ export class KingSlimeBoss extends Enemy {
       Math.sin(angle) * this.movement.baseSpeed
     );
 
-    // 2. Ataque visual com as garras ao se aproximar (dist <= 38px)
-    if (dist <= 38 && this.clawCooldownTimer <= 0 && !this.isClawing) {
-      this.triggerClawAttack(player, facingLeft);
+    // 2. Golpe no chão ao se aproximar (o corpo do Rei tem ~57px de largura)
+    if (dist <= 46 && this.clawCooldownTimer <= 0 && !this.isClawing) {
+      this.triggerClawAttack(player);
     }
 
-    // 3. Atualiza animação de caminhada se não estiver executando corte
-    if (!this.isClawing) {
-      this.setFlipX(facingLeft);
-      if (this.anims.currentAnim?.key !== 'king_slime_walk') {
-        this.play('king_slime_walk', true);
-      }
+    // 3. Retoma a caminhada (exceto durante golpe ou animação de dano)
+    const currentAnimation = this.anims.currentAnim?.key;
+    if (!this.isClawing && currentAnimation !== 'king_slime_walk' && !(currentAnimation === 'king_slime_hurt' && this.anims.isPlaying)) {
+      this.play('king_slime_walk', true);
     }
 
     // 4. Cooldown do Salto Esmagador (Slam)
@@ -90,30 +105,27 @@ export class KingSlimeBoss extends Enemy {
     }
   }
 
-  private triggerClawAttack(player: Phaser.GameObjects.Sprite, facingLeft: boolean) {
+  private triggerClawAttack(player: Phaser.GameObjects.Sprite) {
     this.isClawing = true;
     this.clawCooldownTimer = 1500; // 1.5s entre golpes
 
-    this.setFlipX(false);
-    const animKey = facingLeft ? 'king_slime_attack_e' : 'king_slime_attack_d';
-    this.play(animKey, true);
+    // Ataque: prepara o golpe, bate no chão e se recompõe
+    this.play('king_slime_attack', true);
 
     // Ao terminar a animação de ataque, volta à caminhada
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.isClawing = false;
       if (this.active && !this.health.isDead()) {
-        this.setFlipX(player && player.x < this.x);
         this.play('king_slime_walk', true);
       }
     });
 
     // Timeout de segurança: garante que a caminhada seja retomada em 500ms
     // mesmo se a animação for interrompida por dano/knockback/flash
-    this.scene.time.delayedCall(500, () => {
+    this.scene.time.delayedCall(550, () => {
       if (this.isClawing) {
         this.isClawing = false;
         if (this.active && !this.health.isDead()) {
-          this.setFlipX(player && player.x < this.x);
           this.play('king_slime_walk', true);
         }
       }
@@ -123,7 +135,7 @@ export class KingSlimeBoss extends Enemy {
     this.scene.time.delayedCall(250, () => {
       if (this.active && !this.health.isDead() && player && player.active) {
         const hitDist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-        if (hitDist <= 42) {
+        if (hitDist <= 50) {
           this.hitPlayer(player, this.contactDamage);
         }
       }
@@ -144,12 +156,13 @@ export class KingSlimeBoss extends Enemy {
     const telegraph = this.scene.add.graphics();
     telegraph.lineStyle(2, 0xef4444, 0.8);
     telegraph.fillStyle(0xef4444, 0.25);
-    telegraph.strokeCircle(targetX, targetY, 32);
-    telegraph.fillCircle(targetX, targetY, 32);
+    telegraph.strokeCircle(targetX, targetY, 38);
+    telegraph.fillCircle(targetX, targetY, 38);
     telegraph.setDepth(CONSTANTS.DEPTH.DECORATION);
 
     // 2. O Chefe pula alto no ar (escala aumenta e fica invulnerável)
     this.health.isInvulnerable = true;
+    this.play('king_slime_jump', true);
     this.scene.tweens.add({
       targets: this,
       y: this.y - 45,
@@ -176,6 +189,10 @@ export class KingSlimeBoss extends Enemy {
           onComplete: () => {
             telegraph.destroy();
 
+            // Pouso esmagador com o quadro de impacto no chão
+            this.stop();
+            this.setTexture('king_slime_06');
+
             // Tremor de tela e som de impacto
             this.scene.cameras.main.shake(180, 0.015);
             AudioService.playEnemyHit();
@@ -183,7 +200,7 @@ export class KingSlimeBoss extends Enemy {
             // Causa dano em área no jogador se não tiver esquivado
             if (player && player.active) {
               const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-              if (dist < 34) {
+              if (dist < 40) {
                 this.hitPlayer(player, this.slamDamage);
               }
             }
@@ -203,7 +220,6 @@ export class KingSlimeBoss extends Enemy {
                 this.clawCooldownTimer = 800;
 
                 if (this.active && !this.health.isDead()) {
-                  this.setFlipX(player && player.x < this.x);
                   this.play('king_slime_walk', true);
                 }
               }
@@ -240,14 +256,37 @@ export class KingSlimeBoss extends Enemy {
   }
 
   public override die() {
+    if (!this.active || this.isDying) return;
+    this.isDying = true;
     this.isSlamming = false;
     this.isClawing = false;
     if (this.scene && this.scene.tweens) {
       this.scene.tweens.killTweensOf(this);
     }
+    this.setScale(1);
 
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.enable = false;
+    }
+
+    this.spawnDrops();
+    EventBus.emit(CONSTANTS.EVENTS.ENEMY_DIED, this);
     // Ao morrer, pede à cena um Baú de Relíquia (registrado na cena para poder ser aberto)
     EventBus.emit(CONSTANTS.EVENTS.CHEST_SPAWN_REQUESTED, { x: this.x, y: this.y });
-    super.die();
+
+    // Morte: derrete até sobrar uma poça com a coroa, que some aos poucos
+    this.play('king_slime_death', true);
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (!this.active) return;
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 0,
+        delay: 900,
+        duration: 500,
+        onComplete: () => this.destroy()
+      });
+    });
   }
 }

@@ -70,8 +70,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('fireball_0', '/assets/esqueleto_mago/fireball_0.png');
     this.load.image('fireball_1', '/assets/esqueleto_mago/fireball_1.png');
 
-    // 10. Rei Slime (Chefe) (12 frames: 00 a 11)
-    for (let i = 0; i <= 11; i++) {
+    // 10. Rei Slime (Chefe) (16 frames: movimento 00-03, ataque 04-07, dano 08-11, morte 12-15)
+    for (let i = 0; i <= 15; i++) {
       const idx = i.toString().padStart(2, '0');
       this.load.image(`king_slime_${idx}`, `/assets/king_slime/sprite_${idx}.png`);
     }
@@ -86,6 +86,11 @@ export class PreloadScene extends Phaser.Scene {
       const idx = i.toString().padStart(2, '0');
       this.load.image(`minotaur_d_${idx}`, `/assets/minotauro/minotaur_d_${idx}.png`);
       this.load.image(`minotaur_e_${idx}`, `/assets/minotauro/minotaur_e_${idx}.png`);
+    }
+
+    // 12b. Baú de Relíquias (4 frames: fechado -> totalmente aberto)
+    for (let i = 0; i <= 3; i++) {
+      this.load.image(`bau_${i}`, `/assets/bau/sprite_${i}.png`);
     }
 
     // 13. Capetão (Chefe Final) (33 frames: 00 a 32)
@@ -349,44 +354,20 @@ export class PreloadScene extends Phaser.Scene {
       repeat: -1
     });
 
-    // 13. Rei Slime - Movimentação / Salto e Rastejo (Frames 00 a 02 com bounce orgânico contínuo)
-    anims.create({
-      key: 'king_slime_walk',
-      frames: [
-        { key: 'king_slime_00' },
-        { key: 'king_slime_01' },
-        { key: 'king_slime_02' },
-        { key: 'king_slime_01' }
-      ],
-      frameRate: 6,
-      repeat: -1
-    });
+    // 13. Rei Slime: frames frontais (simétricos), sem variação por direção
+    const kingSlimeFrames = (...indexes: number[]) =>
+      indexes.map(index => ({ key: `king_slime_${index.toString().padStart(2, '0')}` }));
 
-    // 14. Rei Slime - Ataque com Investida de Garra para a Esquerda (Frames 04 a 07)
-    anims.create({
-      key: 'king_slime_attack_e',
-      frames: [
-        { key: 'king_slime_04' },
-        { key: 'king_slime_05' },
-        { key: 'king_slime_06' },
-        { key: 'king_slime_07' }
-      ],
-      frameRate: 8,
-      repeat: 0
-    });
-
-    // 15. Rei Slime - Ataque com Investida de Garra para a Direita (Frames 08 a 11)
-    anims.create({
-      key: 'king_slime_attack_d',
-      frames: [
-        { key: 'king_slime_08' },
-        { key: 'king_slime_09' },
-        { key: 'king_slime_10' },
-        { key: 'king_slime_11' }
-      ],
-      frameRate: 8,
-      repeat: 0
-    });
+    // Movimentação: se comprime, pula e aterrissa
+    anims.create({ key: 'king_slime_walk', frames: kingSlimeFrames(0, 1, 2, 3), frameRate: 7, repeat: -1 });
+    // Salto esmagador: se comprime e fica no ar (quadro de pulo) até o pouso
+    anims.create({ key: 'king_slime_jump', frames: kingSlimeFrames(1, 2), frameRate: 6, repeat: 0 });
+    // Ataque: prepara o golpe, bate no chão e se recompõe
+    anims.create({ key: 'king_slime_attack', frames: kingSlimeFrames(4, 5, 6, 7), frameRate: 10, repeat: 0 });
+    // Tomando dano: recua, pisca e volta à postura normal
+    anims.create({ key: 'king_slime_hurt', frames: kingSlimeFrames(8, 9, 10, 11), frameRate: 14, repeat: 0 });
+    // Morte: derrete até sobrar uma poça com a coroa
+    anims.create({ key: 'king_slime_death', frames: kingSlimeFrames(12, 13, 14, 15), frameRate: 5, repeat: 0 });
 
     // 16. Vendedor / Barraco da Loja - Rotina do Mercador Atendendo no Balcão (5 frames: 0 a 4)
     // 0 (parado) -> 1 (braços abertos) -> 0 -> 2 (abaixa pegando estoque) -> 3 (pote no balcão) -> 0
@@ -510,6 +491,14 @@ export class PreloadScene extends Phaser.Scene {
       key: 'minotaur_death_e',
       frames: Array.from({ length: 5 }, (_, i) => ({ key: `minotaur_e_${(i + 15).toString().padStart(2, '0')}` })),
       frameRate: 6,
+      repeat: 0
+    });
+
+    // 17b. Baú de Relíquias: abre e permanece no último quadro (aberto)
+    anims.create({
+      key: 'bau_abrindo',
+      frames: [{ key: 'bau_0' }, { key: 'bau_1' }, { key: 'bau_2' }, { key: 'bau_3' }],
+      frameRate: 10,
       repeat: 0
     });
 

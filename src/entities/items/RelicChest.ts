@@ -1,6 +1,5 @@
 import * as Phaser from 'phaser';
 import { CONSTANTS } from '../../core/Constants';
-import { ASSET_KEYS } from '../../assets/AssetManifest';
 import { EventBus } from '../../core/EventBus';
 
 export class RelicChest extends Phaser.Physics.Arcade.Sprite {
@@ -8,7 +7,7 @@ export class RelicChest extends Phaser.Physics.Arcade.Sprite {
   private promptText?: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, ASSET_KEYS.ITEMS.CHEST);
+    super(scene, x, y, 'bau_0');
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -17,6 +16,8 @@ export class RelicChest extends Phaser.Physics.Arcade.Sprite {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (body) {
       body.setImmovable(true);
+      body.setSize(28, 14);
+      body.setOffset(2, 20);
     }
   }
 
@@ -30,11 +31,11 @@ export class RelicChest extends Phaser.Physics.Arcade.Sprite {
     }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-    const isNear = dist < 24;
+    const isNear = dist < 30;
 
     if (isNear && !this.promptText) {
       try {
-        this.promptText = this.scene.add.text(this.x, this.y - 14, '[E] Abrir', {
+        this.promptText = this.scene.add.text(this.x, this.y - 22, '[E] Abrir', {
           fontSize: '9px',
           color: '#fde047',
           fontFamily: 'monospace',
@@ -54,15 +55,20 @@ export class RelicChest extends Phaser.Physics.Arcade.Sprite {
     if (this.isOpen) return;
 
     this.isOpen = true;
-    this.setTexture(ASSET_KEYS.ITEMS.CHEST_OPEN);
 
     if (this.promptText) {
       this.promptText.destroy();
       this.promptText = undefined;
     }
 
-    // Dispara evento para o HUD abrir a janela de seleção de 3 relíquias
-    EventBus.emit(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE);
+    // A tampa abre e o baú permanece no último quadro (aberto) depois da escolha da relíquia
+    this.play('bau_abrindo');
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (!this.active) return;
+      this.setTexture('bau_3');
+      // Dispara evento para o HUD abrir a janela de seleção de 3 relíquias
+      EventBus.emit(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE);
+    });
   }
 
   public override destroy(fromScene?: boolean) {
