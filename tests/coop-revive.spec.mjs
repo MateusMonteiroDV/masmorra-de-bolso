@@ -15,7 +15,8 @@ async function run() {
   try {
     const context = await harness.browser.newContext({ viewport: { width: 960, height: 540 } });
     const hostPage = await openGamePage(context, harness.baseUrl, errors);
-    const guestPage = await openGamePage(context, harness.baseUrl, errors);
+    // O aliado joga com os controles de toque (mobile) para cobrir o joystick após reviver
+    const guestPage = await openGamePage(context, harness.baseUrl, errors, '?touch');
 
     const roomId = `MDB-T${Date.now() % 10000}`;
     await hostPage.evaluate(id => window.NetworkManager.join(id, true), roomId);
@@ -53,6 +54,8 @@ async function run() {
     });
     const guestDrift = Math.hypot(guestAfterDeath.x - deathPosition.x, guestAfterDeath.y - deathPosition.y);
     assertCheck(guestAfterDeath.dead, 'aliado morreu');
+    const touchVisible = () => guestPage.evaluate(() => game.scene.getScene('UIScene').touchControls.container.visible);
+    assertCheck(!(await touchVisible()), 'controles de toque somem enquanto o aliado está caído');
     assertCheck(guestDrift < 2, `corpo do aliado ficou parado onde morreu (deslocou ${guestDrift.toFixed(1)}px)`);
 
     // 2. Na tela do host o aliado caído continua visível, no lugar da morte
@@ -79,6 +82,9 @@ async function run() {
     });
     assertCheck(revivedGuest.hp === Math.ceil(revivedGuest.max / 2), `aliado revivido com metade da vida (${revivedGuest.hp}/${revivedGuest.max})`);
     assertCheck(revivedGuest.moves, 'corpo do aliado volta a se mover após reviver');
+
+    // 3b. Regressão: os controles de toque ficavam escondidos após reviver e o herói não andava no mobile
+    assertCheck(await touchVisible(), 'controles de toque voltam após reviver');
 
     // 4. O aliado revivido consegue andar normalmente
     const beforeWalk = await guestPage.evaluate(() => game.scene.getScene('DungeonScene').player.x);

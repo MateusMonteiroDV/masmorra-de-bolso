@@ -29,8 +29,9 @@ export async function startGameHarness(port) {
 /**
  * Cria uma página isolada da rede externa (relays Nostr, TURN e logger remoto),
  * mantendo o multiplayer local via BroadcastChannel entre abas do mesmo contexto.
+ * `query` permite abrir variações da página (ex.: '?touch' força os controles de toque).
  */
-export async function openGamePage(context, baseUrl, errors) {
+export async function openGamePage(context, baseUrl, errors, query = '') {
   await context.route(url => !url.toString().startsWith(baseUrl), route => route.abort());
   if (typeof context.routeWebSocket === 'function') {
     const localHost = new URL(baseUrl).host;
@@ -46,7 +47,7 @@ export async function openGamePage(context, baseUrl, errors) {
     }
   });
 
-  await page.goto(baseUrl);
+  await page.goto(`${baseUrl}/${query}`);
   await page.waitForFunction(() => window.game?.scene?.isActive('TitleScene'), null, { timeout: 20000 });
   return page;
 }

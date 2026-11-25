@@ -178,6 +178,21 @@ async function run() {
     assertCheck(bossRoom.bossHp === 150 && bossRoom.bossScale === 2, `Capetão surgiu (HP ${bossRoom.bossHp}, escala ${bossRoom.bossScale})`);
     assertCheck(bossRoom.anim?.startsWith('capetao_'), `Capetão animado (${bossRoom.anim})`);
 
+    // 8b. Kleber amarrado no topo da sala e missão de resgate no HUD
+    const hostage = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      return {
+        y: dungeon.kleber.y,
+        anim: dungeon.kleber.anims.currentAnim?.key,
+        playing: dungeon.kleber.anims.isPlaying,
+        hud: game.scene.getScene('UIScene').waveText.text,
+        hudRight: game.scene.getScene('UIScene').waveText.getBounds().right
+      };
+    });
+    assertCheck(hostage.hudRight <= 210, `missão não invade a barra de vida do chefe (termina em x=${Math.round(hostage.hudRight)})`);
+    assertCheck(hostage.y < 200 && hostage.anim === 'kleber_amarrado' && hostage.playing, `Kleber amarrado e animado no topo da sala (y=${hostage.y})`);
+    assertCheck(hostage.hud === 'MISSÃO: Salve o Kleber do Capetão! Ele está amarrado!', `missão no HUD (${hostage.hud})`);
+
     // 9. Capetão ataca: aproxima o herói e espera dano por garra/fogo
     await page.evaluate(() => {
       const dungeon = game.scene.getScene('DungeonScene');
@@ -188,6 +203,23 @@ async function run() {
     await page.waitForTimeout(3000);
     const playerHpAfterBoss = await page.evaluate(() => game.scene.getScene('DungeonScene').player.health.currentHp);
     assertCheck(playerHpAfterBoss < 10, `Capetão causou dano ao herói (HP ${playerHpAfterBoss})`);
+
+    // 9b. Enquanto o Capetão vive, hordas de lacaios continuam surgindo (até o limite de vivos)
+    const countMinions = () => page.evaluate(() =>
+      game.scene.getScene('DungeonScene').enemyGroup.getChildren().filter(enemy => enemy.active && enemy.getData('isCapetaoMinion')).length
+    );
+    await page.evaluate(() => { game.scene.getScene('DungeonScene').capetaoMinionTimer = 0; });
+    await page.waitForFunction(() => game.scene.getScene('DungeonScene').capetaoHordeNumber === 1, null, { timeout: 3000 });
+    const firstHorde = await countMinions();
+    assertCheck(firstHorde === 3, `primeira horda de lacaios surgiu (${firstHorde})`);
+    await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      dungeon.player.health.currentHp = 10;
+      dungeon.capetaoMinionTimer = 0;
+    });
+    await page.waitForFunction(() => game.scene.getScene('DungeonScene').capetaoHordeNumber === 2, null, { timeout: 3000 });
+    const secondHorde = await countMinions();
+    assertCheck(secondHorde > firstHorde && secondHorde <= 6, `nova horda surge com o Capetão vivo (${secondHorde} lacaios)`);
 
     // 10. Fase 2 abaixo de 50% e derrota leva à vitória com ouro guardado no cofre
     await page.evaluate(() => {
@@ -207,6 +239,29 @@ async function run() {
       boss.health.isInvulnerable = false;
       boss.health.takeDamage(999);
     });
+    const afterBossDeath = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      dungeon.capetaoMinionTimer = 0;
+      return { summoning: dungeon.isCapetaoSummoning, horde: dungeon.capetaoHordeNumber };
+    });
+    await page.waitForTimeout(400);
+    const hordeAfterWait = await page.evaluate(() => game.scene.getScene('DungeonScene').capetaoHordeNumber);
+    assertCheck(
+      !afterBossDeath.summoning && hordeAfterWait === afterBossDeath.horde && (await countMinions()) === 0,
+      'lacaios param de surgir e somem quando o Capetão morre'
+    );
+    const rescue = await page.evaluate(() => {
+      const dungeon = game.scene.getScene('DungeonScene');
+      return {
+        free: dungeon.kleber.isFree,
+        anim: dungeon.kleber.anims.currentAnim?.key,
+        hud: game.scene.getScene('UIScene').waveText.text,
+        gold: GameState.bankedGold + GameState.runGold
+      };
+    });
+    assertCheck(rescue.free && rescue.anim === 'kleber_livre', 'Kleber é desamarrado e comemora quando o Capetão morre');
+    assertCheck(rescue.hud === 'MISSÃO: O Kleber foi desamarrado!', `HUD avisa que o Kleber foi desamarrado (${rescue.hud})`);
+    assertCheck(rescue.gold - goldBeforeVictory >= 500, `resgate rende 500 de ouro (+${rescue.gold - goldBeforeVictory} G)`);
     await page.waitForFunction(() => game.scene.isActive('GameOverScene'), null, { timeout: 8000 });
     const victory = await page.evaluate(() => ({ banked: GameState.bankedGold, bossKills: GameState.totalBossKills }));
     assertCheck(victory.banked >= goldBeforeVictory, `vitória registrada e ouro guardado no cofre (${victory.banked} G)`);

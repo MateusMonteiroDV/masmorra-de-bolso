@@ -24,6 +24,8 @@ async function run() {
     const { MAIN_ARENA, BOSS_ARENA, buildWallRects, isPointInsidePolygon, getPolygonSpansAtY } =
       await server.ssrLoadModule('/src/dungeon/ArenaLayouts.ts');
     const { WAVE_CONFIGS, getWaveClearBonus } = await server.ssrLoadModule('/src/dungeon/WaveConfigs.ts');
+    const { CAPETAO_MINION_SPAWN_POINTS, CAPETAO_MINION_HORDES, planCapetaoHorde, getCapetaoHordeInterval } =
+      await server.ssrLoadModule('/src/dungeon/CapetaoMinions.ts');
     const { splitCoinReward } = await server.ssrLoadModule('/src/core/Economy.ts');
     const { CONSTANTS } = await server.ssrLoadModule('/src/core/Constants.ts');
     const { clearReleasedVirtualFlags } = await server.ssrLoadModule('/src/core/PointerFlags.ts');
@@ -120,6 +122,51 @@ async function run() {
       assert.ok(isPointInsidePolygon(BOSS_ARENA.floorPolygon, BOSS_ARENA.bossSpawn));
       const distance = Math.hypot(BOSS_ARENA.bossSpawn.x - BOSS_ARENA.playerSpawn.x, BOSS_ARENA.bossSpawn.y - BOSS_ARENA.playerSpawn.y);
       assert.ok(distance > 300);
+    });
+
+    await test('Arena do chefe: Kleber fica amarrado no topo do santuário, acima do Capetão', () => {
+      const hostage = BOSS_ARENA.hostageSpawn;
+      const topOfFloor = Math.min(...BOSS_ARENA.floorPolygon.map(point => point.y));
+      assert.ok(isPointInsidePolygon(BOSS_ARENA.floorPolygon, hostage));
+      assert.ok(hostage.y - topOfFloor < 40, `Kleber a ${hostage.y - topOfFloor}px do topo`);
+      assert.ok(hostage.y < BOSS_ARENA.bossSpawn.y);
+      assert.equal(CONSTANTS.ENEMIES.CAPETAO.RESCUE_GOLD, 500);
+    });
+
+    // ---------- Lacaios do Capetão ----------
+    await test('Lacaios do Capetão: pontos de invocação no piso e longe do spawn do herói', () => {
+      CAPETAO_MINION_SPAWN_POINTS.forEach(point => {
+        assert.ok(isPointInsidePolygon(BOSS_ARENA.floorPolygon, point), `${JSON.stringify(point)} fora do piso`);
+        const distance = Math.hypot(point.x - BOSS_ARENA.playerSpawn.x, point.y - BOSS_ARENA.playerSpawn.y);
+        assert.ok(distance >= CONSTANTS.ENEMIES.CAPETAO.MINION_SAFE_DISTANCE, `${JSON.stringify(point)} colado no herói`);
+      });
+    });
+
+    await test('Lacaios do Capetão: hordas se repetem em ciclo e respeitam o limite de vivos', () => {
+      const maxAlive = CONSTANTS.ENEMIES.CAPETAO.MINION_MAX_ALIVE;
+      const kindsOf = horde => horde.map(spawn => spawn.kind);
+      assert.deepEqual(kindsOf(planCapetaoHorde(1, 0, [])), CAPETAO_MINION_HORDES[0]);
+      assert.deepEqual(
+        kindsOf(planCapetaoHorde(CAPETAO_MINION_HORDES.length + 1, 0, [])),
+        CAPETAO_MINION_HORDES[0],
+        'a lista de hordas recomeça (spawn sem fim até o chefe morrer)'
+      );
+      assert.equal(planCapetaoHorde(1, maxAlive - 1, []).length, 1);
+      assert.equal(planCapetaoHorde(1, maxAlive, []).length, 0);
+      assert.equal(planCapetaoHorde(1, maxAlive + 3, []).length, 0);
+    });
+
+    await test('Lacaios do Capetão: não nascem em cima dos heróis', () => {
+      const hero = CAPETAO_MINION_SPAWN_POINTS[0];
+      for (let horde = 1; horde <= 12; horde++) {
+        planCapetaoHorde(horde, 0, [hero]).forEach(spawn => {
+          assert.ok(Math.hypot(spawn.x - hero.x, spawn.y - hero.y) >= CONSTANTS.ENEMIES.CAPETAO.MINION_SAFE_DISTANCE);
+        });
+      }
+    });
+
+    await test('Lacaios do Capetão: hordas ficam mais frequentes na fúria', () => {
+      assert.ok(getCapetaoHordeInterval(true) < getCapetaoHordeInterval(false));
     });
 
     // ---------- Ondas ----------
