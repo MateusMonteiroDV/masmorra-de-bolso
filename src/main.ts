@@ -9,6 +9,7 @@ import { UIScene } from './scenes/UIScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { preloadTurnServers } from './network/TurnConfig';
 import { RemoteLogger } from './systems/RemoteLogger';
+import { computePixelViewport } from './core/PixelScale';
 
 import { GameState } from './core/GameState';
 import { AudioService } from './systems/AudioService';
@@ -16,14 +17,25 @@ import { AudioService } from './systems/AudioService';
 RemoteLogger.init();
 void preloadTurnServers();
 
+// Escala inteira por pixel físico: evita o esticamento fracionário que deixava tudo borrado
+const getViewport = () => computePixelViewport(
+  window.innerWidth,
+  window.innerHeight,
+  window.devicePixelRatio || 1,
+  CONSTANTS.GAME_WIDTH,
+  CONSTANTS.GAME_HEIGHT
+);
+const initialViewport = getViewport();
+
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   scale: {
-    mode: Phaser.Scale.EXPAND,
+    mode: Phaser.Scale.NONE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: CONSTANTS.GAME_WIDTH,
-    height: CONSTANTS.GAME_HEIGHT,
+    width: initialViewport.width,
+    height: initialViewport.height,
+    zoom: initialViewport.zoom,
     parent: 'game-container',
     expandParent: true
   },
@@ -57,6 +69,22 @@ if (typeof window !== 'undefined') {
   (window as any).GameState = GameState;
   (window as any).AudioService = AudioService;
 }
+
+let viewportTimer: number | null = null;
+const applyPixelViewport = () => {
+  const viewport = getViewport();
+  const sizeChanged = viewport.width !== game.scale.width || viewport.height !== game.scale.height;
+  if (Math.abs(game.scale.zoom - viewport.zoom) > 0.0001) {
+    game.scale.setZoom(viewport.zoom);
+  }
+  if (sizeChanged) {
+    game.scale.resize(viewport.width, viewport.height);
+  }
+};
+window.addEventListener('resize', () => {
+  if (viewportTimer) window.clearTimeout(viewportTimer);
+  viewportTimer = window.setTimeout(applyPixelViewport, 60);
+});
 
 let resizeTimer: number | null = null;
 const sceneCreatedSize: Record<string, { w: number; h: number }> = {};
