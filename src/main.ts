@@ -10,6 +10,7 @@ import { GameOverScene } from './scenes/GameOverScene';
 import { preloadTurnServers } from './network/TurnConfig';
 import { RemoteLogger } from './systems/RemoteLogger';
 import { computePixelViewport } from './core/PixelScale';
+import { clearReleasedVirtualFlags } from './core/PointerFlags';
 
 import { GameState } from './core/GameState';
 import { AudioService } from './systems/AudioService';
@@ -69,6 +70,16 @@ if (typeof window !== 'undefined') {
   (window as any).GameState = GameState;
   (window as any).AudioService = AudioService;
 }
+
+// Fase de captura: roda antes do Phaser processar o novo clique/toque
+const resetStalePointerFlags = () => {
+  if (game.input?.pointers) {
+    clearReleasedVirtualFlags(game.input.pointers as any);
+  }
+};
+window.addEventListener('pointerdown', resetStalePointerFlags, true);
+window.addEventListener('mousedown', resetStalePointerFlags, true);
+window.addEventListener('touchstart', resetStalePointerFlags, { capture: true, passive: true });
 
 let viewportTimer: number | null = null;
 const applyPixelViewport = () => {
