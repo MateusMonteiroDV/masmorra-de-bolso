@@ -20,6 +20,9 @@ export class UIScene extends Phaser.Scene {
   private spectatorContainer?: Phaser.GameObjects.Container;
   private spectatorKeyEnter?: Phaser.Input.Keyboard.Key;
   private spectatorKeySpace?: Phaser.Input.Keyboard.Key;
+  private bossBarGraphics?: Phaser.GameObjects.Graphics;
+  private bossNameText?: Phaser.GameObjects.Text;
+  private networkUnsubs: Array<() => void> = [];
 
   constructor() {
     super({ key: 'UIScene' });
@@ -28,6 +31,9 @@ export class UIScene extends Phaser.Scene {
   public create() {
     this.hpText = undefined;
     this.hearts = [];
+    this.bossBarGraphics = undefined;
+    this.bossNameText = undefined;
+    this.networkUnsubs = [];
 
     // 1. HUD Superior Esquerdo: Indicador de HP dos Corações
     this.createHeartsUI();
@@ -200,10 +206,18 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    EventBus.on(CONSTANTS.EVENTS.WAVE_CHANGED, (data: { wave: number; total: number; remaining: number }) => {
+    EventBus.on(CONSTANTS.EVENTS.WAVE_CHANGED, (data: { wave: number; total: number; remaining: number; bossName?: string }) => {
       if (this.waveText && this.waveText.active) {
-        this.waveText.setText(`ONDA ${data.wave}/${data.total} [${data.remaining} restantes]`);
+        this.waveText.setText(
+          data.bossName
+            ? `CHEFE FINAL: ${data.bossName}`
+            : `ONDA ${data.wave}/${data.total} [${data.remaining} restantes]`
+        );
       }
+    });
+
+    EventBus.on(CONSTANTS.EVENTS.BOSS_HEALTH_CHANGED, (data: { name: string; current: number; max: number }) => {
+      this.renderBossBar(data.name, data.current, data.max);
     });
 
     EventBus.on(CONSTANTS.EVENTS.RELIC_ACQUIRED, () => {
@@ -220,7 +234,7 @@ export class UIScene extends Phaser.Scene {
       });
     });
 
-    NetworkManager.onPeerJoin(() => {
+    const unsubPeerJoin = NetworkManager.onPeerJoin(() => {
       if (!this.p2pBadgeText || !this.p2pBadgeText.active) {
         this.p2pBadgeText = this.add.text(this.scale.width / 2, 12, `● P2P: ${NetworkManager.currentRoomId} (2P)`, {
           fontFamily: 'monospace',
@@ -232,21 +246,26 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    NetworkManager.onPeerLeave(() => {
+    const unsubPeerLeave = NetworkManager.onPeerLeave(() => {
       if (this.p2pBadgeText && this.p2pBadgeText.active) {
         this.p2pBadgeText.destroy();
         this.p2pBadgeText = undefined;
       }
     });
+    // Sem cancelar a inscrição, cada reinício da cena deixava ouvintes presos a uma cena destruída
+    this.networkUnsubs.push(unsubPeerJoin, unsubPeerLeave);
 
     this.events.on('shutdown', () => {
       this.cleanupSpectatorMode();
+      this.networkUnsubs.forEach(unsub => unsub());
+      this.networkUnsubs = [];
       this.touchControls?.destroy();
       this.touchControls = undefined;
       EventBus.off(CONSTANTS.EVENTS.PLAYER_HEALTH_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_GOLD_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.PLAYER_ARROWS_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.WAVE_CHANGED);
+      EventBus.off(CONSTANTS.EVENTS.BOSS_HEALTH_CHANGED);
       EventBus.off(CONSTANTS.EVENTS.RELIC_ACQUIRED);
       EventBus.off(CONSTANTS.EVENTS.REQUEST_RELIC_CHOICE);
     });
@@ -361,6 +380,36 @@ export class UIScene extends Phaser.Scene {
       this.spectatorContainer.destroy();
       this.spectatorContainer = undefined;
     }
+  }
+
+  /** Barra de vida do chefe no topo central da tela */
+  private renderBossBar(name: string, current: number, max: number) {
+    const barWidth = Math.min(220, this.scale.width - 120);
+    const barHeight = 6;
+    const barX = (this.scale.width - barWidth) / 2;
+    const barY = 46;
+
+    if (!this.bossBarGraphics) {
+      this.bossBarGraphics = this.add.graphics().setDepth(CONSTANTS.DEPTH.UI);
+      this.bossNameText = this.add.text(this.scale.width / 2, barY - 7, name, {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#fca5a5',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+    }
+
+    const percent = Phaser.Math.Clamp(current / (max || 1), 0, 1);
+    this.bossBarGraphics.clear();
+    this.bossBarGraphics.fillStyle(0x000000, 0.85);
+    this.bossBarGraphics.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+    this.bossBarGraphics.fillStyle(0x450a0a, 1);
+    this.bossBarGraphics.fillRect(barX, barY, barWidth, barHeight);
+    this.bossBarGraphics.fillStyle(percent > 0.5 ? 0xdc2626 : 0xf97316, 1);
+    this.bossBarGraphics.fillRect(barX, barY, Math.round(barWidth * percent), barHeight);
+    this.bossNameText?.setText(`${name}  ${Math.max(0, Math.ceil(current))}/${max}`);
   }
 
   private refreshRelicsBar() {

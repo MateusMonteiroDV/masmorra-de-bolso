@@ -13,6 +13,11 @@ import { WaveManager } from '../dungeon/WaveManager';
 import { GameState } from '../core/GameState';
 import { UIScene } from './UIScene';
 import { isTouchDevice } from '../ui/TouchControls';
+import { ArenaLayout, MAIN_ARENA, BOSS_ARENA, buildWallRects } from '../dungeon/ArenaLayouts';
+import { CapetaoBoss } from '../entities/enemies/CapetaoBoss';
+
+const BOSS_NETWORK_ID = 'boss_capetao';
+const BOSS_PORTAL_COUNTDOWN_SECONDS = 10;
 
 export class DungeonScene extends Phaser.Scene {
   private player!: Player;
@@ -35,6 +40,18 @@ export class DungeonScene extends Phaser.Scene {
   private networkUnsubs: Array<() => void> = [];
   private revivePrompt?: Phaser.GameObjects.Text;
 
+  // Arenas (Sala Principal -> Sala do Capetão)
+  private currentArena: ArenaLayout = MAIN_ARENA;
+  private mapBackground?: Phaser.GameObjects.Image;
+  private bossPortalGraphics?: Phaser.GameObjects.Graphics;
+  private bossPortalText?: Phaser.GameObjects.Text;
+  private bossPortalTimer?: Phaser.Time.TimerEvent;
+  private bossPortalSecondsLeft: number = 0;
+  private isBossPortalOpen: boolean = false;
+  private isEnteringBossArena: boolean = false;
+  private isInBossArena: boolean = false;
+  private isVictoryScheduled: boolean = false;
+
   private static readonly REVIVE_RANGE = 58;
 
   constructor() {
@@ -42,53 +59,49 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   public create() {
-    const mapW = CONSTANTS.MAP_WIDTH;
-    const mapH = CONSTANTS.MAP_HEIGHT;
     this.isSpectating = false;
     this.isTransitioningToGameOver = false;
+    this.isBossPortalOpen = false;
+    this.isEnteringBossArena = false;
+    this.isInBossArena = false;
+    this.isVictoryScheduled = false;
+    this.bossPortalGraphics = undefined;
+    this.bossPortalText = undefined;
+    this.bossPortalTimer = undefined;
+    // Objetos da execução anterior da cena já foram destruídos no shutdown
+    this.aimGuideGraphics = undefined;
+    this.mapBackground = undefined;
+    this.chests = [];
     if (this.gameOverTimer) {
       this.gameOverTimer.destroy();
       this.gameOverTimer = undefined;
     }
 
-    // 1. Configurar Limites do Mundo e Câmera
-    this.physics.world.setBounds(0, 0, mapW, mapH);
-    this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBackgroundColor('#090a0f');
-    this.cameras.main.setZoom(1); // Zoom 1:1 nativo perfeito para nitidez máxima dos pixels
+    this.cameras.main.setZoom(1); // Zoom 1:1 nativo; a nitidez vem da escala inteira do canvas
 
-    // 2. Imagem de Fundo do Mapa (1140x977)
-    const mapBg = this.add.image(mapW / 2, mapH / 2, 'mapa_dungeon');
-    mapBg.setDepth(CONSTANTS.DEPTH.BACKGROUND);
-
-    // 3. Grupos de Física
+    // 1. Grupos de Física
     this.enemyGroup = this.add.group({ runChildUpdate: true });
     this.dropGroup = this.add.group({ runChildUpdate: true });
     this.projectileGroup = this.add.group({ runChildUpdate: true });
     this.arrowGroup = this.add.group({ runChildUpdate: true });
     this.wallGroup = this.physics.add.staticGroup();
 
-    // Paredes invisíveis nos limites do mapa
-    this.createWorldBoundaries(mapW, mapH);
+    // 2. Sala Principal: mapa, limites e paredes geradas a partir do piso caminhável
+    this.loadArena(MAIN_ARENA);
 
-    // 4. Spawn do Protagonista Roberto no centro do nexo verde
-    const startX = 570;
-    const startY = 488;
-    this.player = new Player(this, startX, startY);
+    // 3. Spawn do Protagonista Roberto no centro da sala
+    this.player = new Player(this, MAIN_ARENA.playerSpawn.x, MAIN_ARENA.playerSpawn.y);
     this.player.setName('player');
 
     // Câmera segue Roberto suavemente
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-    // 5. Espalhar Moedas Iniciais de Exploração pelo Mapa
+    // 4. Moedas de exploração e Baús de Tesouro em pontos estratégicos
     this.spawnExplorationCoins();
+    MAIN_ARENA.chestPositions.forEach(position => this.addChest(position.x, position.y));
 
-    // 6. Baús de Tesouro em Pontos Estratégicos
-    const chest1 = new RelicChest(this, 120, 830);
-    const chest2 = new RelicChest(this, 980, 200);
-    this.chests.push(chest1, chest2);
-
-    // 7. Configurar Sistema de Combate e Colisões
+    // 5. Configurar Sistema de Combate e Colisões
     this.combatSystem = new CombatSystem(this);
     this.combatSystem.setupCollisions(
       this.player,
@@ -99,7 +112,7 @@ export class DungeonScene extends Phaser.Scene {
       this.dropGroup
     );
 
-    // 8. Inicializar Gerenciador de Ondas (Waves) e Inimigos
+    // 6. Inicializar Gerenciador de Ondas (Waves) e Inimigos
     this.waveManager = new WaveManager(
       this,
       this.enemyGroup,
@@ -109,7 +122,7 @@ export class DungeonScene extends Phaser.Scene {
     );
     this.waveManager.start();
 
-    // 9. Multiplayer P2P: Configurar jogadores remotos e sincronização
+    // 7. Multiplayer P2P: Configurar jogadores remotos e sincronização
     this.remotePlayers.clear();
     this.setupNetworkMultiplayer();
 
@@ -120,14 +133,233 @@ export class DungeonScene extends Phaser.Scene {
       });
     }
 
-    // 10. Ouvinte de Morte do Roberto com Suporte Cooperativo (Espectador)
+    // 8. Ouvinte de Morte do Roberto com Suporte Cooperativo (Espectador)
     EventBus.on(CONSTANTS.EVENTS.PLAYER_DIED, () => {
       this.handlePlayerDeathCoop();
     });
 
-    // 11. Ouvinte de Morte de Inimigos para Notificar o WaveManager
+    // 9. Ouvinte de Morte de Inimigos (ondas e chefe final)
     EventBus.on(CONSTANTS.EVENTS.ENEMY_DIED, (deadEnemy: Enemy) => {
+      if (deadEnemy instanceof CapetaoBoss) {
+        this.handleCapetaoDefeated();
+        return;
+      }
       this.waveManager.onEnemyKilled(deadEnemy);
+    });
+
+    // 10. Baús pedidos por inimigos (ex.: Rei Slime) são registrados para poderem ser abertos
+    EventBus.on(CONSTANTS.EVENTS.CHEST_SPAWN_REQUESTED, (position: { x: number; y: number }) => {
+      this.addChest(position.x, position.y);
+    });
+
+    // 11. Recompensa por onda concluída: cura parcial do herói
+    EventBus.on(CONSTANTS.EVENTS.WAVE_CLEAR_REWARD, (reward: { bonusGold: number }) => {
+      this.player.healBy(CONSTANTS.PLAYER.WAVE_CLEAR_HEAL);
+      this.showFloatingText(this.player.x, this.player.y - 46, `+${reward.bonusGold} G BÔNUS DE ONDA`, '#fbbf24');
+    });
+
+    // 12. Fim das 8 ondas: abre o portal para a Sala do Capetão
+    EventBus.on(CONSTANTS.EVENTS.WAVES_CLEARED, () => {
+      this.openBossPortal();
+    });
+  }
+
+  /** Troca o mapa, os limites do mundo/câmera e as paredes físicas para a arena indicada */
+  private loadArena(arena: ArenaLayout) {
+    this.currentArena = arena;
+
+    this.mapBackground?.destroy();
+    this.mapBackground = this.add.image(0, 0, arena.textureKey).setOrigin(0, 0);
+    this.mapBackground.setDepth(CONSTANTS.DEPTH.BACKGROUND);
+
+    this.physics.world.setBounds(0, 0, arena.width, arena.height);
+    this.cameras.main.setBounds(0, 0, arena.width, arena.height);
+
+    this.wallGroup.clear(true, true);
+    const wallRects = [...buildWallRects(arena.floorPolygon, arena.width, arena.height), ...arena.obstacles];
+    wallRects.forEach(rect => {
+      const zone = this.add.zone(rect.x + rect.width / 2, rect.y + rect.height / 2, rect.width, rect.height);
+      this.physics.add.existing(zone, true);
+      this.wallGroup.add(zone);
+    });
+  }
+
+  private addChest(x: number, y: number) {
+    const chest = new RelicChest(this, x, y);
+    this.chests.push(chest);
+    return chest;
+  }
+
+  private showFloatingText(x: number, y: number, message: string, color: string) {
+    const label = this.add.text(x, y, message, {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI + 10);
+    this.tweens.add({
+      targets: label,
+      y: y - 16,
+      alpha: 0,
+      delay: 500,
+      duration: 900,
+      onComplete: () => label.destroy()
+    });
+  }
+
+  // ===================== Portal e Sala do Capetão =====================
+
+  private openBossPortal() {
+    const portal = MAIN_ARENA.bossPortal;
+    if (this.isBossPortalOpen || this.isInBossArena || !portal) return;
+    this.isBossPortalOpen = true;
+    this.bossPortalSecondsLeft = BOSS_PORTAL_COUNTDOWN_SECONDS;
+
+    // Portal flamejante na porta norte da sala
+    this.bossPortalGraphics = this.add.graphics().setDepth(CONSTANTS.DEPTH.DOORS);
+    this.bossPortalGraphics.fillStyle(0xdc2626, 0.35);
+    this.bossPortalGraphics.fillEllipse(portal.x, portal.y - 18, portal.radius * 2, portal.radius * 1.6);
+    this.bossPortalGraphics.lineStyle(2, 0xf97316, 0.95);
+    this.bossPortalGraphics.strokeEllipse(portal.x, portal.y - 18, portal.radius * 2, portal.radius * 1.6);
+    this.tweens.add({ targets: this.bossPortalGraphics, alpha: 0.45, duration: 450, yoyo: true, repeat: -1 });
+
+    this.bossPortalText = this.add.text(this.scale.width / 2, 92, '', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#f97316',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 20);
+    this.updateBossPortalText();
+
+    this.bossPortalTimer = this.time.addEvent({
+      delay: 1000,
+      repeat: BOSS_PORTAL_COUNTDOWN_SECONDS - 1,
+      callback: () => {
+        this.bossPortalSecondsLeft--;
+        this.updateBossPortalText();
+        if (this.bossPortalSecondsLeft <= 0) {
+          this.enterBossArena(true);
+        }
+      }
+    });
+  }
+
+  private updateBossPortalText() {
+    this.bossPortalText?.setText(
+      `🔥 ENTRE NO PORTAL AO NORTE OU SEJA PUXADO EM ${this.bossPortalSecondsLeft}s 🔥`
+    );
+  }
+
+  /** Teleporta o grupo para a Sala do Capetão. `broadcast` avisa os aliados para irem juntos. */
+  private enterBossArena(broadcast: boolean) {
+    if (this.isEnteringBossArena || this.isInBossArena || this.isTransitioningToGameOver) return;
+    this.isEnteringBossArena = true;
+    this.waveManager.allWavesCleared = true;
+
+    if (broadcast && NetworkManager.isConnected()) {
+      NetworkManager.sendAction({ type: 'boss_phase' });
+    }
+
+    this.bossPortalTimer?.destroy();
+    this.bossPortalTimer = undefined;
+    this.bossPortalText?.destroy();
+    this.bossPortalText = undefined;
+
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      if (!this.sys.isActive() && !this.sys.isPaused()) return;
+      this.setupBossArena();
+      this.cameras.main.fadeIn(500, 0, 0, 0);
+    });
+  }
+
+  private setupBossArena() {
+    // Ouro ainda no chão é coletado automaticamente para ninguém perder recompensa no teleporte
+    (this.dropGroup.getChildren() as any[]).forEach(drop => {
+      if (drop instanceof CoinDrop && drop.active) {
+        GameState.addRunGold(drop.value);
+      }
+    });
+    this.dropGroup.clear(true, true);
+    this.enemyGroup.clear(true, true);
+    this.projectileGroup.clear(true, true);
+    this.arrowGroup.clear(true, true);
+    this.enemyMap.clear();
+    this.chests.forEach(chest => chest.active && chest.destroy());
+    this.chests = [];
+    this.bossPortalGraphics?.destroy();
+    this.bossPortalGraphics = undefined;
+
+    this.loadArena(BOSS_ARENA);
+    this.isInBossArena = true;
+    this.isEnteringBossArena = false;
+
+    // Heróis caídos voltam à luta na sala do chefe
+    if (this.player.health.isDead()) {
+      this.reviveLocalPlayer();
+    }
+    this.player.teleportTo(BOSS_ARENA.playerSpawn.x, BOSS_ARENA.playerSpawn.y);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.remotePlayers.forEach(remote => remote.snapTo(BOSS_ARENA.playerSpawn.x + 30, BOSS_ARENA.playerSpawn.y));
+
+    EventBus.emit(CONSTANTS.EVENTS.WAVE_CHANGED, { wave: 0, total: 0, remaining: 1, bossName: 'CAPETÃO' });
+    this.showBossBanner('O CAPETÃO DESPERTOU NO SANTUÁRIO!');
+
+    const bossSpawn = BOSS_ARENA.bossSpawn!;
+    const summonCloud = this.add.sprite(bossSpawn.x, bossSpawn.y, 'nuvem_0').setScale(2.5).setDepth(CONSTANTS.DEPTH.EFFECTS);
+    summonCloud.play('anim_nuvem');
+    summonCloud.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => summonCloud.destroy());
+
+    this.time.delayedCall(900, () => {
+      if (!this.isInBossArena || this.isTransitioningToGameOver) return;
+      const alliesInDungeon = Array.from(this.remotePlayers.values()).filter(remote => remote.active && remote.isAliveInDungeon()).length;
+      const boss = new CapetaoBoss(this, bossSpawn.x, bossSpawn.y, this.dropGroup, this.projectileGroup, alliesInDungeon);
+      boss.setData('networkId', BOSS_NETWORK_ID);
+      this.enemyGroup.add(boss);
+      this.enemyMap.set(BOSS_NETWORK_ID, boss);
+    });
+  }
+
+  private showBossBanner(text: string) {
+    const banner = this.add.text(this.scale.width / 2, 64, text, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ef4444',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(CONSTANTS.DEPTH.UI + 20);
+
+    this.tweens.add({
+      targets: banner,
+      y: banner.y - 12,
+      alpha: 0,
+      delay: 2400,
+      duration: 600,
+      onComplete: () => banner.destroy()
+    });
+  }
+
+  private handleCapetaoDefeated() {
+    this.showBossBanner('👑 O CAPETÃO FOI DERROTADO! A MASMORRA É SUA!');
+    if (NetworkManager.isConnected()) {
+      NetworkManager.sendAction({ type: 'dungeon_victory' });
+    }
+    this.scheduleVictory(4000);
+  }
+
+  private scheduleVictory(delayMs: number) {
+    if (this.isVictoryScheduled || this.isTransitioningToGameOver) return;
+    this.isVictoryScheduled = true;
+    this.time.delayedCall(delayMs, () => {
+      if (this.isTransitioningToGameOver) return;
+      this.isTransitioningToGameOver = true;
+      this.scene.stop('UIScene');
+      this.scene.start('GameOverScene', { victory: true });
     });
   }
 
@@ -287,10 +519,9 @@ export class DungeonScene extends Phaser.Scene {
           }
         }
       } else if (action.type === 'dungeon_victory') {
-        this.time.delayedCall(1200, () => {
-          this.scene.stop('UIScene');
-          this.scene.start('GameOverScene', { victory: true });
-        });
+        this.scheduleVictory(1200);
+      } else if (action.type === 'boss_phase') {
+        this.enterBossArena(false);
       } else if (action.type === 'all_players_dead') {
         this.remotePlayers.forEach(r => r.markDead());
         this.triggerGameOverLocally();
@@ -325,7 +556,7 @@ export class DungeonScene extends Phaser.Scene {
             this.scene.start('LobbyScene');
           }
         } else if (action.payload?.wave) {
-          if (!NetworkManager.isHost && this.waveManager.currentWave !== action.payload.wave) {
+          if (!NetworkManager.isHost && !this.isInBossArena && this.waveManager.currentWave !== action.payload.wave) {
             this.waveManager.currentWave = action.payload.wave - 1;
             this.waveManager.nextWave();
           }
@@ -348,10 +579,16 @@ export class DungeonScene extends Phaser.Scene {
         this.revivePrompt.destroy();
         this.revivePrompt = undefined;
       }
+      this.bossPortalTimer?.destroy();
+      this.bossPortalTimer = undefined;
+      this.aimGuideGraphics = undefined;
       this.networkUnsubs.forEach(unsub => unsub());
       this.networkUnsubs = [];
       EventBus.removeAllListeners(CONSTANTS.EVENTS.PLAYER_DIED);
       EventBus.removeAllListeners(CONSTANTS.EVENTS.ENEMY_DIED);
+      EventBus.removeAllListeners(CONSTANTS.EVENTS.CHEST_SPAWN_REQUESTED);
+      EventBus.removeAllListeners(CONSTANTS.EVENTS.WAVE_CLEAR_REWARD);
+      EventBus.removeAllListeners(CONSTANTS.EVENTS.WAVES_CLEARED);
     });
   }
 
@@ -444,30 +681,9 @@ export class DungeonScene extends Phaser.Scene {
     NetworkManager.sendState(this.player.getNetworkState('DungeonScene'));
   }
 
-  private createWorldBoundaries(w: number, h: number) {
-    const thickness = 20;
-    const createWall = (x: number, y: number, width: number, height: number) => {
-      const zone = this.add.zone(x, y, width, height);
-      this.physics.add.existing(zone, true);
-      this.wallGroup.add(zone);
-    };
-
-    // Paredes delimitadoras sem sobreposição nos cantos para evitar que corpos fiquem presos
-    createWall(w / 2, thickness / 2, w, thickness);
-    createWall(w / 2, h - thickness / 2, w, thickness);
-    const sideHeight = Math.max(0, h - thickness * 2);
-    createWall(thickness / 2, h / 2, thickness, sideHeight);
-    createWall(w - thickness / 2, h / 2, thickness, sideHeight);
-  }
-
   private spawnExplorationCoins() {
     // Apenas 2 moedas secretas em cantos distantes da masmorra
-    const coinPositions = [
-      { x: 140, y: 140 },
-      { x: 1000, y: 840 }
-    ];
-
-    coinPositions.forEach(pos => {
+    MAIN_ARENA.coinPositions.forEach(pos => {
       const coin = new CoinDrop(this, pos.x, pos.y, 1);
       this.dropGroup.add(coin);
     });
@@ -547,13 +763,22 @@ export class DungeonScene extends Phaser.Scene {
       this.updateRevivePrompt(fallenAlly);
       const interacted = this.player.controller.isInteractPressed();
 
+      // Todos os baús atualizam o aviso "[E] Abrir" a cada frame (não só ao apertar E)
+      const nearbyChests = this.chests.filter(chest => chest && chest.active && chest.checkPlayerNear(this.player));
+
       if (interacted && fallenAlly) {
         this.reviveRemotePlayer(fallenAlly);
       } else if (interacted) {
-        const nearbyChest = this.chests.find(
-          chest => chest && chest.active && chest.checkPlayerNear(this.player)
-        );
-        nearbyChest?.open();
+        nearbyChests[0]?.open();
+      }
+
+      // Entrar no portal aberto leva o grupo imediatamente para a Sala do Capetão
+      const portal = MAIN_ARENA.bossPortal;
+      if (this.isBossPortalOpen && portal && !this.isEnteringBossArena && !this.isInBossArena) {
+        const distanceToPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, portal.x, portal.y);
+        if (distanceToPortal <= portal.radius) {
+          this.enterBossArena(true);
+        }
       }
     } else {
       this.updateRevivePrompt();

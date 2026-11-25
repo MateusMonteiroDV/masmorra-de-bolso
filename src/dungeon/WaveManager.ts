@@ -8,21 +8,8 @@ import { BatEnemy } from '../entities/enemies/BatEnemy';
 import { KingSlimeBoss } from '../entities/enemies/KingSlimeBoss';
 import { MinotaurEnemy } from '../entities/enemies/MinotaurEnemy';
 import { NetworkManager } from '../network/NetworkManager';
-
-export interface WaveConfig {
-  waveNumber: number;
-  title: string;
-  slimes: { x: number; y: number }[];
-  bats?: { x: number; y: number }[];
-  mages: { x: number; y: number }[];
-  minotaurs?: { x: number; y: number }[];
-  hasBoss?: boolean;
-  bossPos?: { x: number; y: number };
-  hpMult?: number;
-  speedMult?: number;
-  damageMult?: number;
-  goldMult?: number;
-}
+import { GameState } from '../core/GameState';
+import { WAVE_CONFIGS, getWaveClearBonus } from './WaveConfigs';
 
 export class WaveManager {
   private scene: Phaser.Scene;
@@ -32,223 +19,11 @@ export class WaveManager {
   private enemyMap: Map<string, Enemy>;
 
   public currentWave: number = 0;
-  public totalWaves: number = 8;
+  public totalWaves: number = WAVE_CONFIGS.length;
   public remainingEnemies: number = 0;
+  public allWavesCleared: boolean = false;
   private isTransitioning: boolean = false;
 
-  private waveConfigs: WaveConfig[] = [
-    {
-      waveNumber: 1,
-      title: 'ONDA 1/8: O DESPERTAR DOS SLIMES',
-      slimes: [
-        { x: 570, y: 320 },
-        { x: 440, y: 488 },
-        { x: 700, y: 488 },
-        { x: 570, y: 680 },
-        { x: 380, y: 380 }
-      ],
-      mages: [],
-      hpMult: 1.0,
-      speedMult: 1.0,
-      damageMult: 1.0,
-      goldMult: 1.0
-    },
-    {
-      waveNumber: 2,
-      title: 'ONDA 2/8: A REVOADA DAS SOMBRAS',
-      slimes: [
-        { x: 400, y: 340 },
-        { x: 740, y: 340 },
-        { x: 400, y: 640 },
-        { x: 740, y: 640 },
-        { x: 570, y: 720 }
-      ],
-      bats: [
-        { x: 320, y: 260 },
-        { x: 820, y: 260 },
-        { x: 570, y: 250 }
-      ],
-      mages: [],
-      hpMult: 1.15,
-      speedMult: 1.1,
-      damageMult: 1.2,
-      goldMult: 1.2
-    },
-    {
-      waveNumber: 3,
-      title: 'ONDA 3/8: A CONJURAÇÃO DAS RUÍNAS',
-      slimes: [
-        { x: 320, y: 300 },
-        { x: 820, y: 300 },
-        { x: 320, y: 680 },
-        { x: 820, y: 680 },
-        { x: 570, y: 300 },
-        { x: 570, y: 700 }
-      ],
-      bats: [
-        { x: 260, y: 488 },
-        { x: 880, y: 488 },
-        { x: 570, y: 220 }
-      ],
-      mages: [
-        { x: 760, y: 240 },
-        { x: 380, y: 740 }
-      ],
-      hpMult: 1.3,
-      speedMult: 1.18,
-      damageMult: 1.35,
-      goldMult: 1.3
-    },
-    {
-      waveNumber: 4,
-      title: 'ONDA 4/8: O CERCO DAS CATACUMBAS',
-      slimes: [
-        { x: 280, y: 320 },
-        { x: 860, y: 320 },
-        { x: 280, y: 680 },
-        { x: 860, y: 680 },
-        { x: 440, y: 400 },
-        { x: 700, y: 400 },
-        { x: 570, y: 760 }
-      ],
-      bats: [
-        { x: 350, y: 250 },
-        { x: 790, y: 250 },
-        { x: 350, y: 750 },
-        { x: 790, y: 750 }
-      ],
-      mages: [
-        { x: 840, y: 230 },
-        { x: 300, y: 750 },
-        { x: 570, y: 220 }
-      ],
-      hpMult: 1.5,
-      speedMult: 1.25,
-      damageMult: 1.5,
-      goldMult: 1.5
-    },
-    {
-      waveNumber: 5,
-      title: 'ONDA 5/8: FRENESI DOS MONSTROS',
-      slimes: [
-        { x: 260, y: 280 },
-        { x: 880, y: 280 },
-        { x: 260, y: 800 },
-        { x: 880, y: 800 },
-        { x: 400, y: 488 },
-        { x: 740, y: 488 },
-        { x: 570, y: 280 },
-        { x: 570, y: 720 }
-      ],
-      bats: [
-        { x: 300, y: 350 },
-        { x: 840, y: 350 },
-        { x: 300, y: 650 },
-        { x: 840, y: 650 },
-        { x: 570, y: 190 }
-      ],
-      mages: [
-        { x: 820, y: 220 },
-        { x: 280, y: 760 },
-        { x: 860, y: 700 },
-        { x: 570, y: 810 }
-      ],
-      hpMult: 1.7,
-      speedMult: 1.35,
-      damageMult: 1.7,
-      goldMult: 1.7
-    },
-    {
-      waveNumber: 6,
-      title: 'ONDA 6/8: A INVESTIDA DO MINOTAURO',
-      minotaurs: [
-        { x: 570, y: 320 }
-      ],
-      slimes: [
-        { x: 240, y: 260 },
-        { x: 900, y: 260 },
-        { x: 240, y: 820 },
-        { x: 900, y: 820 },
-        { x: 360, y: 500 },
-        { x: 780, y: 500 }
-      ],
-      bats: [
-        { x: 250, y: 380 },
-        { x: 890, y: 380 },
-        { x: 570, y: 770 }
-      ],
-      mages: [
-        { x: 840, y: 200 },
-        { x: 300, y: 800 },
-        { x: 880, y: 740 }
-      ],
-      hpMult: 1.9,
-      speedMult: 1.45,
-      damageMult: 1.9,
-      goldMult: 2.0
-    },
-    {
-      waveNumber: 7,
-      title: 'ONDA 7/8: A FÚRIA DOS MINOTAUROS',
-      minotaurs: [
-        { x: 360, y: 400 },
-        { x: 780, y: 400 }
-      ],
-      slimes: [
-        { x: 220, y: 240 },
-        { x: 920, y: 240 },
-        { x: 220, y: 840 },
-        { x: 920, y: 840 },
-        { x: 570, y: 260 },
-        { x: 570, y: 720 }
-      ],
-      bats: [
-        { x: 200, y: 488 },
-        { x: 940, y: 488 },
-        { x: 380, y: 200 },
-        { x: 760, y: 200 }
-      ],
-      mages: [
-        { x: 880, y: 220 },
-        { x: 260, y: 780 },
-        { x: 570, y: 160 },
-        { x: 570, y: 840 }
-      ],
-      hpMult: 2.1,
-      speedMult: 1.55,
-      damageMult: 2.2,
-      goldMult: 2.2
-    },
-    {
-      waveNumber: 8,
-      title: 'ONDA 8/8 (CHEFE FINAL): O DESPERTAR DO REI SLIME',
-      hasBoss: true,
-      bossPos: { x: 570, y: 280 },
-      minotaurs: [
-        { x: 570, y: 720 }
-      ],
-      slimes: [
-        { x: 420, y: 380 },
-        { x: 720, y: 380 },
-        { x: 420, y: 620 },
-        { x: 720, y: 620 }
-      ],
-      bats: [
-        { x: 360, y: 260 },
-        { x: 780, y: 260 },
-        { x: 360, y: 740 },
-        { x: 780, y: 740 }
-      ],
-      mages: [
-        { x: 860, y: 220 },
-        { x: 280, y: 780 }
-      ],
-      hpMult: 2.5,
-      speedMult: 1.45,
-      damageMult: 2.5,
-      goldMult: 3.0
-    }
-  ];
 
   constructor(
     scene: Phaser.Scene,
@@ -266,15 +41,16 @@ export class WaveManager {
 
   public start() {
     this.currentWave = 0;
+    this.allWavesCleared = false;
     this.nextWave();
   }
 
   public nextWave() {
-    if (this.currentWave >= this.totalWaves) return;
+    if (this.currentWave >= this.totalWaves || this.allWavesCleared) return;
 
     this.currentWave++;
     this.isTransitioning = false;
-    const config = this.waveConfigs[this.currentWave - 1];
+    const config = WAVE_CONFIGS[this.currentWave - 1];
 
     // Limpa mapa de inimigos da onda anterior
     this.enemyMap.clear();
@@ -327,7 +103,7 @@ export class WaveManager {
   }
 
   public onEnemyKilled(deadEnemy: Enemy) {
-    if (this.isTransitioning) return;
+    if (this.isTransitioning || this.allWavesCleared) return;
 
     if (deadEnemy.getData('isMinion')) return;
 
@@ -336,31 +112,36 @@ export class WaveManager {
 
     if (this.remainingEnemies <= 0) {
       this.isTransitioning = true;
+      this.grantWaveClearReward();
 
       if (this.currentWave >= this.totalWaves) {
-        this.showWaveBanner('👑 TODAS AS 8 ONDAS VENCIDAS! O REI SLIME FOI DERROTADO!', true);
-
-        if (NetworkManager.isConnected()) {
-          NetworkManager.sendAction({ type: 'dungeon_victory' });
-        }
-
-        this.scene.time.delayedCall(4000, () => {
-          this.scene.scene.stop('UIScene');
-          this.scene.scene.start('GameOverScene', { victory: true });
-        });
+        this.allWavesCleared = true;
+        this.showWaveBanner('👑 AS 8 ONDAS FORAM VENCIDAS! O PORTAL DO CAPETÃO SE ABRIU!', true);
+        EventBus.emit(CONSTANTS.EVENTS.WAVES_CLEARED);
       } else {
         const nextWave = this.currentWave + 1;
         const bannerText = nextWave === this.totalWaves
-          ? `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA! PREPARE-SE PARA O CHEFE FINAL (REI SLIME)!`
+          ? `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA! O REI SLIME SE APROXIMA!`
           : `✨ ONDA ${this.currentWave}/${this.totalWaves} CONCLUÍDA!`;
 
         this.showWaveBanner(bannerText, false);
 
+        // Só avança se ninguém (ex.: sincronização do host) já tiver avançado a onda nesse meio-tempo
+        const finishedWave = this.currentWave;
         this.scene.time.delayedCall(3000, () => {
-          this.nextWave();
+          if (this.currentWave === finishedWave) {
+            this.nextWave();
+          }
         });
       }
     }
+  }
+
+  /** Recompensa de onda concluída: bônus de ouro e um pouco de vida (ajuda quem joga sozinho) */
+  private grantWaveClearReward() {
+    const bonusGold = getWaveClearBonus(this.currentWave);
+    GameState.addRunGold(bonusGold);
+    EventBus.emit(CONSTANTS.EVENTS.WAVE_CLEAR_REWARD, { wave: this.currentWave, bonusGold });
   }
 
   private emitWaveUpdate() {

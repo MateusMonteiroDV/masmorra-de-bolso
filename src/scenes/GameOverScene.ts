@@ -47,7 +47,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     let subText = isVictory
-      ? 'O Rei Slime foi derrotado com bravura!'
+      ? 'O Capetão foi derrotado com bravura!'
       : 'A escuridão da masmorra te consumiu.';
 
     if (isInMultiplayer) {

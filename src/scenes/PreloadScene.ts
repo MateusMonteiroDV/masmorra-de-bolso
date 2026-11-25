@@ -9,8 +9,9 @@ export class PreloadScene extends Phaser.Scene {
   public preload() {
     generateProceduralPlaceholders(this);
 
-    // 1. Mapa do Jogo (1140x977)
-    this.load.image('mapa_dungeon', '/assets/mapa/sprite_0.png');
+    // 1. Mapas: Sala Principal (ondas) e Sala do Capetão (chefe final)
+    this.load.image('mapa_sala_principal', '/assets/mapa/sala_principal.png');
+    this.load.image('mapa_sala_chefe', '/assets/mapa/sala_chefe.png');
 
     // 2. Tela Inicial / Capa
     this.load.image('pagina_inicial', '/assets/pagina_inicial/pagina_inicial.png');
@@ -32,6 +33,12 @@ export class PreloadScene extends Phaser.Scene {
     for (let i = 0; i <= 13; i++) {
       const idx = i.toString().padStart(2, '0');
       this.load.image(`roberto_d_${idx}`, `/assets/movimentacao/direita/roberto/sprite_${idx}.png`);
+    }
+
+    // 5b. Roberto - Quadros extras de caminhada com quique de 1px (passada mais fluida)
+    for (const side of [{ key: 'd', folder: 'direita' }, { key: 'e', folder: 'esquerda' }]) {
+      this.load.image(`roberto_${side.key}_walk_bob_01`, `/assets/movimentacao/${side.folder}/roberto/walk_bob_01.png`);
+      this.load.image(`roberto_${side.key}_walk_bob_02`, `/assets/movimentacao/${side.folder}/roberto/walk_bob_02.png`);
     }
 
     // 6. Roberto - Esquerda (14 frames)
@@ -80,6 +87,12 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(`minotaur_d_${idx}`, `/assets/minotauro/minotaur_d_${idx}.png`);
       this.load.image(`minotaur_e_${idx}`, `/assets/minotauro/minotaur_e_${idx}.png`);
     }
+
+    // 13. Capetão (Chefe Final) (33 frames: 00 a 32)
+    for (let i = 0; i <= 32; i++) {
+      const idx = i.toString().padStart(2, '0');
+      this.load.image(`capetao_${idx}`, `/assets/capetao/sprite_${idx}.png`);
+    }
   }
 
   public create() {
@@ -123,22 +136,28 @@ export class PreloadScene extends Phaser.Scene {
     anims.create({
       key: 'roberto_walk_d',
       frames: [
-        { key: 'roberto_d_00' },
         { key: 'roberto_d_01' },
-        { key: 'roberto_d_02' }
+        { key: 'roberto_d_walk_bob_01' },
+        { key: 'roberto_d_00' },
+        { key: 'roberto_d_02' },
+        { key: 'roberto_d_walk_bob_02' },
+        { key: 'roberto_d_00' }
       ],
-      frameRate: 7,
+      frameRate: 11,
       repeat: -1
     });
 
     anims.create({
       key: 'roberto_walk_e',
       frames: [
-        { key: 'roberto_e_00' },
         { key: 'roberto_e_01' },
-        { key: 'roberto_e_02' }
+        { key: 'roberto_e_walk_bob_01' },
+        { key: 'roberto_e_00' },
+        { key: 'roberto_e_02' },
+        { key: 'roberto_e_walk_bob_02' },
+        { key: 'roberto_e_00' }
       ],
-      frameRate: 7,
+      frameRate: 11,
       repeat: -1
     });
 
@@ -493,5 +512,18 @@ export class PreloadScene extends Phaser.Scene {
       frameRate: 6,
       repeat: 0
     });
+
+    // 18. Capetão (Chefe Final). Quadros 00-09 olham para a esquerda, 10-18 para a direita.
+    const capetaoFrames = (...indexes: number[]) =>
+      indexes.map(index => ({ key: `capetao_${index.toString().padStart(2, '0')}` }));
+
+    anims.create({ key: 'capetao_walk_e', frames: capetaoFrames(0, 1, 2, 3, 4, 3, 2, 1), frameRate: 9, repeat: -1 });
+    anims.create({ key: 'capetao_walk_d', frames: capetaoFrames(10, 11, 12, 13, 12, 11), frameRate: 8, repeat: -1 });
+    anims.create({ key: 'capetao_claw_e', frames: capetaoFrames(8, 9, 9, 0), frameRate: 9, repeat: 0 });
+    anims.create({ key: 'capetao_claw_d', frames: capetaoFrames(14, 15, 15, 10), frameRate: 9, repeat: 0 });
+    anims.create({ key: 'capetao_breath_e', frames: capetaoFrames(5, 5, 6, 7, 7, 7), frameRate: 9, repeat: 0 });
+    anims.create({ key: 'capetao_breath_d', frames: capetaoFrames(16, 16, 17, 18, 18, 18), frameRate: 9, repeat: 0 });
+    anims.create({ key: 'capetao_death_d', frames: capetaoFrames(19, 20, 21, 22, 23, 24, 25), frameRate: 6, repeat: 0 });
+    anims.create({ key: 'capetao_death_e', frames: capetaoFrames(26, 27, 28, 29, 30, 31, 32), frameRate: 6, repeat: 0 });
   }
 }

@@ -108,7 +108,7 @@ export class CombatSystem {
         const incomingDmg = e.contactDamage;
         if (incomingDmg > 0) {
           const took = p.health.takeDamage(incomingDmg);
-          if (took) {
+          if (took && !p.health.isDead()) {
             p.movement.applyKnockback(e.x, e.y, 160, 140);
             p.syncHealthUI();
           }
@@ -148,7 +148,7 @@ export class CombatSystem {
         }
 
         const took = p.health.takeDamage(proj.damage);
-        if (took) {
+        if (took && !p.health.isDead()) {
           p.movement.applyKnockback(proj.x, proj.y, 120, 100);
           p.syncHealthUI();
         }

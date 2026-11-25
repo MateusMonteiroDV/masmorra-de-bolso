@@ -21,6 +21,12 @@ export class MovementComponent {
   private isKnockedBack: boolean = false;
   private knockbackTimer: number = 0;
 
+  // Suavização de aceleração/frenagem (0 = resposta instantânea, usada pelos inimigos)
+  public acceleration: number = 0;
+  public knockbackImmune: boolean = false;
+  public deceleration: number = 0;
+  private lastDeltaMs: number = 16.6;
+
   constructor(
     owner: Phaser.Physics.Arcade.Sprite,
     baseSpeed: number,
@@ -40,14 +46,39 @@ export class MovementComponent {
       return;
     }
 
-    if (dirX === 0 && dirY === 0) {
-      this.owner.setVelocity(0, 0);
+    let targetVelocityX = 0;
+    let targetVelocityY = 0;
+    if (dirX !== 0 || dirY !== 0) {
+      // Normalização para velocidade uniforme em 8 direções
+      const vector = new Phaser.Math.Vector2(dirX, dirY).normalize();
+      targetVelocityX = vector.x * this.baseSpeed;
+      targetVelocityY = vector.y * this.baseSpeed;
+    }
+
+    const body = this.owner.body as Phaser.Physics.Arcade.Body | null;
+    const isStopping = targetVelocityX === 0 && targetVelocityY === 0;
+    const responsiveness = isStopping ? this.deceleration : this.acceleration;
+    if (!body || responsiveness <= 0) {
+      this.owner.setVelocity(targetVelocityX, targetVelocityY);
       return;
     }
 
-    // Normalização para velocidade uniforme em 8 direções
-    const vector = new Phaser.Math.Vector2(dirX, dirY).normalize();
-    this.owner.setVelocity(vector.x * this.baseSpeed, vector.y * this.baseSpeed);
+    // Interpolação exponencial independente de FPS: arranque e frenagem suaves, sem "deslizar"
+    const blend = 1 - Math.exp(-responsiveness * (this.lastDeltaMs / 1000));
+    let nextVelocityX = body.velocity.x + (targetVelocityX - body.velocity.x) * blend;
+    let nextVelocityY = body.velocity.y + (targetVelocityY - body.velocity.y) * blend;
+    if (Math.abs(nextVelocityX - targetVelocityX) < 2) nextVelocityX = targetVelocityX;
+    if (Math.abs(nextVelocityY - targetVelocityY) < 2) nextVelocityY = targetVelocityY;
+    this.owner.setVelocity(nextVelocityX, nextVelocityY);
+  }
+
+  /** Interrompe dash e knockback em andamento e zera a velocidade (morte, reviver, teleporte) */
+  public resetMotion() {
+    this.isDashing = false;
+    this.isKnockedBack = false;
+    this.knockbackTimer = 0;
+    this.dashTimer = 0;
+    this.owner.setVelocity(0, 0);
   }
 
   public dash(dirX: number, dirY: number): boolean {
@@ -119,6 +150,7 @@ export class MovementComponent {
   }
 
   public applyKnockback(fromX: number, fromY: number, force: number = 160, durationMs: number = 140) {
+    if (this.knockbackImmune) return;
     const dir = new Phaser.Math.Vector2(this.owner.x - fromX, this.owner.y - fromY).normalize();
     this.owner.setVelocity(dir.x * force, dir.y * force);
     this.isKnockedBack = true;
@@ -126,6 +158,8 @@ export class MovementComponent {
   }
 
   public update(delta: number) {
+    this.lastDeltaMs = Math.min(delta, 50);
+
     // Atualizar Knockback
     if (this.isKnockedBack) {
       this.knockbackTimer -= delta;

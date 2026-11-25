@@ -3,7 +3,7 @@ import { Enemy } from './Enemy';
 import { CONSTANTS } from '../../core/Constants';
 import { SlimeEnemy } from './SlimeEnemy';
 import { AudioService } from '../../systems/AudioService';
-import { RelicChest } from '../items/RelicChest';
+import { EventBus } from '../../core/EventBus';
 
 export class KingSlimeBoss extends Enemy {
   private slamTimer: number = CONSTANTS.ENEMIES.BOSS.SLAM_COOLDOWN;
@@ -124,9 +124,7 @@ export class KingSlimeBoss extends Enemy {
       if (this.active && !this.health.isDead() && player && player.active) {
         const hitDist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
         if (hitDist <= 42) {
-          const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
-          playerEntity.health?.takeDamage(CONSTANTS.ENEMIES.BOSS.DAMAGE);
-          AudioService.playEnemyHit();
+          this.hitPlayer(player, this.contactDamage);
         }
       }
     });
@@ -186,8 +184,7 @@ export class KingSlimeBoss extends Enemy {
             if (player && player.active) {
               const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
               if (dist < 34) {
-                const playerEntity = player as unknown as { health?: { takeDamage: (dmg: number) => void } };
-                playerEntity.health?.takeDamage(this.slamDamage);
+                this.hitPlayer(player, this.slamDamage);
               }
             }
 
@@ -217,6 +214,20 @@ export class KingSlimeBoss extends Enemy {
     });
   }
 
+  /** Aplica dano no alvo respeitando o escudo levantado (mesma regra do Minotauro) */
+  private hitPlayer(player: Phaser.GameObjects.Sprite, damage: number) {
+    const playerEntity = player as unknown as {
+      health?: { takeDamage: (dmg: number) => boolean };
+      isDefending?: boolean;
+    };
+    if (playerEntity.isDefending) {
+      AudioService.playShieldBlock();
+      return;
+    }
+    playerEntity.health?.takeDamage(damage);
+    AudioService.playEnemyHit();
+  }
+
   private spawnMinions() {
     if (!this.enemyGroup || this.enemyGroup.getLength() > 5) return;
 
@@ -235,8 +246,8 @@ export class KingSlimeBoss extends Enemy {
       this.scene.tweens.killTweensOf(this);
     }
 
-    // Ao morrer, gera o Baú de Recompensa Máxima do Chefe
-    new RelicChest(this.scene, this.x, this.y);
+    // Ao morrer, pede à cena um Baú de Relíquia (registrado na cena para poder ser aberto)
+    EventBus.emit(CONSTANTS.EVENTS.CHEST_SPAWN_REQUESTED, { x: this.x, y: this.y });
     super.die();
   }
 }

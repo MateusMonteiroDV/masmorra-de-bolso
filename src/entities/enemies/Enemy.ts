@@ -6,6 +6,7 @@ import { CONSTANTS } from '../../core/Constants';
 import { CoinDrop } from '../items/CoinDrop';
 import { ArrowDrop } from '../items/ArrowDrop';
 import { EventBus } from '../../core/EventBus';
+import { splitCoinReward } from '../../core/Economy';
 
 export abstract class Enemy extends Entity {
   public goldReward: number = 2;
@@ -46,12 +47,12 @@ export abstract class Enemy extends Entity {
 
   protected spawnDrops() {
     if (!this.dropGroup) return;
-    const numCoins = Math.max(1, Math.floor(this.goldReward));
-    for (let i = 0; i < numCoins; i++) {
-      const offsetX = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-      const offsetY = numCoins > 1 ? (Math.random() - 0.5) * 16 : 0;
-      this.dropGroup.add(new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, 1));
-    }
+    const coinValues = splitCoinReward(this.goldReward, CONSTANTS.ECONOMY.MAX_COINS_PER_DROP);
+    coinValues.forEach(coinValue => {
+      const offsetX = coinValues.length > 1 ? (Math.random() - 0.5) * 16 : 0;
+      const offsetY = coinValues.length > 1 ? (Math.random() - 0.5) * 16 : 0;
+      this.dropGroup!.add(new CoinDrop(this.scene, this.x + offsetX, this.y + offsetY, coinValue));
+    });
     this.dropGroup.add(new ArrowDrop(this.scene, this.x + 6, this.y - 4));
   }
 

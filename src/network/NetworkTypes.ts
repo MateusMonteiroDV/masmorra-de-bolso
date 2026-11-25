@@ -21,6 +21,7 @@ export interface PlayerNetworkAction {
     | 'scene_sync'
     | 'enemy_hit'
     | 'dungeon_victory'
+    | 'boss_phase'
     | 'player_death'
     | 'player_revive'
     | 'all_players_dead'

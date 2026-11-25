@@ -14,42 +14,42 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     name: 'Vitalidade do Guerreiro',
     description: '+1 HP de vida máxima inicial por nível (Máx: +5 HP)',
     maxLevel: 5,
-    costs: [80, 200, 450, 950, 1800]
+    costs: [45, 110, 240, 480, 900]
   },
   {
     key: 'damageLevel',
     name: 'Lâmina & Pontaria',
     description: '+10% de dano na espada e nos disparos (Máx: +50%)',
     maxLevel: 5,
-    costs: [100, 250, 550, 1100, 2200]
+    costs: [55, 130, 280, 560, 1100]
   },
   {
     key: 'quiverLevel',
     name: 'Aljava Reforçada',
     description: '+10 Flechas extras ao iniciar a Masmorra (Máx: +50)',
     maxLevel: 5,
-    costs: [60, 150, 350, 750, 1500]
+    costs: [35, 85, 190, 400, 750]
   },
   {
     key: 'shieldLevel',
     name: 'Bastião de Ferro',
     description: '+15% repulsão contra monstros ao defender (Máx: +75%)',
     maxLevel: 5,
-    costs: [50, 130, 300, 650, 1350]
+    costs: [30, 75, 170, 350, 680]
   },
   {
     key: 'dashCooldownLevel',
     name: 'Reflexos Ágeis',
     description: '-8% no tempo de recarga da Esquiva (Máx: -40%)',
     maxLevel: 5,
-    costs: [70, 180, 400, 850, 1650]
+    costs: [40, 100, 220, 450, 850]
   },
   {
     key: 'greedLevel',
     name: 'Olho da Ganância',
     description: '+10% de Ouro obtido em todas as runs (Máx: +50%)',
     maxLevel: 5,
-    costs: [90, 220, 500, 1000, 2000]
+    costs: [50, 120, 260, 520, 1000]
   }
 ];
 

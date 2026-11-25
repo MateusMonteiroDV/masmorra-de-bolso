@@ -6,6 +6,7 @@ import { AudioService } from '../../systems/AudioService';
 import { Entity } from '../Entity';
 
 export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
+  private static readonly SNAP_DISTANCE = 160;
   public peerId: string;
   public facing: 'd' | 'e' = 'd';
   public isAttacking: boolean = false;
@@ -153,6 +154,15 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /** Move o aliado instantaneamente (teleporte de sala), sem interpolar pelo mapa */
+  public snapTo(x: number, y: number) {
+    this.targetX = x;
+    this.targetY = y;
+    this.setPosition(x, y);
+    this.nameTag?.setPosition(x, y - 34);
+    this.renderHpBar();
+  }
+
   public remoteMeleeAttack(enemyGroup?: Phaser.GameObjects.Group) {
     this.isAttacking = true;
     this.setFlipX(false);
@@ -265,9 +275,16 @@ export class RemotePlayer extends Phaser.Physics.Arcade.Sprite {
 
     if (!this.active) return;
 
-    // Interpolação suave de posição (evita saltos bruscos de lag)
-    this.x = Phaser.Math.Linear(this.x, this.targetX, 0.25);
-    this.y = Phaser.Math.Linear(this.y, this.targetY, 0.25);
+    // Interpolação suave de posição (evita saltos bruscos de lag).
+    // Distâncias grandes (teleporte de sala, reconexão) são aplicadas na hora para o aliado
+    // não "atravessar" o mapa inteiro deslizando.
+    const distanceToTarget = Phaser.Math.Distance.Between(this.x, this.y, this.targetX, this.targetY);
+    if (distanceToTarget > RemotePlayer.SNAP_DISTANCE) {
+      this.setPosition(this.targetX, this.targetY);
+    } else {
+      this.x = Phaser.Math.Linear(this.x, this.targetX, 0.25);
+      this.y = Phaser.Math.Linear(this.y, this.targetY, 0.25);
+    }
 
     if (this.nameTag && this.nameTag.active) {
       this.nameTag.setPosition(this.x, this.y - 34);

@@ -48,6 +48,8 @@ export class Player extends Entity {
 
     this.health = new HealthComponent(this, this.stats.maxHp, true, CONSTANTS.PLAYER.INVULNERABLE_DURATION);
     this.movement = new MovementComponent(this, this.stats.moveSpeed, CONSTANTS.PLAYER.DASH_SPEED, this.stats.dashCooldown, this.health);
+    this.movement.acceleration = CONSTANTS.PLAYER.ACCELERATION;
+    this.movement.deceleration = CONSTANTS.PLAYER.DECELERATION;
     this.attackComponent = new AttackComponent(this, this.stats.baseDamage, CONSTANTS.PLAYER.ATTACK_COOLDOWN);
     this.controller = new PlayerController(scene);
 
@@ -102,7 +104,10 @@ export class Player extends Entity {
   }
 
   public handleDeath() {
-    this.setVelocity(0, 0);
+    // Congela o corpo: um knockback aplicado no mesmo golpe fatal fazia o herói morto
+    // deslizar até a borda do mapa (o movimento não é mais atualizado após a morte)
+    this.movement.resetMotion();
+    this.freezeBody(true);
     this.setFlipX(false);
     this.play(this.facing === 'd' ? 'roberto_death_d' : 'roberto_death_e', true);
     AudioService.playPlayerHurt();
@@ -118,7 +123,8 @@ export class Player extends Entity {
     if (!revived) return false;
 
     this.stop();
-    this.setVelocity(0, 0);
+    this.freezeBody(false);
+    this.movement.resetMotion();
     this.setAlpha(1);
     this.setFlipX(false);
     this.isAttackingAnim = false;
@@ -132,6 +138,50 @@ export class Player extends Entity {
 
     this.syncHealthUI();
     return true;
+  }
+
+  private freezeBody(frozen: boolean) {
+    const body = this.body as Phaser.Physics.Arcade.Body | null;
+    if (!body) return;
+    body.setVelocity(0, 0);
+    body.moves = !frozen;
+  }
+
+  /** Recupera vida (ex.: ao concluir uma onda) e atualiza o HUD */
+  public healBy(amount: number) {
+    if (this.health.isDead() || amount <= 0) return;
+    const before = this.health.currentHp;
+    this.health.heal(amount);
+    const healed = this.health.currentHp - before;
+    if (healed <= 0) return;
+
+    this.syncHealthUI();
+    const popup = this.scene.add.text(this.x, this.y - 30, `+${healed} ❤`, {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#4ade80',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5).setDepth(CONSTANTS.DEPTH.UI);
+    this.scene.tweens.add({
+      targets: popup,
+      y: popup.y - 14,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => popup.destroy()
+    });
+  }
+
+  /** Reposiciona o herói instantaneamente (teleporte entre salas) */
+  public teleportTo(x: number, y: number) {
+    this.movement.resetMotion();
+    const body = this.body as Phaser.Physics.Arcade.Body | null;
+    if (body) {
+      body.reset(x, y);
+    } else {
+      this.setPosition(x, y);
+    }
   }
 
   public override update(time: number, delta: number) {
